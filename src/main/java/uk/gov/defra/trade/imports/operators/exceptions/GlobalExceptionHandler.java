@@ -152,19 +152,6 @@ public class GlobalExceptionHandler {
     return problemResponse(HttpStatus.NOT_FOUND, problem);
   }
 
-  /** Name-clash conflict (Example CRUD only — removed with the controller increment). */
-  @ExceptionHandler(ConflictException.class)
-  public ResponseEntity<ProblemDetail> handleConflictException(ConflictException ex) {
-    String traceId = MDC.get(MDC_TRACE_ID);
-    log.warn("Resource conflict (trace: {}): {}", traceId, ex.getMessage());
-
-    ProblemDetail problem =
-        problemDetail(
-            HttpStatus.CONFLICT, "conflict", "Resource Conflict", ex.getMessage(), traceId);
-
-    return problemResponse(HttpStatus.CONFLICT, problem);
-  }
-
   /**
    * Unexpected error — 500 internal-error. Does not catch Spring framework exceptions (e.g. a 404
    * for a missing route), which Spring maps itself.

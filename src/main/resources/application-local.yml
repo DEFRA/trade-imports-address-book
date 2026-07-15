@@ -23,3 +23,8 @@ spring:
     mongodb:
       ssl:
         enabled: false
+
+# Interactive API explorer, local development only (design §1.6).
+springdoc:
+  swagger-ui:
+    enabled: true

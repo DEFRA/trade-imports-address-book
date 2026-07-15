@@ -1,0 +1,380 @@
+openapi: 3.1.0
+info:
+  title: OpenAPI definition
+  version: v0
+tags:
+- name: operators
+  description: Address-book operators, scoped to the caller's organisation
+paths:
+  /operators/{operator-id}:
+    get:
+      tags:
+      - operators
+      summary: Fetch one operator, including tombstones
+      operationId: get-operator
+      parameters:
+      - name: Trade-Imports-Crn
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: operator-id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: The operator (status ACTIVE or DELETED)
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/OperatorResponse'
+        '404':
+          description: Unknown id, or an id outside the caller's crn scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    put:
+      tags:
+      - operators
+      summary: Replace an operator's mutable fields
+      operationId: update-operator
+      parameters:
+      - name: Trade-Imports-Crn
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: operator-id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OperatorRequest'
+        required: true
+      responses:
+        '200':
+          description: Updated operator with bumped modified_at
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/OperatorResponse'
+        '400':
+          description: Validation error (including an operator_type change), or a missing crn header
+          content:
+            application/problem+json:
+              schema:
+                type: string
+                anyOf:
+                - $ref: '#/components/schemas/ValidationProblem'
+                - $ref: '#/components/schemas/Problem'
+        '404':
+          description: Unknown id, an id outside the caller's crn scope, or a tombstone
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    delete:
+      tags:
+      - operators
+      summary: Soft-delete an operator (tombstone)
+      operationId: delete-operator
+      parameters:
+      - name: Trade-Imports-Crn
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: operator-id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Soft-deleted (or already deleted — idempotent)
+        '400':
+          description: Missing crn header
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: Unknown id, or an id outside the caller's crn scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /operators:
+    get:
+      tags:
+      - operators
+      summary: List the caller's ACTIVE operators (paginated, searchable)
+      operationId: list-operators
+      parameters:
+      - name: Trade-Imports-Crn
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: operator_type
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - PLACE_OF_ORIGIN
+          - CONSIGNOR
+          - CONSIGNEE
+          - IMPORTER
+          - PLACE_OF_DESTINATION
+          - TRANSPORTER
+          - BRANCH_ADDRESS
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 1
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 25
+      responses:
+        '200':
+          description: One page of the caller's ACTIVE operators
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/OperatorPageResponse'
+        '400':
+          description: Out-of-range or non-numeric pagination parameters, a bad operator_type enum value, or a missing crn header
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    post:
+      tags:
+      - operators
+      summary: Create an operator in the caller's address book
+      operationId: create-operator
+      parameters:
+      - name: Trade-Imports-Crn
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Trade-Imports-Organisation-Id
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OperatorRequest'
+        required: true
+      responses:
+        '201':
+          description: Created
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/OperatorResponse'
+        '400':
+          description: Validation error, or a missing identity header
+          content:
+            application/problem+json:
+              schema:
+                type: string
+                anyOf:
+                - $ref: '#/components/schemas/ValidationProblem'
+                - $ref: '#/components/schemas/Problem'
+components:
+  schemas:
+    OperatorRequest:
+      properties:
+        operator_type:
+          type: string
+          enum:
+          - PLACE_OF_ORIGIN
+          - CONSIGNOR
+          - CONSIGNEE
+          - IMPORTER
+          - PLACE_OF_DESTINATION
+          - TRANSPORTER
+          - BRANCH_ADDRESS
+        name:
+          type: string
+          maxLength: 255
+          minLength: 0
+        address_line_1:
+          type: string
+          maxLength: 255
+          minLength: 0
+        address_line_2:
+          type: string
+          maxLength: 255
+          minLength: 0
+        town:
+          type: string
+          maxLength: 100
+          minLength: 0
+        county:
+          type: string
+          maxLength: 100
+          minLength: 0
+        postcode:
+          type: string
+          maxLength: 12
+          minLength: 0
+        country:
+          type: string
+          maxLength: 255
+          minLength: 0
+        telephone:
+          type: string
+          maxLength: 20
+          minLength: 0
+        email:
+          type: string
+          maxLength: 254
+          minLength: 0
+        approval_number:
+          type: string
+          maxLength: 255
+          minLength: 0
+        transporter_category:
+          type: string
+          enum:
+          - PRIVATE
+          - COMMERCIAL
+      required:
+      - address_line_1
+      - country
+      - email
+      - name
+      - operator_type
+      - postcode
+      - telephone
+      - town
+    ValidationProblem:
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string
+        trace_id:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+    Problem:
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string
+        trace_id:
+          type: string
+    OperatorResponse:
+      properties:
+        id:
+          type: string
+        operator_type:
+          type: string
+          enum:
+          - PLACE_OF_ORIGIN
+          - CONSIGNOR
+          - CONSIGNEE
+          - IMPORTER
+          - PLACE_OF_DESTINATION
+          - TRANSPORTER
+          - BRANCH_ADDRESS
+        name:
+          type: string
+        address_line_1:
+          type: string
+        address_line_2:
+          type: string
+        town:
+          type: string
+        county:
+          type: string
+        postcode:
+          type: string
+        country:
+          type: string
+        telephone:
+          type: string
+        email:
+          type: string
+        approval_number:
+          type: string
+        transporter_category:
+          type: string
+          enum:
+          - PRIVATE
+          - COMMERCIAL
+        crn:
+          type: string
+        organisation_id:
+          type: string
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - DELETED
+        created_at:
+          type: string
+          format: date-time
+        modified_at:
+          type: string
+          format: date-time
+    OperatorPageResponse:
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OperatorResponse'
+        page:
+          type: integer
+          format: int32
+        page_size:
+          type: integer
+          format: int32
+        total_items:
+          type: integer
+          format: int32
+        total_pages:
+          type: integer
+          format: int32
