@@ -1,0 +1,122 @@
+# Multi-stage Dockerfile for Trade Imports Operators
+# Uses Amazon Corretto 25 (matches project configuration)
+
+################################################################################
+# Stage 1: Build
+# - Full JDK for compilation
+# - Create executable JAR
+################################################################################
+FROM amazoncorretto:25-alpine AS build
+
+WORKDIR /build
+
+# Install Maven
+RUN apk add --no-cache maven
+
+# Copy pom.xml first for dependency caching
+COPY pom.xml .
+
+# Download dependencies (cached layer if pom.xml unchanged)
+RUN mvn dependency:go-offline -B
+
+# Copy source code
+COPY src ./src
+
+# Build without running tests
+# Tests are run separately in CI/CD pipeline and locally
+# (Testcontainers requires Docker, which isn't available inside Docker build)
+RUN mvn clean package -DskipTests -B
+
+################################################################################
+# Stage 2: Development (run pre-built JAR)
+# - Includes development tools
+# - For local development with docker compose
+################################################################################
+FROM amazoncorretto:25-alpine AS development
+
+WORKDIR /app
+
+# Install curl and bash for development
+RUN apk add --no-cache curl bash
+
+# Copy JAR from build stage
+COPY --from=build /build/target/*.jar app.jar
+
+# Non-root user
+USER nobody
+
+# Default port (configurable via PORT env var)
+EXPOSE 8089
+
+# Health check (for local docker run)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:8089/health || exit 1
+
+# Start application
+ENTRYPOINT ["java", "-jar", "app.jar"]
+
+################################################################################
+# Stage 3: Dev-run (Maven source mount)
+# - Maven present; no pre-built JAR
+# - Mount src/ from host; docker/dev-run.sh recompiles on save and Spring Boot
+#   DevTools restarts the running context, so .java edits hot-reload with no
+#   image rebuild or container bounce
+# - Usage: run-stack.sh -d (operators variant)
+################################################################################
+FROM amazoncorretto:25-alpine AS dev-run
+
+WORKDIR /app
+
+# Maven + curl for healthcheck; bash for the dev-run entrypoint
+RUN apk add --no-cache maven curl bash
+
+# Pre-fetch dependencies (cached layer; invalidated only when pom.xml changes)
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
+
+# Source is volume-mounted at runtime; copy here only so the image builds
+COPY src ./src
+
+# Hot-reload entrypoint: mtime-poll compile loop + `mvn spring-boot:run`
+COPY docker/dev-run.sh /usr/local/bin/dev-run.sh
+RUN chmod +x /usr/local/bin/dev-run.sh
+
+EXPOSE 8089
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
+  CMD curl -f http://localhost:8089/health || exit 1
+
+CMD ["dev-run.sh"]
+
+################################################################################
+# Stage 4: Production
+# - Minimal runtime image
+# - Meets all CDP platform requirements
+################################################################################
+FROM amazoncorretto:25-alpine AS production
+
+WORKDIR /app
+
+# CDP PLATFORM REQUIREMENTS:
+# - curl: Required for ECS healthcheck (curl -f http://localhost:8089/health || exit 1)
+# - shell: Required for CMD-SHELL healthcheck (/bin/sh -c)
+RUN apk add --no-cache curl
+
+# Copy JAR from build stage
+COPY --from=build /build/target/*.jar app.jar
+
+# Non-root user (CDP security requirement)
+USER nobody
+
+# Port 8089
+EXPOSE 8089
+
+# Health check configuration
+# Note: ECS configures this at platform level, but including for local testing
+# ECS uses: ["CMD-SHELL", "curl -f http://localhost:8089/health || exit 1"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:8089/health || exit 1
+
+# ENTRYPOINT with no parameters (CDP requirement)
+# ECS doesn't support runtime arguments
+ENTRYPOINT ["java", "-jar", "app.jar"]
