@@ -3,9 +3,11 @@ package uk.gov.defra.trade.imports.operators.operator;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -14,6 +16,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import uk.gov.defra.trade.imports.operators.exceptions.BadRequestException;
 import uk.gov.defra.trade.imports.operators.exceptions.NotFoundException;
 import uk.gov.defra.trade.imports.operators.exceptions.ValidationException;
 
@@ -292,5 +299,78 @@ class OperatorServiceTest {
 
     assertThatExceptionOfType(NotFoundException.class)
         .isThrownBy(() -> service.delete("665f1c2ab3e4d51a2c9d0e77", "9900000000"));
+  }
+
+  private List<Operator> activeOperators(int count) {
+    List<Operator> operators = new ArrayList<>();
+    for (int i = 0; i < count; i++) {
+      operators.add(persistedOperator("665f1c2ab3e4d51a2c9d0e" + i, "1100014934", OperatorStatus.ACTIVE));
+    }
+    return operators;
+  }
+
+  @Test
+  void listReturnsAFullFirstPageOf25WithTotalPages2For30ActiveOperators() {
+    when(repository.findByCrnAndStatus(
+            eq("1100014934"), eq(OperatorStatus.ACTIVE), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(activeOperators(25), PageRequest.of(0, 25), 30));
+
+    OperatorPageResponse response = service.list("1100014934", 1, 25);
+
+    assertThat(response.items()).hasSize(25);
+    assertThat(response.page()).isEqualTo(1);
+    assertThat(response.pageSize()).isEqualTo(25);
+    assertThat(response.totalItems()).isEqualTo(30);
+    assertThat(response.totalPages()).isEqualTo(2);
+  }
+
+  @Test
+  void listPageTwoReturnsTheRemaining5OperatorsWithTotalPagesStill2() {
+    when(repository.findByCrnAndStatus(
+            eq("1100014934"), eq(OperatorStatus.ACTIVE), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(activeOperators(5), PageRequest.of(1, 25), 30));
+
+    OperatorPageResponse response = service.list("1100014934", 2, 25);
+
+    assertThat(response.items()).hasSize(5);
+    assertThat(response.page()).isEqualTo(2);
+    assertThat(response.totalItems()).isEqualTo(30);
+    assertThat(response.totalPages()).isEqualTo(2);
+  }
+
+  @Test
+  void listScopesTheQueryToTheCallersCrnActiveOnlyNewestFirstAndTranslatesToA0BasedPage() {
+    // The stub only matches an ACTIVE, crn-scoped query — so DELETED tombstones and other crns can
+    // never be in the result set — and the captured Pageable pins newest-first + 1-based->0-based.
+    ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+    when(repository.findByCrnAndStatus(
+            eq("1100014934"), eq(OperatorStatus.ACTIVE), pageableCaptor.capture()))
+        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(1, 25), 0));
+
+    service.list("1100014934", 2, 25);
+
+    Pageable pageable = pageableCaptor.getValue();
+    assertThat(pageable.getPageNumber()).isEqualTo(1);
+    assertThat(pageable.getPageSize()).isEqualTo(25);
+    assertThat(pageable.getSort().getOrderFor("createdAt").getDirection())
+        .isEqualTo(Sort.Direction.DESC);
+  }
+
+  @Test
+  void listWithAPageBelow1IsABadRequest() {
+    assertThatExceptionOfType(BadRequestException.class)
+        .isThrownBy(() -> service.list("1100014934", 0, 25));
+  }
+
+  @Test
+  void listWithAPageSizeAbove100IsABadRequest() {
+    assertThatExceptionOfType(BadRequestException.class)
+        .isThrownBy(() -> service.list("1100014934", 1, 101));
+  }
+
+  @Test
+  void listWithAPageSizeBelow1IsABadRequest() {
+    assertThatExceptionOfType(BadRequestException.class)
+        .isThrownBy(() -> service.list("1100014934", 1, 0));
   }
 }

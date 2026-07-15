@@ -22,6 +22,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 /**
  * Global exception handler producing RFC 9457 {@code application/problem+json} responses, CDP
@@ -100,6 +101,27 @@ public class GlobalExceptionHandler {
             "Validation failed for one or more fields",
             traceId);
     problem.setProperty("errors", ex.getErrors());
+
+    return problemResponse(HttpStatus.BAD_REQUEST, problem);
+  }
+
+  /**
+   * A query/path parameter that could not be bound to its target type (e.g. a non-numeric
+   * {@code page} or {@code page_size}) — 400 bad-request, NO errors map. Without this, Spring's
+   * {@link MethodArgumentTypeMismatchException} would fall through to the 500 handler.
+   */
+  @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+  public ResponseEntity<ProblemDetail> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+    String traceId = MDC.get(MDC_TRACE_ID);
+    log.warn("Malformed parameter (trace: {}): {}", traceId, ex.getMessage());
+
+    ProblemDetail problem =
+        problemDetail(
+            HttpStatus.BAD_REQUEST,
+            "bad-request",
+            "Bad Request",
+            "Invalid value for parameter '" + ex.getName() + "'",
+            traceId);
 
     return problemResponse(HttpStatus.BAD_REQUEST, problem);
   }

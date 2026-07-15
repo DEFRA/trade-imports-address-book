@@ -5,7 +5,12 @@ import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import uk.gov.defra.trade.imports.operators.exceptions.BadRequestException;
 import uk.gov.defra.trade.imports.operators.exceptions.NotFoundException;
 import uk.gov.defra.trade.imports.operators.exceptions.ValidationException;
 
@@ -22,7 +27,46 @@ import uk.gov.defra.trade.imports.operators.exceptions.ValidationException;
 @RequiredArgsConstructor
 public class OperatorService {
 
+  private static final int MAX_PAGE_SIZE = 100;
+
   private final OperatorRepository repository;
+
+  /**
+   * One page of the caller's ACTIVE operators, newest first (design §1.2/§1.3, contract
+   * {@code list-operators}). Scoped to {@code crn}; DELETED tombstones are excluded because only
+   * {@code status ACTIVE} is queried. {@code page} is 1-based and translated to Spring Data's
+   * 0-based index; the sort is {@code created_at} descending, served by the
+   * {@code crn_status_type_created} index. {@code total_pages} is derived here, not in the
+   * controller.
+   *
+   * <p>An out-of-range {@code page} (&lt; 1) or {@code pageSize} (&lt; 1 or &gt; {@value
+   * #MAX_PAGE_SIZE}) is a {@link BadRequestException} — a 400 bad-request problem with no
+   * {@code errors} map, since these are malformed query parameters, not body-field validation
+   * failures.
+   *
+   * @param crn the caller's company reference number, from the identity header
+   * @param page the 1-based page number
+   * @param pageSize the page size (1..{@value #MAX_PAGE_SIZE})
+   * @return one page of ACTIVE operators with pagination metadata
+   * @throws BadRequestException if {@code page} or {@code pageSize} is out of range
+   */
+  public OperatorPageResponse list(String crn, int page, int pageSize) {
+    if (page < 1) {
+      throw new BadRequestException("page must be 1 or greater");
+    }
+    if (pageSize < 1 || pageSize > MAX_PAGE_SIZE) {
+      throw new BadRequestException("page_size must be between 1 and " + MAX_PAGE_SIZE);
+    }
+
+    Pageable pageable =
+        PageRequest.of(page - 1, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+    Page<Operator> result = repository.findByCrnAndStatus(crn, OperatorStatus.ACTIVE, pageable);
+
+    List<OperatorResponse> items =
+        result.getContent().stream().map(OperatorMapper::toResponse).toList();
+    return new OperatorPageResponse(
+        items, page, pageSize, (int) result.getTotalElements(), result.getTotalPages());
+  }
 
   /**
    * Persists a new operator owned by the calling organisation.

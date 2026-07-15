@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import uk.gov.defra.trade.imports.operators.exceptions.NotFoundException;
 import uk.gov.defra.trade.imports.operators.exceptions.Problem;
@@ -43,6 +44,41 @@ public class OperatorController {
   private static final String ORGANISATION_ID_HEADER = "Trade-Imports-Organisation-Id";
 
   private final OperatorService operatorService;
+
+  /**
+   * Lists the caller's ACTIVE operators, newest first, one page at a time. DELETED tombstones are
+   * excluded (design §1.2). {@code page} is 1-based (default 1) and {@code page_size} defaults to 25
+   * (EUDPA-185.AC4), max 100; an out-of-range or non-numeric value is a 400 bad-request problem with
+   * no {@code errors} map. The response is a top-level object ({@code items} + pagination metadata),
+   * never a bare array. Server-side search and the {@code operator_type} filter arrive in inc-010.
+   *
+   * @param crn the caller's company reference number, from {@code Trade-Imports-Crn}
+   * @param page the 1-based page number (default 1)
+   * @param pageSize the page size (default 25, max 100)
+   * @return 200 with one page of ACTIVE operators
+   */
+  @GetMapping
+  @Operation(
+      operationId = "list-operators",
+      summary = "List the caller's ACTIVE operators (paginated)")
+  @ApiResponses({
+    @ApiResponse(responseCode = "200", description = "One page of the caller's ACTIVE operators"),
+    @ApiResponse(
+        responseCode = "400",
+        description = "Out-of-range or non-numeric pagination parameters, or a missing crn header",
+        content =
+            @Content(
+                mediaType = "application/problem+json",
+                schema = @Schema(implementation = Problem.class)))
+  })
+  @Timed("controller.listOperators.time")
+  public OperatorPageResponse list(
+      @RequestHeader(CRN_HEADER) String crn,
+      @RequestParam(defaultValue = "1") int page,
+      @RequestParam(name = "page_size", defaultValue = "25") int pageSize) {
+    log.info("GET /operators - page {} size {}", page, pageSize);
+    return operatorService.list(crn, page, pageSize);
+  }
 
   /**
    * Creates an operator in the caller's address book. {@code crn} and {@code organisation_id} are
