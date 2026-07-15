@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -110,5 +111,49 @@ public class OperatorController {
             .get(operatorId, crn)
             .orElseThrow(() -> new NotFoundException("Operator not found"));
     return OperatorMapper.toResponse(operator);
+  }
+
+  /**
+   * Replaces an operator's mutable fields. {@code operator_type} is immutable: a body whose type
+   * differs from the stored value is rejected with a 400 validation error keyed
+   * {@code operator_type} (not silently ignored). {@code modified_at} is bumped on success (audit
+   * only — c-017; a notification's embedded operator copy is not refreshed by the edit). An unknown
+   * id, an id outside the caller's crn, or a soft-deleted tombstone all yield a 404 — tombstones are
+   * outside the caller's live set and existence is never leaked.
+   *
+   * @param crn the caller's company reference number, from {@code Trade-Imports-Crn}
+   * @param operatorId the opaque operator id from the path
+   * @param request the validated update body
+   * @return 200 with the updated operator and its bumped {@code modified_at}
+   */
+  @PutMapping("/{operator-id}")
+  @Operation(
+      operationId = "update-operator",
+      summary = "Replace an operator's mutable fields")
+  @ApiResponses({
+    @ApiResponse(responseCode = "200", description = "Updated operator with bumped modified_at"),
+    @ApiResponse(
+        responseCode = "400",
+        description = "Validation error (including an operator_type change), or a missing crn header",
+        content =
+            @Content(
+                mediaType = "application/problem+json",
+                schema = @Schema(anyOf = {ValidationProblem.class, Problem.class}))),
+    @ApiResponse(
+        responseCode = "404",
+        description = "Unknown id, an id outside the caller's crn scope, or a tombstone",
+        content =
+            @Content(
+                mediaType = "application/problem+json",
+                schema = @Schema(implementation = Problem.class)))
+  })
+  @Timed("controller.updateOperator.time")
+  public OperatorResponse update(
+      @RequestHeader(CRN_HEADER) String crn,
+      @PathVariable("operator-id") String operatorId,
+      @Valid @RequestBody OperatorRequest request) {
+    log.info("PUT /operators/{}", operatorId);
+    Operator updated = operatorService.update(operatorId, request, crn);
+    return OperatorMapper.toResponse(updated);
   }
 }

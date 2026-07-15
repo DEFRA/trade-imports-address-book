@@ -1,9 +1,13 @@
 package uk.gov.defra.trade.imports.operators.operator;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import uk.gov.defra.trade.imports.operators.exceptions.NotFoundException;
+import uk.gov.defra.trade.imports.operators.exceptions.ValidationException;
 
 /**
  * Application service for operators. Owns the create/read/update/delete business rules; the wire
@@ -52,5 +56,55 @@ public class OperatorService {
    */
   public Optional<Operator> get(String id, String crn) {
     return repository.findByIdAndCrn(id, crn);
+  }
+
+  /**
+   * Replaces an operator's mutable fields within the caller's crn scope (design §1.5). The wire can
+   * never move the server-owned fields: {@code id}, {@code crn}, {@code organisationId},
+   * {@code status}, {@code createdAt} and {@code operatorType} are all preserved from the stored
+   * entity; {@code modifiedAt} is bumped by auditing on save (audit only — c-017: nothing re-syncs
+   * off it, and a notification's embedded operator copy is not refreshed by an edit).
+   *
+   * <p>{@code operatorType} is immutable after create: a request whose type differs from the stored
+   * value is <strong>rejected</strong> with a 400 validation error keyed {@code operator_type} — the
+   * design locks reject over silent-ignore because a silent ignore hides a client bug and is
+   * undiagnosable from logs. An unknown id, an id owned by another crn, or a soft-deleted tombstone
+   * are all outside the caller's live set and yield a 404 (existence is never leaked; the tombstone
+   * is immutable).
+   *
+   * @param id the operator id
+   * @param request the validated update body (client-supplied fields only)
+   * @param crn the caller's company reference number, from the identity header
+   * @return the updated operator, with its bumped {@code modifiedAt}
+   * @throws NotFoundException if the id is unknown, out of scope, or a tombstone
+   * @throws ValidationException if the request attempts to change {@code operatorType}
+   */
+  public Operator update(String id, OperatorRequest request, String crn) {
+    Operator existing =
+        repository
+            .findByIdAndCrn(id, crn)
+            .filter(operator -> operator.getStatus() != OperatorStatus.DELETED)
+            .orElseThrow(() -> new NotFoundException("Operator not found"));
+
+    if (request.operatorType() != existing.getOperatorType()) {
+      throw new ValidationException(
+          Map.of("operator_type", List.of("Operator type cannot be changed")));
+    }
+
+    existing.setName(request.name());
+    existing.setAddressLine1(request.addressLine1());
+    existing.setAddressLine2(request.addressLine2());
+    existing.setTown(request.town());
+    existing.setCounty(request.county());
+    existing.setPostcode(request.postcode());
+    existing.setCountry(request.country());
+    existing.setTelephone(request.telephone());
+    existing.setEmail(request.email());
+    existing.setApprovalNumber(request.approvalNumber());
+    existing.setTransporterCategory(request.transporterCategory());
+
+    Operator saved = repository.save(existing);
+    log.info("Updated operator {}", saved.getId());
+    return saved;
   }
 }

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -183,6 +184,111 @@ class OperatorCrudIT extends IntegrationBase {
         .andExpect(jsonPath("$.title").value("Resource Not Found"))
         .andExpect(jsonPath("$.status").value(404))
         // 404 carries no errors map — it is not a validation failure.
+        .andExpect(jsonPath("$.errors").doesNotExist());
+  }
+
+  private static final String UPDATE_BODY =
+      """
+      {
+        "operator_type": "CONSIGNOR",
+        "name": "Lowland Cattle Co",
+        "address_line_1": "2 Market Street",
+        "town": "Perth",
+        "postcode": "PH1 5AA",
+        "country": "United Kingdom",
+        "telephone": "+44 1738 111222",
+        "email": "ops@lowlandcattle.example.com"
+      }
+      """;
+
+  @Test
+  void putReplacesTheMutableFieldsReturns200AndBumpsModifiedAt() throws Exception {
+    Operator saved = saveOperator(OperatorStatus.ACTIVE);
+    Instant baselineModifiedAt = saved.getModifiedAt();
+
+    mockMvc
+        .perform(
+            put("/operators/{operator-id}", saved.getId())
+                .header("Trade-Imports-Crn", CRN)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(UPDATE_BODY))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(saved.getId()))
+        .andExpect(jsonPath("$.name").value("Lowland Cattle Co"))
+        .andExpect(jsonPath("$.address_line_1").value("2 Market Street"))
+        .andExpect(jsonPath("$.town").value("Perth"))
+        .andExpect(jsonPath("$.operator_type").value("CONSIGNOR"))
+        .andExpect(jsonPath("$.crn").value(CRN))
+        .andExpect(jsonPath("$.status").value("ACTIVE"));
+
+    assertThat(repository.findById(saved.getId()))
+        .get()
+        .satisfies(
+            operator -> {
+              assertThat(operator.getName()).isEqualTo("Lowland Cattle Co");
+              assertThat(operator.getAddressLine1()).isEqualTo("2 Market Street");
+              assertThat(operator.getStatus()).isEqualTo(OperatorStatus.ACTIVE);
+              // audit-only bump; nothing re-syncs off it (c-017)
+              assertThat(operator.getModifiedAt()).isAfter(baselineModifiedAt);
+            });
+  }
+
+  @Test
+  void putChangingTheOperatorTypeReturns400ValidationProblemKeyedOperatorType() throws Exception {
+    Operator saved = saveOperator(OperatorStatus.ACTIVE); // stored type is CONSIGNOR
+    String typeChangeBody = UPDATE_BODY.replace("\"CONSIGNOR\"", "\"IMPORTER\"");
+
+    mockMvc
+        .perform(
+            put("/operators/{operator-id}", saved.getId())
+                .header("Trade-Imports-Crn", CRN)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(typeChangeBody))
+        .andExpect(status().isBadRequest())
+        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/validation-error"))
+        .andExpect(jsonPath("$.title").value("Validation Error"))
+        .andExpect(jsonPath("$.status").value(400))
+        .andExpect(jsonPath("$.errors.operator_type[0]").value("Operator type cannot be changed"));
+
+    // the stored operator is untouched by the rejected type change
+    assertThat(repository.findById(saved.getId()))
+        .get()
+        .satisfies(operator -> assertThat(operator.getOperatorType()).isEqualTo(OperatorType.CONSIGNOR));
+  }
+
+  @Test
+  void putOnADeletedTombstoneReturns404() throws Exception {
+    Operator tombstone = saveOperator(OperatorStatus.DELETED);
+
+    mockMvc
+        .perform(
+            put("/operators/{operator-id}", tombstone.getId())
+                .header("Trade-Imports-Crn", CRN)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(UPDATE_BODY))
+        .andExpect(status().isNotFound())
+        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/not-found"))
+        .andExpect(jsonPath("$.status").value(404))
+        .andExpect(jsonPath("$.errors").doesNotExist());
+  }
+
+  @Test
+  void putWithoutTheCrnHeaderReturns400BadRequestWithNoErrorsMap() throws Exception {
+    Operator saved = saveOperator(OperatorStatus.ACTIVE);
+
+    mockMvc
+        .perform(
+            put("/operators/{operator-id}", saved.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(UPDATE_BODY))
+        .andExpect(status().isBadRequest())
+        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/bad-request"))
+        .andExpect(jsonPath("$.title").value("Bad Request"))
+        .andExpect(jsonPath("$.status").value(400))
+        // a missing identity header is not a field-validation failure — no errors map.
         .andExpect(jsonPath("$.errors").doesNotExist());
   }
 }

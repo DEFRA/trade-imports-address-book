@@ -81,6 +81,29 @@ public class GlobalExceptionHandler {
     return problemResponse(HttpStatus.BAD_REQUEST, problem);
   }
 
+  /**
+   * Service-layer field-validation failure — 400 validation-error, WITH a per-field errors map. The
+   * {@code operator_type} immutability rejection on PUT lands here; the map is keyed by the
+   * snake_case wire field name already (the service supplies wire keys), producing an identical
+   * shape to the bean-validation 400.
+   */
+  @ExceptionHandler(ValidationException.class)
+  public ResponseEntity<ProblemDetail> handleServiceValidationException(ValidationException ex) {
+    String traceId = MDC.get(MDC_TRACE_ID);
+    log.warn("Validation error (trace: {}): {}", traceId, ex.getMessage());
+
+    ProblemDetail problem =
+        problemDetail(
+            HttpStatus.BAD_REQUEST,
+            "validation-error",
+            "Validation Error",
+            "Validation failed for one or more fields",
+            traceId);
+    problem.setProperty("errors", ex.getErrors());
+
+    return problemResponse(HttpStatus.BAD_REQUEST, problem);
+  }
+
   /** Malformed request that never reached body validation — 400 bad-request, NO errors map. */
   @ExceptionHandler(BadRequestException.class)
   public ResponseEntity<ProblemDetail> handleBadRequestException(BadRequestException ex) {
