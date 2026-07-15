@@ -1,8 +1,11 @@
 package uk.gov.defra.trade.imports.operators.operator;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -30,27 +33,51 @@ public class OperatorService {
   private static final int MAX_PAGE_SIZE = 100;
 
   private final OperatorRepository repository;
+  private final MeterRegistry meterRegistry;
 
   /**
-   * One page of the caller's ACTIVE operators, newest first (design §1.2/§1.3, contract
-   * {@code list-operators}). Scoped to {@code crn}; DELETED tombstones are excluded because only
-   * {@code status ACTIVE} is queried. {@code page} is 1-based and translated to Spring Data's
-   * 0-based index; the sort is {@code created_at} descending, served by the
+   * One page of the caller's ACTIVE operators, newest first, optionally searched and type-filtered
+   * (design §1.2/§1.3, contract {@code list-operators}). Scoped to {@code crn}; DELETED tombstones
+   * are excluded because the query pins {@code status ACTIVE}. {@code page} is 1-based and translated
+   * to Spring Data's 0-based index; the sort is {@code created_at} descending, served by the
    * {@code crn_status_type_created} index. {@code total_pages} is derived here, not in the
    * controller.
+   *
+   * <p><strong>Sentinel convention (documented here, in one place).</strong> The repository's single
+   * {@link OperatorRepository#search} method covers all four combinations of the two optional filters
+   * by never letting them be "absent" at the query layer:
+   *
+   * <ul>
+   *   <li>absent {@code operatorType} &rarr; the {@code $in} is passed <em>all seven</em>
+   *       {@link OperatorType} values, so it matches every operator;
+   *   <li>absent {@code q} &rarr; the search regex is the empty string {@code ""}, which matches
+   *       everything.
+   * </ul>
+   *
+   * <p>{@code q} is {@link Pattern#quote quoted} before it reaches Mongo, so a user's regex
+   * metacharacters (e.g. {@code .*} or {@code (}) are matched literally — never compiled as a
+   * pattern. This is the c-012 server-side-only search and the c-004 country match is against the
+   * stored display-name string (there is no code&lt;-&gt;name conversion anywhere).
    *
    * <p>An out-of-range {@code page} (&lt; 1) or {@code pageSize} (&lt; 1 or &gt; {@value
    * #MAX_PAGE_SIZE}) is a {@link BadRequestException} — a 400 bad-request problem with no
    * {@code errors} map, since these are malformed query parameters, not body-field validation
    * failures.
    *
+   * <p>The {@code OperatorListQuery} timer wraps the query, tagged {@code filtered=true} when a
+   * search or type filter is applied and {@code false} otherwise (§6) — the tripwire that measures
+   * the bounded-scan assumption.
+   *
    * @param crn the caller's company reference number, from the identity header
+   * @param q the free-text search, or {@code null} when absent
+   * @param operatorType the exact operator-type filter, or {@code null} when absent
    * @param page the 1-based page number
    * @param pageSize the page size (1..{@value #MAX_PAGE_SIZE})
    * @return one page of ACTIVE operators with pagination metadata
    * @throws BadRequestException if {@code page} or {@code pageSize} is out of range
    */
-  public OperatorPageResponse list(String crn, int page, int pageSize) {
+  public OperatorPageResponse list(
+      String crn, String q, OperatorType operatorType, int page, int pageSize) {
     if (page < 1) {
       throw new BadRequestException("page must be 1 or greater");
     }
@@ -58,9 +85,20 @@ public class OperatorService {
       throw new BadRequestException("page_size must be between 1 and " + MAX_PAGE_SIZE);
     }
 
+    List<OperatorType> types =
+        operatorType == null ? List.of(OperatorType.values()) : List.of(operatorType);
+    String quotedRegex = q == null ? "" : Pattern.quote(q);
+    boolean filtered = operatorType != null || (q != null && !q.isBlank());
+
     Pageable pageable =
         PageRequest.of(page - 1, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
-    Page<Operator> result = repository.findByCrnAndStatus(crn, OperatorStatus.ACTIVE, pageable);
+
+    Timer.Sample sample = Timer.start(meterRegistry);
+    Page<Operator> result = repository.search(crn, types, quotedRegex, pageable);
+    sample.stop(
+        Timer.builder("OperatorListQuery")
+            .tag("filtered", Boolean.toString(filtered))
+            .register(meterRegistry));
 
     List<OperatorResponse> items =
         result.getContent().stream().map(OperatorMapper::toResponse).toList();

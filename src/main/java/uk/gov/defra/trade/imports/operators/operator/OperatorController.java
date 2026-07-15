@@ -46,13 +46,19 @@ public class OperatorController {
   private final OperatorService operatorService;
 
   /**
-   * Lists the caller's ACTIVE operators, newest first, one page at a time. DELETED tombstones are
-   * excluded (design §1.2). {@code page} is 1-based (default 1) and {@code page_size} defaults to 25
-   * (EUDPA-185.AC4), max 100; an out-of-range or non-numeric value is a 400 bad-request problem with
-   * no {@code errors} map. The response is a top-level object ({@code items} + pagination metadata),
-   * never a bare array. Server-side search and the {@code operator_type} filter arrive in inc-010.
+   * Lists the caller's ACTIVE operators, newest first, one page at a time, optionally searched and
+   * type-filtered. DELETED tombstones are excluded (design §1.2). {@code q} is a case-insensitive
+   * free-text match over {@code name}, both address lines, {@code town}, {@code county},
+   * {@code postcode} and {@code country} (display-name matching, c-004); regex metacharacters in it
+   * are treated as literals (c-012 server-side search only). {@code operator_type} is an exact-type
+   * filter — an unknown enum value is a 400 bad-request. {@code page} is 1-based (default 1) and
+   * {@code page_size} defaults to 25 (EUDPA-185.AC4), max 100; an out-of-range or non-numeric value
+   * is a 400 bad-request problem with no {@code errors} map. The response is a top-level object
+   * ({@code items} + pagination metadata), never a bare array.
    *
    * @param crn the caller's company reference number, from {@code Trade-Imports-Crn}
+   * @param q the free-text search over name, address fields and country display name (EUDPA-186.AC1)
+   * @param operatorType the exact operator-type filter (EUDPA-186.AC2)
    * @param page the 1-based page number (default 1)
    * @param pageSize the page size (default 25, max 100)
    * @return 200 with one page of ACTIVE operators
@@ -60,12 +66,14 @@ public class OperatorController {
   @GetMapping
   @Operation(
       operationId = "list-operators",
-      summary = "List the caller's ACTIVE operators (paginated)")
+      summary = "List the caller's ACTIVE operators (paginated, searchable)")
   @ApiResponses({
     @ApiResponse(responseCode = "200", description = "One page of the caller's ACTIVE operators"),
     @ApiResponse(
         responseCode = "400",
-        description = "Out-of-range or non-numeric pagination parameters, or a missing crn header",
+        description =
+            "Out-of-range or non-numeric pagination parameters, a bad operator_type enum value,"
+                + " or a missing crn header",
         content =
             @Content(
                 mediaType = "application/problem+json",
@@ -74,10 +82,12 @@ public class OperatorController {
   @Timed("controller.listOperators.time")
   public OperatorPageResponse list(
       @RequestHeader(CRN_HEADER) String crn,
+      @RequestParam(required = false) String q,
+      @RequestParam(name = "operator_type", required = false) OperatorType operatorType,
       @RequestParam(defaultValue = "1") int page,
       @RequestParam(name = "page_size", defaultValue = "25") int pageSize) {
-    log.info("GET /operators - page {} size {}", page, pageSize);
-    return operatorService.list(crn, page, pageSize);
+    log.info("GET /operators - q present {} type {} page {} size {}", q != null, operatorType, page, pageSize);
+    return operatorService.list(crn, q, operatorType, page, pageSize);
   }
 
   /**

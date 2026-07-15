@@ -3,17 +3,23 @@ package uk.gov.defra.trade.imports.operators.operator;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
+import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
@@ -29,7 +35,16 @@ class OperatorServiceTest {
 
   @Mock private OperatorRepository repository;
 
-  @InjectMocks private OperatorService service;
+  @Captor private ArgumentCaptor<List<OperatorType>> typesCaptor;
+
+  private final MeterRegistry meterRegistry = new SimpleMeterRegistry();
+
+  private OperatorService service;
+
+  @BeforeEach
+  void setUp() {
+    service = new OperatorService(repository, meterRegistry);
+  }
 
   private OperatorRequest request() {
     return OperatorRequest.builder()
@@ -311,11 +326,10 @@ class OperatorServiceTest {
 
   @Test
   void listReturnsAFullFirstPageOf25WithTotalPages2For30ActiveOperators() {
-    when(repository.findByCrnAndStatus(
-            eq("1100014934"), eq(OperatorStatus.ACTIVE), any(Pageable.class)))
+    when(repository.search(eq("1100014934"), anyList(), anyString(), any(Pageable.class)))
         .thenReturn(new PageImpl<>(activeOperators(25), PageRequest.of(0, 25), 30));
 
-    OperatorPageResponse response = service.list("1100014934", 1, 25);
+    OperatorPageResponse response = service.list("1100014934", null, null, 1, 25);
 
     assertThat(response.items()).hasSize(25);
     assertThat(response.page()).isEqualTo(1);
@@ -326,11 +340,10 @@ class OperatorServiceTest {
 
   @Test
   void listPageTwoReturnsTheRemaining5OperatorsWithTotalPagesStill2() {
-    when(repository.findByCrnAndStatus(
-            eq("1100014934"), eq(OperatorStatus.ACTIVE), any(Pageable.class)))
+    when(repository.search(eq("1100014934"), anyList(), anyString(), any(Pageable.class)))
         .thenReturn(new PageImpl<>(activeOperators(5), PageRequest.of(1, 25), 30));
 
-    OperatorPageResponse response = service.list("1100014934", 2, 25);
+    OperatorPageResponse response = service.list("1100014934", null, null, 2, 25);
 
     assertThat(response.items()).hasSize(5);
     assertThat(response.page()).isEqualTo(2);
@@ -339,15 +352,14 @@ class OperatorServiceTest {
   }
 
   @Test
-  void listScopesTheQueryToTheCallersCrnActiveOnlyNewestFirstAndTranslatesToA0BasedPage() {
-    // The stub only matches an ACTIVE, crn-scoped query — so DELETED tombstones and other crns can
-    // never be in the result set — and the captured Pageable pins newest-first + 1-based->0-based.
+  void listScopesTheQueryToTheCallersCrnNewestFirstAndTranslatesToA0BasedPage() {
+    // crn scoping is pinned by eq("1100014934"); ACTIVE-only lives inside the @Query (OperatorListIT
+    // covers it); the captured Pageable pins newest-first + 1-based->0-based translation.
     ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-    when(repository.findByCrnAndStatus(
-            eq("1100014934"), eq(OperatorStatus.ACTIVE), pageableCaptor.capture()))
+    when(repository.search(eq("1100014934"), anyList(), anyString(), pageableCaptor.capture()))
         .thenReturn(new PageImpl<>(List.of(), PageRequest.of(1, 25), 0));
 
-    service.list("1100014934", 2, 25);
+    service.list("1100014934", null, null, 2, 25);
 
     Pageable pageable = pageableCaptor.getValue();
     assertThat(pageable.getPageNumber()).isEqualTo(1);
@@ -357,20 +369,50 @@ class OperatorServiceTest {
   }
 
   @Test
+  void listWithoutAtypeQueriesAll7OperatorTypesAndWithoutAqUsesTheEmptyRegexSentinel() {
+    // §1.3 sentinel convention: absent operator_type -> all 7 types ($in matches every operator),
+    // absent q -> "" regex (matches everything). Documented in one place on OperatorService.list.
+    ArgumentCaptor<String> regexCaptor = ArgumentCaptor.forClass(String.class);
+    when(repository.search(
+            eq("1100014934"), typesCaptor.capture(), regexCaptor.capture(), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
+
+    service.list("1100014934", null, null, 1, 25);
+
+    assertThat(typesCaptor.getValue()).containsExactlyInAnyOrder(OperatorType.values());
+    assertThat(regexCaptor.getValue()).isEmpty();
+  }
+
+  @Test
+  void listQuotesUserInputSoRegexMetacharactersAreLiteralAndFiltersToTheSingleGivenType() {
+    // Pattern.quote() on the user input — ".*" is compiled as a literal, never as "match anything"
+    // (no ReDoS, no regex-syntax 500s); a present operator_type narrows the $in to just that type.
+    ArgumentCaptor<String> regexCaptor = ArgumentCaptor.forClass(String.class);
+    when(repository.search(
+            eq("1100014934"), typesCaptor.capture(), regexCaptor.capture(), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
+
+    service.list("1100014934", ".*", OperatorType.IMPORTER, 1, 25);
+
+    assertThat(typesCaptor.getValue()).containsExactly(OperatorType.IMPORTER);
+    assertThat(regexCaptor.getValue()).isEqualTo(Pattern.quote(".*"));
+  }
+
+  @Test
   void listWithAPageBelow1IsABadRequest() {
     assertThatExceptionOfType(BadRequestException.class)
-        .isThrownBy(() -> service.list("1100014934", 0, 25));
+        .isThrownBy(() -> service.list("1100014934", null, null, 0, 25));
   }
 
   @Test
   void listWithAPageSizeAbove100IsABadRequest() {
     assertThatExceptionOfType(BadRequestException.class)
-        .isThrownBy(() -> service.list("1100014934", 1, 101));
+        .isThrownBy(() -> service.list("1100014934", null, null, 1, 101));
   }
 
   @Test
   void listWithAPageSizeBelow1IsABadRequest() {
     assertThatExceptionOfType(BadRequestException.class)
-        .isThrownBy(() -> service.list("1100014934", 1, 0));
+        .isThrownBy(() -> service.list("1100014934", null, null, 1, 0));
   }
 }
