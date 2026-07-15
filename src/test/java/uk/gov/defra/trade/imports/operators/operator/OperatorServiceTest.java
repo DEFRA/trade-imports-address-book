@@ -241,4 +241,56 @@ class OperatorServiceTest {
                 service.update(
                     "665f1c2ab3e4d51a2c9d0e77", updateRequest(OperatorType.CONSIGNOR), "9900000000"));
   }
+
+  @Test
+  void deleteFlipsAnActiveOperatorToAdeletedTombstoneAndBumpsModifiedAt() {
+    Operator existing =
+        persistedOperator("665f1c2ab3e4d51a2c9d0e77", "1100014934", OperatorStatus.ACTIVE);
+    when(repository.findByIdAndCrn("665f1c2ab3e4d51a2c9d0e77", "1100014934"))
+        .thenReturn(Optional.of(existing));
+    Instant bumped = Instant.parse("2026-07-15T10:00:00Z");
+    ArgumentCaptor<Operator> captor = ArgumentCaptor.forClass(Operator.class);
+    when(repository.save(captor.capture()))
+        .thenAnswer(
+            invocation -> {
+              Operator saved = invocation.getArgument(0);
+              // simulate @LastModifiedDate auditing at persistence time
+              saved.setModifiedAt(bumped);
+              return saved;
+            });
+
+    service.delete("665f1c2ab3e4d51a2c9d0e77", "1100014934");
+
+    // the document is NOT removed — status flips to DELETED (the load-bearing tombstone, c-003/c-018)
+    Operator persisted = captor.getValue();
+    assertThat(persisted.getStatus()).isEqualTo(OperatorStatus.DELETED);
+    assertThat(persisted.getId()).isEqualTo("665f1c2ab3e4d51a2c9d0e77");
+    assertThat(persisted.getModifiedAt()).isEqualTo(bumped);
+  }
+
+  @Test
+  void deleteOfAnAlreadyDeletedTombstoneIsIdempotentAndLeavesTheTombstoneUntouched() {
+    // A repeat delete is a no-op: the tombstone stays a tombstone with the SAME modified_at — no
+    // re-save, so modified_at is not bumped a second time (design §1.2 "204 with no state change").
+    Instant originalModifiedAt = Instant.parse("2026-07-14T09:15:27Z");
+    Operator tombstone =
+        persistedOperator("665f1c2ab3e4d51a2c9d0e77", "1100014934", OperatorStatus.DELETED);
+    when(repository.findByIdAndCrn("665f1c2ab3e4d51a2c9d0e77", "1100014934"))
+        .thenReturn(Optional.of(tombstone));
+
+    service.delete("665f1c2ab3e4d51a2c9d0e77", "1100014934");
+
+    // state unchanged: still a DELETED tombstone with its original modified_at
+    assertThat(tombstone.getStatus()).isEqualTo(OperatorStatus.DELETED);
+    assertThat(tombstone.getModifiedAt()).isEqualTo(originalModifiedAt);
+  }
+
+  @Test
+  void deleteOfACrossCrnOrUnknownIdIs404BecauseTheStoreReturnsEmpty() {
+    when(repository.findByIdAndCrn("665f1c2ab3e4d51a2c9d0e77", "9900000000"))
+        .thenReturn(Optional.empty());
+
+    assertThatExceptionOfType(NotFoundException.class)
+        .isThrownBy(() -> service.delete("665f1c2ab3e4d51a2c9d0e77", "9900000000"));
+  }
 }

@@ -2,6 +2,7 @@ package uk.gov.defra.trade.imports.operators.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.startsWith;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -272,6 +273,117 @@ class OperatorCrudIT extends IntegrationBase {
         .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/not-found"))
         .andExpect(jsonPath("$.status").value(404))
         .andExpect(jsonPath("$.errors").doesNotExist());
+  }
+
+  @Test
+  void fullCrudRoundTripCreateGetPutDeleteTombstoneAndIdempotentRepeatDelete() throws Exception {
+    // create (201 + Location)
+    String body =
+        """
+        {
+          "operator_type": "CONSIGNOR",
+          "name": "Highland Livestock Ltd",
+          "address_line_1": "14 Drover's Way",
+          "town": "Inverness",
+          "postcode": "IV2 3JH",
+          "country": "United Kingdom",
+          "telephone": "+44 1463 234567",
+          "email": "exports@highlandlivestock.example.com"
+        }
+        """;
+    String location =
+        mockMvc
+            .perform(
+                post("/operators")
+                    .header("Trade-Imports-Crn", CRN)
+                    .header("Trade-Imports-Organisation-Id", ORGANISATION_ID)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body))
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getHeader("Location");
+    String id = location.substring(location.lastIndexOf('/') + 1);
+
+    // get -> ACTIVE
+    mockMvc
+        .perform(get("/operators/{operator-id}", id).header("Trade-Imports-Crn", CRN))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("ACTIVE"));
+
+    // put -> 200, modified_at bumped
+    mockMvc
+        .perform(
+            put("/operators/{operator-id}", id)
+                .header("Trade-Imports-Crn", CRN)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(UPDATE_BODY))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.name").value("Lowland Cattle Co"));
+
+    // delete -> 204, the document is NOT removed
+    mockMvc
+        .perform(delete("/operators/{operator-id}", id).header("Trade-Imports-Crn", CRN))
+        .andExpect(status().isNoContent());
+    assertThat(repository.findById(id)).isPresent();
+    Instant modifiedAtAfterDelete = repository.findById(id).orElseThrow().getModifiedAt();
+
+    // get -> the status:DELETED tombstone is still fetchable (EUDPA-293.AC2 / c-018)
+    mockMvc
+        .perform(get("/operators/{operator-id}", id).header("Trade-Imports-Crn", CRN))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(id))
+        .andExpect(jsonPath("$.status").value("DELETED"));
+
+    // put on the tombstone -> 404 (outside the caller's live set)
+    mockMvc
+        .perform(
+            put("/operators/{operator-id}", id)
+                .header("Trade-Imports-Crn", CRN)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(UPDATE_BODY))
+        .andExpect(status().isNotFound());
+
+    // repeat delete -> 204, idempotent, no state change (modified_at not bumped again)
+    mockMvc
+        .perform(delete("/operators/{operator-id}", id).header("Trade-Imports-Crn", CRN))
+        .andExpect(status().isNoContent());
+    assertThat(repository.findById(id))
+        .get()
+        .satisfies(
+            operator -> {
+              assertThat(operator.getStatus()).isEqualTo(OperatorStatus.DELETED);
+              assertThat(operator.getModifiedAt()).isEqualTo(modifiedAtAfterDelete);
+            });
+  }
+
+  @Test
+  void deleteOfAnUnknownIdReturns404NotFoundProblem() throws Exception {
+    mockMvc
+        .perform(
+            delete("/operators/{operator-id}", "665f1c2ab3e4d51a2c9d0e77")
+                .header("Trade-Imports-Crn", CRN))
+        .andExpect(status().isNotFound())
+        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/not-found"))
+        .andExpect(jsonPath("$.status").value(404))
+        .andExpect(jsonPath("$.errors").doesNotExist());
+  }
+
+  @Test
+  void deleteOfAnOperatorOwnedByAnotherCrnReturns404() throws Exception {
+    Operator saved = saveOperator(OperatorStatus.ACTIVE);
+
+    mockMvc
+        .perform(
+            delete("/operators/{operator-id}", saved.getId())
+                .header("Trade-Imports-Crn", "9900000000"))
+        .andExpect(status().isNotFound());
+
+    // the operator remains untouched under its owning crn
+    assertThat(repository.findById(saved.getId()))
+        .get()
+        .satisfies(operator -> assertThat(operator.getStatus()).isEqualTo(OperatorStatus.ACTIVE));
   }
 
   @Test

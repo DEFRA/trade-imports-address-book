@@ -86,6 +86,17 @@ Run the application:
 mvn spring-boot:run
 ```
 
+### Soft delete (tombstones)
+
+`DELETE /operators/{operator-id}` is a soft delete: the document is not removed, its
+`status` flips to `DELETED` and `modified_at` is bumped. The tombstone stays fetchable
+by id so a consumer can distinguish "the user deleted this" (200 + `DELETED`) from
+"unknown / not yours" (404) — the existence check other services rely on rests on that
+distinction. Tombstones are excluded from list results.
+
+Tombstones are retained indefinitely (~1KB each). Purge / TTL of old tombstones is
+deferred; there is no automatic expiry today.
+
 ### SonarCloud
 
 Example SonarCloud configuration are available in the GitHub Action workflows.

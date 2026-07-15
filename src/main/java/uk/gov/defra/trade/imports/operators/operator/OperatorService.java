@@ -107,4 +107,35 @@ public class OperatorService {
     log.info("Updated operator {}", saved.getId());
     return saved;
   }
+
+  /**
+   * Soft-deletes an operator within the caller's crn scope (design §1.2). The document is
+   * <strong>not</strong> removed: its {@code status} flips to {@code DELETED} and {@code modifiedAt}
+   * is bumped on save. The tombstone is load-bearing (c-003 / c-018) — it stays fetchable by id so
+   * the EUDPA-293.AC2 existence check can tell "deleted" (200 + DELETED) from "unknown or not yours"
+   * (404); a hard delete would collapse both into a 404 and make deletion undetectable.
+   *
+   * <p>Idempotent: deleting an operator that is already a tombstone is a no-op — no re-save, so
+   * {@code modifiedAt} is not bumped a second time and the state is unchanged. An unknown id, or an
+   * id owned by another crn, is empty in the caller's scope and yields a 404 (existence is never
+   * leaked — c-001).
+   *
+   * @param id the operator id
+   * @param crn the caller's company reference number, from the identity header
+   * @throws NotFoundException if the id is unknown or out of the caller's crn scope
+   */
+  public void delete(String id, String crn) {
+    Operator existing =
+        repository
+            .findByIdAndCrn(id, crn)
+            .orElseThrow(() -> new NotFoundException("Operator not found"));
+
+    if (existing.getStatus() == OperatorStatus.DELETED) {
+      return;
+    }
+
+    existing.setStatus(OperatorStatus.DELETED);
+    repository.save(existing);
+    log.info("Soft-deleted operator {}", existing.getId());
+  }
 }

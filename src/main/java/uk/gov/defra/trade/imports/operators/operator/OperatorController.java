@@ -12,6 +12,7 @@ import java.net.URI;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -155,5 +156,45 @@ public class OperatorController {
     log.info("PUT /operators/{}", operatorId);
     Operator updated = operatorService.update(operatorId, request, crn);
     return OperatorMapper.toResponse(updated);
+  }
+
+  /**
+   * Soft-deletes an operator. The document is not removed: {@code status} flips to {@code DELETED}
+   * and {@code modified_at} is bumped (c-003), and the tombstone stays fetchable by id so a deletion
+   * is detectable (c-018 / EUDPA-293.AC2). Idempotent — deleting an already-DELETED operator is a
+   * 204 with no state change. An unknown id, or one outside the caller's crn, is a 404 (existence is
+   * never leaked — c-001). The UI reaches this only via the delete-confirmation page (c-010).
+   *
+   * @param crn the caller's company reference number, from {@code Trade-Imports-Crn}
+   * @param operatorId the opaque operator id from the path
+   * @return 204 No Content (soft-deleted, or already deleted)
+   */
+  @DeleteMapping("/{operator-id}")
+  @Operation(
+      operationId = "delete-operator",
+      summary = "Soft-delete an operator (tombstone)")
+  @ApiResponses({
+    @ApiResponse(responseCode = "204", description = "Soft-deleted (or already deleted — idempotent)"),
+    @ApiResponse(
+        responseCode = "400",
+        description = "Missing crn header",
+        content =
+            @Content(
+                mediaType = "application/problem+json",
+                schema = @Schema(implementation = Problem.class))),
+    @ApiResponse(
+        responseCode = "404",
+        description = "Unknown id, or an id outside the caller's crn scope",
+        content =
+            @Content(
+                mediaType = "application/problem+json",
+                schema = @Schema(implementation = Problem.class)))
+  })
+  @Timed("controller.deleteOperator.time")
+  public ResponseEntity<Void> delete(
+      @RequestHeader(CRN_HEADER) String crn, @PathVariable("operator-id") String operatorId) {
+    log.info("DELETE /operators/{}", operatorId);
+    operatorService.delete(operatorId, crn);
+    return ResponseEntity.noContent().build();
   }
 }
