@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import java.lang.reflect.Method;
 import java.net.URI;
 import java.util.List;
@@ -14,228 +16,181 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import uk.gov.defra.trade.imports.operators.operator.OperatorRequest;
 
 class GlobalExceptionHandlerTest {
 
-    private GlobalExceptionHandler exceptionHandler;
+  private GlobalExceptionHandler exceptionHandler;
 
-    @BeforeEach
-    void setUp() {
-        exceptionHandler = new GlobalExceptionHandler();
-        MDC.clear();
+  @BeforeEach
+  void setUp() {
+    ObjectMapper objectMapper =
+        new ObjectMapper().setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
+    exceptionHandler = new GlobalExceptionHandler(objectMapper);
+    MDC.clear();
+  }
+
+  @AfterEach
+  void tearDown() {
+    MDC.clear();
+  }
+
+  @Test
+  void validationError_hasProblemJsonBodyWithSnakeCaseErrorsMapAndTraceId() {
+    MDC.put("trace.id", "trace-abc");
+
+    ResponseEntity<ProblemDetail> response =
+        exceptionHandler.handleValidationException(
+            validationException(
+                new FieldError("operatorRequest", "addressLine1", "Enter address line 1"),
+                new FieldError("operatorRequest", "email", "Enter an email address")));
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    assertThat(response.getHeaders().getContentType())
+        .isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
+
+    ProblemDetail body = response.getBody();
+    assertThat(body).isNotNull();
+    assertThat(body.getType())
+        .isEqualTo(URI.create("https://api.cdp.defra.cloud/problems/validation-error"));
+    assertThat(body.getTitle()).isEqualTo("Validation Error");
+    assertThat(body.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+
+    Map<String, Object> properties = body.getProperties();
+    assertThat(properties).containsEntry("trace_id", "trace-abc");
+    assertThat(properties).doesNotContainKey("traceId");
+
+    @SuppressWarnings("unchecked")
+    Map<String, List<String>> errors = (Map<String, List<String>>) properties.get("errors");
+    // The rejected Java field addressLine1 must be keyed by its WIRE name address_line_1,
+    // NOT Jackson's naive snake of the identifier (address_line1).
+    assertThat(errors).containsKey("address_line_1");
+    assertThat(errors).doesNotContainKey("addressLine1");
+    assertThat(errors).doesNotContainKey("address_line1");
+    assertThat(errors.get("address_line_1")).containsExactly("Enter address line 1");
+    assertThat(errors.get("email")).containsExactly("Enter an email address");
+  }
+
+  @Test
+  void validationError_collapsesMultipleMessagesForOneFieldIntoAList() {
+    ResponseEntity<ProblemDetail> response =
+        exceptionHandler.handleValidationException(
+            validationException(
+                new FieldError("operatorRequest", "name", "must not be blank"),
+                new FieldError("operatorRequest", "name", "size must be at most 255")));
+
+    @SuppressWarnings("unchecked")
+    Map<String, List<String>> errors =
+        (Map<String, List<String>>) response.getBody().getProperties().get("errors");
+    assertThat(errors.get("name"))
+        .containsExactly("must not be blank", "size must be at most 255");
+  }
+
+  @Test
+  void badRequest_isADistinct400ShapeWithNoErrorsMap() {
+    MDC.put("trace.id", "trace-xyz");
+
+    ResponseEntity<ProblemDetail> response =
+        exceptionHandler.handleBadRequestException(
+            new BadRequestException("Trade-Imports-Crn header is required"));
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    assertThat(response.getHeaders().getContentType())
+        .isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
+
+    ProblemDetail body = response.getBody();
+    assertThat(body).isNotNull();
+    assertThat(body.getType())
+        .isEqualTo(URI.create("https://api.cdp.defra.cloud/problems/bad-request"));
+    assertThat(body.getTitle()).isEqualTo("Bad Request");
+    assertThat(body.getDetail()).isEqualTo("Trade-Imports-Crn header is required");
+    assertThat(body.getProperties()).containsEntry("trace_id", "trace-xyz");
+    // The anyOf pin: a bad-request carries NO errors key whatsoever.
+    assertThat(body.getProperties()).doesNotContainKey("errors");
+  }
+
+  @Test
+  void theTwo400ShapesAreDistinct_validationHasErrors_badRequestDoesNot() {
+    MDC.put("trace.id", "trace-shared");
+    ProblemDetail validation =
+        exceptionHandler
+            .handleValidationException(
+                validationException(
+                    new FieldError("operatorRequest", "postcode", "Enter a postcode")))
+            .getBody();
+    ProblemDetail badRequest =
+        exceptionHandler
+            .handleBadRequestException(new BadRequestException("missing header"))
+            .getBody();
+
+    assertThat(validation.getStatus()).isEqualTo(badRequest.getStatus());
+    assertThat(validation.getProperties()).containsKey("errors");
+    assertThat(badRequest.getProperties()).doesNotContainKey("errors");
+    assertThat(validation.getType()).isNotEqualTo(badRequest.getType());
+  }
+
+  @Test
+  void notFound_returns404ProblemJsonWithTraceId() {
+    MDC.put("trace.id", "trace-404");
+
+    ResponseEntity<ProblemDetail> response =
+        exceptionHandler.handleNotFoundException(new NotFoundException("Operator not found"));
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    assertThat(response.getHeaders().getContentType())
+        .isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
+    ProblemDetail body = response.getBody();
+    assertThat(body.getType())
+        .isEqualTo(URI.create("https://api.cdp.defra.cloud/problems/not-found"));
+    assertThat(body.getTitle()).isEqualTo("Resource Not Found");
+    assertThat(body.getDetail()).isEqualTo("Operator not found");
+    assertThat(body.getProperties()).containsEntry("trace_id", "trace-404");
+    assertThat(body.getProperties()).doesNotContainKey("errors");
+  }
+
+  @Test
+  void unexpectedError_returns500InternalErrorProblem() {
+    ResponseEntity<ProblemDetail> response =
+        exceptionHandler.handleException(new RuntimeException("boom"));
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+    ProblemDetail body = response.getBody();
+    assertThat(body.getType())
+        .isEqualTo(URI.create("https://api.cdp.defra.cloud/problems/internal-error"));
+    assertThat(body.getTitle()).isEqualTo("Internal Server Error");
+    assertThat(body.getDetail())
+        .isEqualTo("An unexpected error occurred. Please try again later.");
+  }
+
+  @Test
+  void traceId_isOmittedWhenAbsentFromMdc() {
+    ResponseEntity<ProblemDetail> response =
+        exceptionHandler.handleNotFoundException(new NotFoundException("gone"));
+
+    Map<String, Object> properties = response.getBody().getProperties();
+    if (properties != null) {
+      assertThat(properties).doesNotContainKey("trace_id");
     }
+  }
 
-    @AfterEach
-    void tearDown() {
-        MDC.clear();
+  private MethodArgumentNotValidException validationException(FieldError... fieldErrors) {
+    try {
+      Method method = this.getClass().getDeclaredMethod("setUp");
+      MethodParameter methodParameter = new MethodParameter(method, -1);
+      BindingResult bindingResult = mock(BindingResult.class);
+      when(bindingResult.getTarget())
+          .thenReturn(
+              OperatorRequest.builder().name("target-for-introspection").build());
+      when(bindingResult.getFieldErrors()).thenReturn(List.of(fieldErrors));
+      return new MethodArgumentNotValidException(methodParameter, bindingResult);
+    } catch (NoSuchMethodException e) {
+      throw new IllegalStateException("Failed to build MethodArgumentNotValidException", e);
     }
-
-    @Test
-    void handleValidationException_shouldReturnBadRequestWithFieldErrors() {
-        // Given
-        String traceId = "test-trace-123";
-        MDC.put("trace.id", traceId);
-
-        MethodArgumentNotValidException exception = createValidationException(
-            new FieldError("notification", "origin", "must not be null"),
-            new FieldError("notification", "commodity", "must not be blank")
-        );
-
-        // When
-        ProblemDetail problemDetail = exceptionHandler.handleValidationException(exception);
-
-        // Then
-        assertThat(problemDetail).isNotNull();
-        assertThat(problemDetail.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
-        assertThat(problemDetail.getTitle()).isEqualTo("Validation Error");
-        assertThat(problemDetail.getDetail()).isEqualTo("Validation failed for one or more fields");
-        assertThat(problemDetail.getType()).isEqualTo(URI.create("https://api.cdp.defra.cloud/problems/validation-error"));
-        assertThat(problemDetail.getProperties()).containsKey("traceId");
-        assertThat(problemDetail.getProperties().get("traceId")).isEqualTo(traceId);
-
-        @SuppressWarnings("unchecked")
-        Map<String, String> errors = (Map<String, String>) problemDetail.getProperties().get("errors");
-        assertThat(errors).hasSize(2);
-        assertThat(errors.get("origin")).isEqualTo("must not be null");
-        assertThat(errors.get("commodity")).isEqualTo("must not be blank");
-    }
-
-    @Test
-    void handleValidationException_shouldHandleNullTraceId() {
-        // Given - no trace ID in MDC
-        MethodArgumentNotValidException exception = createValidationException(
-            new FieldError("notification", "origin", "must not be null")
-        );
-
-        // When
-        ProblemDetail problemDetail = exceptionHandler.handleValidationException(exception);
-
-        // Then
-        assertThat(problemDetail).isNotNull();
-        assertThat(problemDetail.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
-        // When traceId is null, the property is never set, so properties may be null or not contain traceId
-        Map<String, Object> properties = problemDetail.getProperties();
-        if (properties != null) {
-            assertThat(properties).doesNotContainKey("traceId");
-        }
-    }
-
-    @Test
-    void handleNotFoundException_shouldReturnNotFound() {
-        // Given
-        String traceId = "test-trace-456";
-        MDC.put("trace.id", traceId);
-        NotFoundException exception = new NotFoundException("Notification with id 12345 not found");
-
-        // When
-        ProblemDetail problemDetail = exceptionHandler.handleNotFoundException(exception);
-
-        // Then
-        assertThat(problemDetail).isNotNull();
-        assertThat(problemDetail.getStatus()).isEqualTo(HttpStatus.NOT_FOUND.value());
-        assertThat(problemDetail.getTitle()).isEqualTo("Resource Not Found");
-        assertThat(problemDetail.getDetail()).isEqualTo("Notification with id 12345 not found");
-        assertThat(problemDetail.getType()).isEqualTo(URI.create("https://api.cdp.defra.cloud/problems/not-found"));
-        assertThat(problemDetail.getProperties()).containsKey("traceId");
-        assertThat(problemDetail.getProperties().get("traceId")).isEqualTo(traceId);
-    }
-
-    @Test
-    void handleNotFoundException_shouldHandleNullTraceId() {
-        // Given - no trace ID in MDC
-        NotFoundException exception = new NotFoundException("Resource not found");
-
-        // When
-        ProblemDetail problemDetail = exceptionHandler.handleNotFoundException(exception);
-
-        // Then
-        assertThat(problemDetail).isNotNull();
-        assertThat(problemDetail.getStatus()).isEqualTo(HttpStatus.NOT_FOUND.value());
-        // When traceId is null, the property is never set, so properties may be null or not contain traceId
-        Map<String, Object> properties = problemDetail.getProperties();
-        if (properties != null) {
-            assertThat(properties).doesNotContainKey("traceId");
-        }
-    }
-
-    @Test
-    void handleConflictException_shouldReturnConflict() {
-        // Given
-        String traceId = "test-trace-789";
-        MDC.put("trace.id", traceId);
-        ConflictException exception = new ConflictException("Notification with reference DRAFT.IMP.2026.001 already exists");
-
-        // When
-        ProblemDetail problemDetail = exceptionHandler.handleConflictException(exception);
-
-        // Then
-        assertThat(problemDetail).isNotNull();
-        assertThat(problemDetail.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
-        assertThat(problemDetail.getTitle()).isEqualTo("Resource Conflict");
-        assertThat(problemDetail.getDetail()).isEqualTo("Notification with reference DRAFT.IMP.2026.001 already exists");
-        assertThat(problemDetail.getType()).isEqualTo(URI.create("https://api.cdp.defra.cloud/problems/conflict"));
-        assertThat(problemDetail.getProperties()).containsKey("traceId");
-        assertThat(problemDetail.getProperties().get("traceId")).isEqualTo(traceId);
-    }
-
-    @Test
-    void handleConflictException_shouldHandleNullTraceId() {
-        // Given - no trace ID in MDC
-        ConflictException exception = new ConflictException("Resource conflict");
-
-        // When
-        ProblemDetail problemDetail = exceptionHandler.handleConflictException(exception);
-
-        // Then
-        assertThat(problemDetail).isNotNull();
-        assertThat(problemDetail.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
-        // When traceId is null, the property is never set, so properties may be null or not contain traceId
-        Map<String, Object> properties = problemDetail.getProperties();
-        if (properties != null) {
-            assertThat(properties).doesNotContainKey("traceId");
-        }
-    }
-
-    @Test
-    void handleException_shouldReturnInternalServerError_forRuntimeException() {
-        // Given
-        String traceId = "test-trace-999";
-        MDC.put("trace.id", traceId);
-        RuntimeException exception = new RuntimeException("Unexpected database error");
-
-        // When
-        ProblemDetail problemDetail = exceptionHandler.handleException(exception);
-
-        // Then
-        assertThat(problemDetail).isNotNull();
-        assertThat(problemDetail.getStatus()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR.value());
-        assertThat(problemDetail.getTitle()).isEqualTo("Internal Server Error");
-        assertThat(problemDetail.getDetail()).isEqualTo("An unexpected error occurred. Please try again later.");
-        assertThat(problemDetail.getType()).isEqualTo(URI.create("https://api.cdp.defra.cloud/problems/internal-error"));
-        assertThat(problemDetail.getProperties()).containsKey("traceId");
-        assertThat(problemDetail.getProperties().get("traceId")).isEqualTo(traceId);
-    }
-
-    @Test
-    void handleException_shouldReturnInternalServerError_forIllegalStateException() {
-        // Given
-        IllegalStateException exception = new IllegalStateException("Invalid state");
-
-        // When
-        ProblemDetail problemDetail = exceptionHandler.handleException(exception);
-
-        // Then
-        assertThat(problemDetail).isNotNull();
-        assertThat(problemDetail.getStatus()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR.value());
-    }
-
-    @Test
-    void handleException_shouldReturnInternalServerError_forIllegalArgumentException() {
-        // Given
-        IllegalArgumentException exception = new IllegalArgumentException("Invalid argument");
-
-        // When
-        ProblemDetail problemDetail = exceptionHandler.handleException(exception);
-
-        // Then
-        assertThat(problemDetail).isNotNull();
-        assertThat(problemDetail.getStatus()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR.value());
-    }
-
-    @Test
-    void handleException_shouldHandleNullTraceId() {
-        // Given - no trace ID in MDC
-        RuntimeException exception = new RuntimeException("Error");
-
-        // When
-        ProblemDetail problemDetail = exceptionHandler.handleException(exception);
-
-        // Then
-        assertThat(problemDetail).isNotNull();
-        assertThat(problemDetail.getStatus()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR.value());
-        // When traceId is null, the property is never set, so properties may be null or not contain traceId
-        Map<String, Object> properties = problemDetail.getProperties();
-        if (properties != null) {
-            assertThat(properties).doesNotContainKey("traceId");
-        }
-    }
-
-    private MethodArgumentNotValidException createValidationException(FieldError... fieldErrors) {
-        try {
-            // Create a real MethodParameter with an actual method to avoid NullPointerException
-            Method testMethod = this.getClass().getDeclaredMethod("setUp");
-            MethodParameter methodParameter = new MethodParameter(testMethod, -1);
-
-            BindingResult bindingResult = mock(BindingResult.class);
-            when(bindingResult.getFieldErrors()).thenReturn(List.of(fieldErrors));
-
-            return new MethodArgumentNotValidException(methodParameter, bindingResult);
-        } catch (NoSuchMethodException e) {
-            throw new RuntimeException("Failed to create test MethodParameter", e);
-        }
-    }
+  }
 }

@@ -83,7 +83,7 @@ class ExampleComplianceIT extends IntegrationBase {
         .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/not-found"))
         .andExpect(jsonPath("$.title").value("Resource Not Found"))
         .andExpect(jsonPath("$.detail").value("Example not found with id: " + nonExistentId))
-        .andExpect(jsonPath("$.traceId").value(traceId)); // Trace ID in error response
+        .andExpect(jsonPath("$.trace_id").value(traceId)); // Trace ID in error response
 
     // Verify trace ID in logs
     assertThat(output.toString()).contains(traceId);
@@ -108,7 +108,7 @@ class ExampleComplianceIT extends IntegrationBase {
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/conflict"))
         .andExpect(jsonPath("$.title").value("Resource Conflict"))
-        .andExpect(jsonPath("$.traceId").value(traceId));
+        .andExpect(jsonPath("$.trace_id").value(traceId));
   }
 
   @Test
@@ -124,9 +124,9 @@ class ExampleComplianceIT extends IntegrationBase {
         .andExpect(
             jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/validation-error"))
         .andExpect(jsonPath("$.title").value("Validation Error"))
-        .andExpect(jsonPath("$.errors.name").value("Name is required"))
-        .andExpect(jsonPath("$.errors.value").value("Value is required"))
-        .andExpect(jsonPath("$.traceId").value(traceId));
+        .andExpect(jsonPath("$.errors.name[0]").value("Name is required"))
+        .andExpect(jsonPath("$.errors.value[0]").value("Value is required"))
+        .andExpect(jsonPath("$.trace_id").value(traceId));
   }
 
   @Test

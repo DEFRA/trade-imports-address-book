@@ -1,139 +1,179 @@
 package uk.gov.defra.trade.imports.operators.exceptions;
 
+import com.fasterxml.jackson.databind.BeanDescription;
+import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies.NamingBase;
+import com.fasterxml.jackson.databind.introspect.BeanPropertyDefinition;
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.net.URI;
-import java.util.HashMap;
-import java.util.Map;
-
 /**
- * Global exception handler for REST API error responses.
- * <p>
- * Uses Spring 6 ProblemDetail (RFC 7807) for standardized error responses. Includes request trace
- * ID in error responses for log correlation.
- * <p>
- * CDP Compliance: - Structured error responses with trace ID - Proper HTTP status codes (400, 404,
- * 409, 500) - Validation errors with field-level details - Logs errors with trace ID for
- * troubleshooting
+ * Global exception handler producing RFC 9457 {@code application/problem+json} responses, CDP
+ * problem-family type URIs and a snake_case {@code trace_id} extension (design §1.4, §5).
+ *
+ * <p>The two 400 shapes are deliberately distinct and must not be conflated: a field-validation
+ * failure ({@link MethodArgumentNotValidException}) carries an {@code errors} map keyed by wire
+ * field name; a {@link BadRequestException} (missing identity header, malformed query param)
+ * carries <strong>no</strong> {@code errors} key at all. That is why the contract declares POST/PUT
+ * 400 as {@code anyOf(ValidationProblem, Problem)} rather than {@code oneOf} (design §1.6).
+ *
+ * <p>Error-map keys are resolved to their <em>wire</em> name through the configured
+ * {@link ObjectMapper}, not a blind snake-case of the Java identifier: the naming strategy renders
+ * {@code addressLine1} as {@code address_line1}, but the contract — and the frontend error mapping —
+ * require {@code address_line_1}, which the DTO pins with an explicit {@code @JsonProperty}.
  */
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
 
   private static final String MDC_TRACE_ID = "trace.id";
+  private static final String TRACE_ID_PROPERTY = "trace_id";
+  private static final String PROBLEM_BASE = "https://api.cdp.defra.cloud/problems/";
+  private static final NamingBase SNAKE_CASE =
+      (NamingBase) PropertyNamingStrategies.SNAKE_CASE;
 
-  /**
-   * Handle validation errors (400 Bad Request).
-   */
+  private final ObjectMapper objectMapper;
+
+  public GlobalExceptionHandler(ObjectMapper objectMapper) {
+    this.objectMapper = objectMapper;
+  }
+
+  /** Field validation failure — 400 validation-error, WITH a per-field snake_case errors map. */
   @ExceptionHandler(MethodArgumentNotValidException.class)
-  public ProblemDetail handleValidationException(MethodArgumentNotValidException ex) {
+  public ResponseEntity<ProblemDetail> handleValidationException(
+      MethodArgumentNotValidException ex) {
     String traceId = MDC.get(MDC_TRACE_ID);
     log.warn("Validation error (trace: {}): {}", traceId, ex.getMessage());
 
-    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
-        HttpStatus.BAD_REQUEST,
-        "Validation failed for one or more fields"
-    );
+    ProblemDetail problem =
+        problemDetail(
+            HttpStatus.BAD_REQUEST,
+            "validation-error",
+            "Validation Error",
+            "Validation failed for one or more fields",
+            traceId);
 
-    problemDetail.setType(URI.create("https://api.cdp.defra.cloud/problems/validation-error"));
-    problemDetail.setTitle("Validation Error");
-
-    // Add trace ID for log correlation
-    if (traceId != null) {
-      problemDetail.setProperty("traceId", traceId);
+    BindingResult bindingResult = ex.getBindingResult();
+    Map<String, List<String>> errors = new LinkedHashMap<>();
+    for (FieldError error : bindingResult.getFieldErrors()) {
+      errors
+          .computeIfAbsent(wireFieldName(bindingResult, error.getField()), key -> new ArrayList<>())
+          .add(error.getDefaultMessage());
     }
+    problem.setProperty("errors", errors);
 
-    // Add field-level validation errors
-    Map<String, String> errors = new HashMap<>();
-    for (FieldError error : ex.getBindingResult().getFieldErrors()) {
-      errors.put(error.getField(), error.getDefaultMessage());
-    }
-    problemDetail.setProperty("errors", errors);
-
-    return problemDetail;
+    return problemResponse(HttpStatus.BAD_REQUEST, problem);
   }
 
-  /**
-   * Handle not found errors (404 Not Found).
-   */
+  /** Malformed request that never reached body validation — 400 bad-request, NO errors map. */
+  @ExceptionHandler(BadRequestException.class)
+  public ResponseEntity<ProblemDetail> handleBadRequestException(BadRequestException ex) {
+    String traceId = MDC.get(MDC_TRACE_ID);
+    log.warn("Bad request (trace: {}): {}", traceId, ex.getMessage());
+
+    ProblemDetail problem =
+        problemDetail(
+            HttpStatus.BAD_REQUEST, "bad-request", "Bad Request", ex.getMessage(), traceId);
+
+    return problemResponse(HttpStatus.BAD_REQUEST, problem);
+  }
+
+  /** Unknown / cross-crn id, or a PUT on a tombstone — 404 not-found. */
   @ExceptionHandler(NotFoundException.class)
-  public ProblemDetail handleNotFoundException(NotFoundException ex) {
+  public ResponseEntity<ProblemDetail> handleNotFoundException(NotFoundException ex) {
     String traceId = MDC.get(MDC_TRACE_ID);
     log.warn("Resource not found (trace: {}): {}", traceId, ex.getMessage());
 
-    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
-        HttpStatus.NOT_FOUND,
-        ex.getMessage()
-    );
+    ProblemDetail problem =
+        problemDetail(
+            HttpStatus.NOT_FOUND, "not-found", "Resource Not Found", ex.getMessage(), traceId);
 
-    problemDetail.setType(URI.create("https://api.cdp.defra.cloud/problems/not-found"));
-    problemDetail.setTitle("Resource Not Found");
-
-    if (traceId != null) {
-      problemDetail.setProperty("traceId", traceId);
-    }
-
-    return problemDetail;
+    return problemResponse(HttpStatus.NOT_FOUND, problem);
   }
 
-  /**
-   * Handle conflict errors (409 Conflict).
-   */
+  /** Name-clash conflict (Example CRUD only — removed with the controller increment). */
   @ExceptionHandler(ConflictException.class)
-  public ProblemDetail handleConflictException(ConflictException ex) {
+  public ResponseEntity<ProblemDetail> handleConflictException(ConflictException ex) {
     String traceId = MDC.get(MDC_TRACE_ID);
     log.warn("Resource conflict (trace: {}): {}", traceId, ex.getMessage());
 
-    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
-        HttpStatus.CONFLICT,
-        ex.getMessage()
-    );
+    ProblemDetail problem =
+        problemDetail(
+            HttpStatus.CONFLICT, "conflict", "Resource Conflict", ex.getMessage(), traceId);
 
-    problemDetail.setType(URI.create("https://api.cdp.defra.cloud/problems/conflict"));
-    problemDetail.setTitle("Resource Conflict");
-
-    if (traceId != null) {
-      problemDetail.setProperty("traceId", traceId);
-    }
-
-    return problemDetail;
+    return problemResponse(HttpStatus.CONFLICT, problem);
   }
 
   /**
-   * Handle unexpected errors (500 Internal Server Error).
-   * <p>
-   * Note: Does NOT catch Spring framework exceptions like NoResourceFoundException (404) or other
-   * HTTP-related exceptions. Only catches application-level exceptions. This allows Spring to
-   * handle its own exceptions appropriately (e.g., 404 for missing endpoints).
+   * Unexpected error — 500 internal-error. Does not catch Spring framework exceptions (e.g. a 404
+   * for a missing route), which Spring maps itself.
    */
-  @ExceptionHandler({
-      RuntimeException.class,
-      IllegalStateException.class,
-      IllegalArgumentException.class
-  })
-  public ProblemDetail handleException(Exception ex) {
+  @ExceptionHandler(RuntimeException.class)
+  public ResponseEntity<ProblemDetail> handleException(RuntimeException ex) {
     String traceId = MDC.get(MDC_TRACE_ID);
     log.error("Unexpected error (trace: {}): {}", traceId, ex.getMessage(), ex);
 
-    ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
-        HttpStatus.INTERNAL_SERVER_ERROR,
-        "An unexpected error occurred. Please try again later."
-    );
+    ProblemDetail problem =
+        problemDetail(
+            HttpStatus.INTERNAL_SERVER_ERROR,
+            "internal-error",
+            "Internal Server Error",
+            "An unexpected error occurred. Please try again later.",
+            traceId);
 
-    problemDetail.setType(URI.create("https://api.cdp.defra.cloud/problems/internal-error"));
-    problemDetail.setTitle("Internal Server Error");
+    return problemResponse(HttpStatus.INTERNAL_SERVER_ERROR, problem);
+  }
 
+  private ProblemDetail problemDetail(
+      HttpStatus status, String typeSlug, String title, String detail, String traceId) {
+    ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, detail);
+    problem.setType(URI.create(PROBLEM_BASE + typeSlug));
+    problem.setTitle(title);
     if (traceId != null) {
-      problemDetail.setProperty("traceId", traceId);
+      problem.setProperty(TRACE_ID_PROPERTY, traceId);
     }
+    return problem;
+  }
 
-    return problemDetail;
+  private ResponseEntity<ProblemDetail> problemResponse(HttpStatus status, ProblemDetail problem) {
+    return ResponseEntity.status(status)
+        .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+        .body(problem);
+  }
+
+  /**
+   * Resolves a rejected Java field name to its serialised wire name through the configured
+   * {@link ObjectMapper} — honouring both the global snake_case strategy and any explicit
+   * {@code @JsonProperty} override. Falls back to a plain snake-case when the target bean is
+   * unavailable.
+   */
+  private String wireFieldName(BindingResult bindingResult, String field) {
+    Object target = bindingResult.getTarget();
+    if (target != null) {
+      JavaType javaType = objectMapper.getTypeFactory().constructType(target.getClass());
+      BeanDescription description = objectMapper.getSerializationConfig().introspect(javaType);
+      for (BeanPropertyDefinition property : description.findProperties()) {
+        if (field.equals(property.getInternalName())) {
+          return property.getName();
+        }
+      }
+    }
+    return SNAKE_CASE.translate(field);
   }
 }
