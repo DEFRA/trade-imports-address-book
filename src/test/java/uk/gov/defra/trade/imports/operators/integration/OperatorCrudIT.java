@@ -2,17 +2,21 @@ package uk.gov.defra.trade.imports.operators.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.startsWith;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import uk.gov.defra.trade.imports.operators.operator.Operator;
 import uk.gov.defra.trade.imports.operators.operator.OperatorRepository;
 import uk.gov.defra.trade.imports.operators.operator.OperatorStatus;
+import uk.gov.defra.trade.imports.operators.operator.OperatorType;
 
 /**
  * Full-stack CRUD integration test for {@code /operators}. This increment (inc-005) covers the
@@ -120,5 +124,65 @@ class OperatorCrudIT extends IntegrationBase {
         .andExpect(jsonPath("$.errors.addressLine1").doesNotExist());
 
     assertThat(repository.findAll()).isEmpty();
+  }
+
+  private Operator saveOperator(OperatorStatus status) {
+    Operator operator =
+        Operator.builder()
+            .operatorType(OperatorType.CONSIGNOR)
+            .name("Highland Livestock Ltd")
+            .addressLine1("14 Drover's Way")
+            .town("Inverness")
+            .postcode("IV2 3JH")
+            .country("United Kingdom")
+            .telephone("+44 1463 234567")
+            .email("exports@highlandlivestock.example.com")
+            .crn(CRN)
+            .organisationId(ORGANISATION_ID)
+            .status(status)
+            .createdAt(Instant.parse("2026-07-14T09:15:27Z"))
+            .modifiedAt(Instant.parse("2026-07-14T09:15:27Z"))
+            .build();
+    return repository.save(operator);
+  }
+
+  @Test
+  void getReturns200WithTheOperatorAndItsStatusField() throws Exception {
+    Operator saved = saveOperator(OperatorStatus.ACTIVE);
+
+    mockMvc
+        .perform(get("/operators/{operator-id}", saved.getId()).header("Trade-Imports-Crn", CRN))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(saved.getId()))
+        .andExpect(jsonPath("$.name").value("Highland Livestock Ltd"))
+        .andExpect(jsonPath("$.country").value("United Kingdom"))
+        .andExpect(jsonPath("$.crn").value(CRN))
+        .andExpect(jsonPath("$.status").value("ACTIVE"));
+  }
+
+  @Test
+  void getOfADeletedTombstoneReturns200WithStatusDeletedNotA404() throws Exception {
+    // EUDPA-293.AC2: a tombstone stays FETCHABLE so a consumer can detect "the user deleted this"
+    // (200 + DELETED) as distinct from "unknown / not yours" (404).
+    Operator saved = saveOperator(OperatorStatus.DELETED);
+
+    mockMvc
+        .perform(get("/operators/{operator-id}", saved.getId()).header("Trade-Imports-Crn", CRN))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(saved.getId()))
+        .andExpect(jsonPath("$.status").value("DELETED"));
+  }
+
+  @Test
+  void getOfAnUnknownIdReturns404NotFoundProblem() throws Exception {
+    mockMvc
+        .perform(get("/operators/{operator-id}", "665f1c2ab3e4d51a2c9d0e77").header("Trade-Imports-Crn", CRN))
+        .andExpect(status().isNotFound())
+        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/not-found"))
+        .andExpect(jsonPath("$.title").value("Resource Not Found"))
+        .andExpect(jsonPath("$.status").value(404))
+        // 404 carries no errors map — it is not a validation failure.
+        .andExpect(jsonPath("$.errors").doesNotExist());
   }
 }

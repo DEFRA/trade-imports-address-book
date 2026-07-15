@@ -1,5 +1,6 @@
 package uk.gov.defra.trade.imports.operators.operator;
 
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -36,5 +37,20 @@ public class OperatorService {
     Operator saved = repository.save(operator);
     log.info("Created operator {}", saved.getId());
     return saved;
+  }
+
+  /**
+   * Fetches one operator by id within the caller's crn scope, tombstones included. A
+   * soft-deleted operator is returned WITH {@code status DELETED} so a consumer can tell "deleted"
+   * (present, DELETED) from "unknown or not yours" (empty &rarr; 404) — c-003 / EUDPA-293.AC2. An id
+   * outside the caller's crn is indistinguishable from an unknown id: both are empty, so 404 leaks
+   * no existence across organisations (c-001).
+   *
+   * @param id the operator id
+   * @param crn the caller's company reference number, from the identity header
+   * @return the operator if it exists in the caller's scope, otherwise empty
+   */
+  public Optional<Operator> get(String id, String crn) {
+    return repository.findByIdAndCrn(id, crn);
   }
 }

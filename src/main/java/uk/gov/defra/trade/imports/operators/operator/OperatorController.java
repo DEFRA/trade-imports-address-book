@@ -12,11 +12,14 @@ import java.net.URI;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import uk.gov.defra.trade.imports.operators.exceptions.NotFoundException;
 import uk.gov.defra.trade.imports.operators.exceptions.Problem;
 import uk.gov.defra.trade.imports.operators.exceptions.ValidationProblem;
 
@@ -72,5 +75,40 @@ public class OperatorController {
     Operator created = operatorService.create(request, crn, organisationId);
     URI location = URI.create("/operators/" + created.getId());
     return ResponseEntity.created(location).body(OperatorMapper.toResponse(created));
+  }
+
+  /**
+   * Fetches one operator by id within the caller's crn scope, tombstones included. A DELETED
+   * operator is returned with 200 and {@code status: DELETED} so the caller can detect a deletion
+   * (c-003 / EUDPA-293.AC2); an unknown id, or one belonging to another crn, is a 404 (c-001 —
+   * existence is never leaked). A 404 is therefore NOT a deletion signal: only the tombstone is.
+   *
+   * @param crn the caller's company reference number, from {@code Trade-Imports-Crn}
+   * @param operatorId the opaque operator id from the path
+   * @return 200 with the operator (status ACTIVE or DELETED)
+   */
+  @GetMapping("/{operator-id}")
+  @Operation(
+      operationId = "get-operator",
+      summary = "Fetch one operator, including tombstones")
+  @ApiResponses({
+    @ApiResponse(responseCode = "200", description = "The operator (status ACTIVE or DELETED)"),
+    @ApiResponse(
+        responseCode = "404",
+        description = "Unknown id, or an id outside the caller's crn scope",
+        content =
+            @Content(
+                mediaType = "application/problem+json",
+                schema = @Schema(implementation = Problem.class)))
+  })
+  @Timed("controller.getOperator.time")
+  public OperatorResponse get(
+      @RequestHeader(CRN_HEADER) String crn, @PathVariable("operator-id") String operatorId) {
+    log.info("GET /operators/{}", operatorId);
+    Operator operator =
+        operatorService
+            .get(operatorId, crn)
+            .orElseThrow(() -> new NotFoundException("Operator not found"));
+    return OperatorMapper.toResponse(operator);
   }
 }
