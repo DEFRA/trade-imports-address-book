@@ -35,9 +35,9 @@ class OperatorScopingIT extends IntegrationBase {
   private static final String CREATE_BODY =
       """
       {
-        "operator_type": "CONSIGNOR",
+        "operatorType": "CONSIGNOR",
         "name": "Highland Livestock Ltd",
-        "address_line_1": "14 Drover's Way",
+        "addressLine1": "14 Drover's Way",
         "town": "Inverness",
         "postcode": "IV2 3JH",
         "country": "United Kingdom",
@@ -79,7 +79,7 @@ class OperatorScopingIT extends IntegrationBase {
         .perform(get("/operators").header("Trade-Imports-Crn", CRN_B))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items").isEmpty())
-        .andExpect(jsonPath("$.total_items").value(0));
+        .andExpect(jsonPath("$.totalItems").value(0));
 
     // crn B gets 404 on GET / PUT / DELETE of A's id
     mockMvc
@@ -107,7 +107,7 @@ class OperatorScopingIT extends IntegrationBase {
   void organisationIdIsPersistedButNotUsedToFilterReads() throws Exception {
     String id = createAsCrnA();
 
-    // both crn and organisation_id are stored (the c-001 both-stored ruling)
+    // both crn and organisationId are stored (the c-001 both-stored ruling)
     assertThat(repository.findById(id))
         .get()
         .satisfies(
@@ -121,11 +121,11 @@ class OperatorScopingIT extends IntegrationBase {
         .perform(get("/operators/{operator-id}", id).header("Trade-Imports-Crn", CRN_A))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(id))
-        .andExpect(jsonPath("$.organisation_id").value(ORG_A));
+        .andExpect(jsonPath("$.organisationId").value(ORG_A));
     mockMvc
         .perform(get("/operators").header("Trade-Imports-Crn", CRN_A))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.total_items").value(1));
+        .andExpect(jsonPath("$.totalItems").value(1));
   }
 
   @Test
@@ -158,7 +158,7 @@ class OperatorScopingIT extends IntegrationBase {
   void a404ForAnotherCrnsLiveOperatorIsIdenticalToA404ForAnUnknownId() throws Exception {
     String liveId = createAsCrnA();
 
-    // crn B fetching crn A's LIVE operator — no trace header, so the body has no trace_id
+    // crn B fetching crn A's LIVE operator — no trace header, so the body has no traceId
     MvcResult crossCrn =
         mockMvc
             .perform(get("/operators/{operator-id}", liveId).header("Trade-Imports-Crn", CRN_B))

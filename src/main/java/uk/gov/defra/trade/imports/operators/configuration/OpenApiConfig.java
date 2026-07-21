@@ -7,11 +7,11 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * Binds springdoc's schema generation to the application {@link ObjectMapper} (design §1.6). Without
- * this, swagger-core resolves models through its own default mapper and emits camelCase property
- * names ({@code operatorType}), so the generated {@code /v3/api-docs} would diverge from both the
- * snake_case runtime wire and the locked contract — the exact divergence {@code OperatorComplianceIT}
- * fails the build on. The {@link ModelResolver} makes the {@link JacksonConfig} snake_case naming
- * strategy authoritative for the generated document too.
+ * this, swagger-core resolves models through its own default mapper, so the generated
+ * {@code /v3/api-docs} could diverge from the runtime wire and the locked contract — the exact
+ * divergence {@code OperatorComplianceIT} fails the build on. The {@link ModelResolver} makes the
+ * {@link JacksonConfig} camelCase naming strategy (cv-001) authoritative for the generated document
+ * too.
  */
 @Configuration
 public class OpenApiConfig {

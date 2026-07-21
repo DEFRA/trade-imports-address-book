@@ -1,11 +1,5 @@
 package uk.gov.defra.trade.imports.operators.exceptions;
 
-import com.fasterxml.jackson.databind.BeanDescription;
-import com.fasterxml.jackson.databind.JavaType;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.PropertyNamingStrategies;
-import com.fasterxml.jackson.databind.PropertyNamingStrategies.NamingBase;
-import com.fasterxml.jackson.databind.introspect.BeanPropertyDefinition;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -17,7 +11,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -26,7 +19,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 /**
  * Global exception handler producing RFC 9457 {@code application/problem+json} responses, CDP
- * problem-family type URIs and a snake_case {@code trace_id} extension (design §1.4, §5).
+ * problem-family type URIs and a camelCase {@code traceId} extension (design §1.4, §5).
  *
  * <p>The two 400 shapes are deliberately distinct and must not be conflated: a field-validation
  * failure ({@link MethodArgumentNotValidException}) carries an {@code errors} map keyed by wire
@@ -34,28 +27,18 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
  * carries <strong>no</strong> {@code errors} key at all. That is why the contract declares POST/PUT
  * 400 as {@code anyOf(ValidationProblem, Problem)} rather than {@code oneOf} (design §1.6).
  *
- * <p>Error-map keys are resolved to their <em>wire</em> name through the configured
- * {@link ObjectMapper}, not a blind snake-case of the Java identifier: the naming strategy renders
- * {@code addressLine1} as {@code address_line1}, but the contract — and the frontend error mapping —
- * require {@code address_line_1}, which the DTO pins with an explicit {@code @JsonProperty}.
+ * <p>The wire is camelCase (cv-001), so an error-map key is the rejected field's Java name
+ * verbatim ({@code addressLine1}) — the same name the frontend error mapping expects.
  */
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
 
   private static final String MDC_TRACE_ID = "trace.id";
-  private static final String TRACE_ID_PROPERTY = "trace_id";
+  private static final String TRACE_ID_PROPERTY = "traceId";
   private static final String PROBLEM_BASE = "https://api.cdp.defra.cloud/problems/";
-  private static final NamingBase SNAKE_CASE =
-      (NamingBase) PropertyNamingStrategies.SNAKE_CASE;
 
-  private final ObjectMapper objectMapper;
-
-  public GlobalExceptionHandler(ObjectMapper objectMapper) {
-    this.objectMapper = objectMapper;
-  }
-
-  /** Field validation failure — 400 validation-error, WITH a per-field snake_case errors map. */
+  /** Field validation failure — 400 validation-error, WITH a per-field camelCase errors map. */
   @ExceptionHandler(MethodArgumentNotValidException.class)
   public ResponseEntity<ProblemDetail> handleValidationException(
       MethodArgumentNotValidException ex) {
@@ -70,11 +53,10 @@ public class GlobalExceptionHandler {
             "Validation failed for one or more fields",
             traceId);
 
-    BindingResult bindingResult = ex.getBindingResult();
     Map<String, List<String>> errors = new LinkedHashMap<>();
-    for (FieldError error : bindingResult.getFieldErrors()) {
+    for (FieldError error : ex.getBindingResult().getFieldErrors()) {
       errors
-          .computeIfAbsent(wireFieldName(bindingResult, error.getField()), key -> new ArrayList<>())
+          .computeIfAbsent(error.getField(), key -> new ArrayList<>())
           .add(error.getDefaultMessage());
     }
     problem.setProperty("errors", errors);
@@ -84,9 +66,9 @@ public class GlobalExceptionHandler {
 
   /**
    * Service-layer field-validation failure — 400 validation-error, WITH a per-field errors map. The
-   * {@code operator_type} immutability rejection on PUT lands here; the map is keyed by the
-   * snake_case wire field name already (the service supplies wire keys), producing an identical
-   * shape to the bean-validation 400.
+   * {@code operatorType} immutability rejection on PUT lands here; the map is keyed by the camelCase
+   * wire field name already (the service supplies wire keys), producing an identical shape to the
+   * bean-validation 400.
    */
   @ExceptionHandler(ValidationException.class)
   public ResponseEntity<ProblemDetail> handleServiceValidationException(ValidationException ex) {
@@ -187,25 +169,5 @@ public class GlobalExceptionHandler {
     return ResponseEntity.status(status)
         .contentType(MediaType.APPLICATION_PROBLEM_JSON)
         .body(problem);
-  }
-
-  /**
-   * Resolves a rejected Java field name to its serialised wire name through the configured
-   * {@link ObjectMapper} — honouring both the global snake_case strategy and any explicit
-   * {@code @JsonProperty} override. Falls back to a plain snake-case when the target bean is
-   * unavailable.
-   */
-  private String wireFieldName(BindingResult bindingResult, String field) {
-    Object target = bindingResult.getTarget();
-    if (target != null) {
-      JavaType javaType = objectMapper.getTypeFactory().constructType(target.getClass());
-      BeanDescription description = objectMapper.getSerializationConfig().introspect(javaType);
-      for (BeanPropertyDefinition property : description.findProperties()) {
-        if (field.equals(property.getInternalName())) {
-          return property.getName();
-        }
-      }
-    }
-    return SNAKE_CASE.translate(field);
   }
 }

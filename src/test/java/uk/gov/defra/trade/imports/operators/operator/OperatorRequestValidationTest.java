@@ -22,8 +22,8 @@ import org.junit.jupiter.params.provider.MethodSource;
  * max-length, the email format leg, and the class-level {@code @ValidTransporterFields} cross-field
  * rule both ways (c-007).
  *
- * <p>Keys here are the Java property paths (e.g. {@code addressLine1}); the snake_case wire keys
- * ({@code address_line_1}) are asserted end-to-end through the real handler in {@code OperatorCrudIT}.
+ * <p>Keys here are the Java property paths (e.g. {@code addressLine1}); the wire keys are identical
+ * (camelCase, cv-001) and asserted end-to-end through the real handler in {@code OperatorCrudIT}.
  */
 class OperatorRequestValidationTest {
 

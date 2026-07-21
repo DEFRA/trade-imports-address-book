@@ -161,9 +161,9 @@ public class OperatorController {
   }
 
   /**
-   * Replaces an operator's mutable fields. {@code operator_type} is immutable: a body whose type
+   * Replaces an operator's mutable fields. {@code operatorType} is immutable: a body whose type
    * differs from the stored value is rejected with a 400 validation error keyed
-   * {@code operator_type} (not silently ignored). {@code modified_at} is bumped on success (audit
+   * {@code operatorType} (not silently ignored). {@code modifiedAt} is bumped on success (audit
    * only — c-017; a notification's embedded operator copy is not refreshed by the edit). An unknown
    * id, an id outside the caller's crn, or a soft-deleted tombstone all yield a 404 — tombstones are
    * outside the caller's live set and existence is never leaked.
@@ -181,7 +181,7 @@ public class OperatorController {
     @ApiResponse(responseCode = "200", description = "Updated operator with bumped modified_at"),
     @ApiResponse(
         responseCode = "400",
-        description = "Validation error (including an operator_type change), or a missing crn header",
+        description = "Validation error (including an operatorType change), or a missing crn header",
         content =
             @Content(
                 mediaType = "application/problem+json",

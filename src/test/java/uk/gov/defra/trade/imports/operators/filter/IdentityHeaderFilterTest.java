@@ -44,7 +44,8 @@ class IdentityHeaderFilterTest {
 
   @BeforeEach
   void setUp() {
-    objectMapper = new ObjectMapper().setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
+    objectMapper =
+        new ObjectMapper().setPropertyNamingStrategy(PropertyNamingStrategies.LOWER_CAMEL_CASE);
     filter = new IdentityHeaderFilter(objectMapper);
     MDC.clear();
   }
@@ -160,7 +161,7 @@ class IdentityHeaderFilterTest {
 
     filter.doFilter(request, response, new RecordingChain());
 
-    assertThat(parseBody(response)).containsEntry("trace_id", "trace-abc-123");
+    assertThat(parseBody(response)).containsEntry("traceId", "trace-abc-123");
   }
 
   @Test

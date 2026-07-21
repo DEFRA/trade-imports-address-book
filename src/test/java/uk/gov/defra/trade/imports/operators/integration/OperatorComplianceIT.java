@@ -27,9 +27,9 @@ import uk.gov.defra.trade.imports.operators.operator.OperatorRepository;
  * Executable contract lock for {@code /operators} (design §1.6, §9.2 — the M1 close). Two halves:
  *
  * <ol>
- *   <li><b>Runtime wire behaviour</b> — real requests prove the boundary is snake_case, enums are
+ *   <li><b>Runtime wire behaviour</b> — real requests prove the boundary is camelCase, enums are
  *       UPPER_SNAKE_CASE, the list response is a top-level object (never a bare array), and 400/404
- *       problems are {@code application/problem+json} carrying {@code trace_id}.
+ *       problems are {@code application/problem+json} carrying {@code traceId}.
  *   <li><b>Generated document lock</b> — the live {@code /v3/api-docs} is parsed and asserted to
  *       carry the whole contract surface, including the POST/PUT 400 {@code anyOf} (NOT
  *       {@code oneOf}) with both {@code ValidationProblem} and {@code Problem} registered; it is
@@ -52,9 +52,9 @@ class OperatorComplianceIT extends IntegrationBase {
   private static final String CREATE_BODY =
       """
       {
-        "operator_type": "CONSIGNOR",
+        "operatorType": "CONSIGNOR",
         "name": "Highland Livestock Ltd",
-        "address_line_1": "14 Drover's Way",
+        "addressLine1": "14 Drover's Way",
         "town": "Inverness",
         "postcode": "IV2 3JH",
         "country": "United Kingdom",
@@ -73,7 +73,7 @@ class OperatorComplianceIT extends IntegrationBase {
   // ---- runtime wire behaviour -------------------------------------------------------------
 
   @Test
-  void createAndReadEmitSnakeCasePropertiesAndUpperSnakeEnums() throws Exception {
+  void createAndReadEmitCamelCasePropertiesAndUpperSnakeEnums() throws Exception {
     mockMvc
         .perform(
             post("/operators")
@@ -82,15 +82,15 @@ class OperatorComplianceIT extends IntegrationBase {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(CREATE_BODY))
         .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.operator_type").value("CONSIGNOR"))
-        .andExpect(jsonPath("$.address_line_1").value("14 Drover's Way"))
-        .andExpect(jsonPath("$.organisation_id").value(ORGANISATION_ID))
-        .andExpect(jsonPath("$.created_at").exists())
-        .andExpect(jsonPath("$.modified_at").exists())
+        .andExpect(jsonPath("$.operatorType").value("CONSIGNOR"))
+        .andExpect(jsonPath("$.addressLine1").value("14 Drover's Way"))
+        .andExpect(jsonPath("$.organisationId").value(ORGANISATION_ID))
+        .andExpect(jsonPath("$.createdAt").exists())
+        .andExpect(jsonPath("$.modifiedAt").exists())
         .andExpect(jsonPath("$.status").value("ACTIVE"))
-        // never the camelCase Java identifiers
-        .andExpect(jsonPath("$.operatorType").doesNotExist())
-        .andExpect(jsonPath("$.addressLine1").doesNotExist());
+        // never the snake_case forms
+        .andExpect(jsonPath("$.operator_type").doesNotExist())
+        .andExpect(jsonPath("$.address_line_1").doesNotExist());
   }
 
   @Test
@@ -110,10 +110,10 @@ class OperatorComplianceIT extends IntegrationBase {
         .andExpect(jsonPath("$").isMap())
         .andExpect(jsonPath("$.items").isArray())
         .andExpect(jsonPath("$.page").value(1))
-        .andExpect(jsonPath("$.page_size").value(25))
-        .andExpect(jsonPath("$.total_items").value(1))
-        .andExpect(jsonPath("$.total_pages").value(1))
-        .andExpect(jsonPath("$.items[0].operator_type").value("CONSIGNOR"));
+        .andExpect(jsonPath("$.pageSize").value(25))
+        .andExpect(jsonPath("$.totalItems").value(1))
+        .andExpect(jsonPath("$.totalPages").value(1))
+        .andExpect(jsonPath("$.items[0].operatorType").value("CONSIGNOR"));
   }
 
   @Test
@@ -128,12 +128,12 @@ class OperatorComplianceIT extends IntegrationBase {
         .andExpect(status().isNotFound())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
         .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/not-found"))
-        .andExpect(jsonPath("$.trace_id").value(traceId))
+        .andExpect(jsonPath("$.traceId").value(traceId))
         .andExpect(jsonPath("$.errors").doesNotExist());
   }
 
   @Test
-  void validationProblemCarriesSnakeCaseErrorsMapAndTraceId() throws Exception {
+  void validationProblemCarriesCamelCaseErrorsMapAndTraceId() throws Exception {
     String traceId = UUID.randomUUID().toString();
     String badBody = CREATE_BODY.replace("\"14 Drover's Way\"", "\"\"");
 
@@ -148,20 +148,20 @@ class OperatorComplianceIT extends IntegrationBase {
         .andExpect(status().isBadRequest())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
         .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/validation-error"))
-        .andExpect(jsonPath("$.trace_id").value(traceId))
-        .andExpect(jsonPath("$.errors.address_line_1").exists())
-        .andExpect(jsonPath("$.errors.addressLine1").doesNotExist());
+        .andExpect(jsonPath("$.traceId").value(traceId))
+        .andExpect(jsonPath("$.errors.addressLine1").exists())
+        .andExpect(jsonPath("$.errors.address_line_1").doesNotExist());
   }
 
   // ---- generated document lock ------------------------------------------------------------
 
   @Test
   @SuppressWarnings("unchecked")
-  void apiDocsCarryTheWholeSnakeCaseEnumAndAnyOfContractSurface() {
+  void apiDocsCarryTheWholeCamelCaseEnumAndAnyOfContractSurface() {
     Map<String, Object> doc = fetchApiDocs();
     Map<String, Object> schemas = (Map<String, Object>) nested(doc, "components", "schemas");
 
-    // every wire property across every schema is snake_case (no camelCase leak)
+    // every wire property across every schema is camelCase (no snake_case leak)
     schemas.forEach(
         (schemaName, schema) -> {
           Object properties = ((Map<String, Object>) schema).get("properties");
@@ -171,13 +171,13 @@ class OperatorComplianceIT extends IntegrationBase {
                 .forEach(
                     key ->
                         assertThat((String) key)
-                            .as("wire property %s.%s must be snake_case", schemaName, key)
-                            .matches("[a-z0-9_]+"));
+                            .as("wire property %s.%s must be camelCase", schemaName, key)
+                            .matches("[a-z][a-zA-Z0-9]*"));
           }
         });
 
     // enums are UPPER_SNAKE_CASE and complete (springdoc inlines them on the referencing property)
-    assertThat(enumAt(schemas, "OperatorRequest", "operator_type"))
+    assertThat(enumAt(schemas, "OperatorRequest", "operatorType"))
         .containsExactly(
             "PLACE_OF_ORIGIN",
             "CONSIGNOR",
@@ -187,7 +187,7 @@ class OperatorComplianceIT extends IntegrationBase {
             "TRANSPORTER",
             "BRANCH_ADDRESS");
     assertThat(enumAt(schemas, "OperatorResponse", "status")).containsExactly("ACTIVE", "DELETED");
-    assertThat(enumAt(schemas, "OperatorRequest", "transporter_category"))
+    assertThat(enumAt(schemas, "OperatorRequest", "transporterCategory"))
         .containsExactly("PRIVATE", "COMMERCIAL");
 
     // the list schema is a top-level object with an items array, never a bare array (OpenAPI 3.1
@@ -195,7 +195,7 @@ class OperatorComplianceIT extends IntegrationBase {
     Map<String, Object> page = pageSchema(schemas);
     assertThat(page).doesNotContainEntry("type", "array");
     Map<String, Object> pageProps = (Map<String, Object>) page.get("properties");
-    assertThat(pageProps).containsKeys("items", "page", "page_size", "total_items", "total_pages");
+    assertThat(pageProps).containsKeys("items", "page", "pageSize", "totalItems", "totalPages");
     assertThat(nested(pageProps, "items", "type")).isEqualTo("array");
     // and the list operation returns that object by reference, not an inline array
     assertThat(listResponseSchemaRef(doc)).endsWith("/OperatorPageResponse");

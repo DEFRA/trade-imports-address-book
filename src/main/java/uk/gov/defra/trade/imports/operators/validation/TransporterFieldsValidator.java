@@ -7,8 +7,8 @@ import uk.gov.defra.trade.imports.operators.operator.OperatorType;
 
 /**
  * Validator for {@link ValidTransporterFields}. Reports a per-field violation (property node
- * {@code approvalNumber} / {@code transporterCategory}) so the failure keys the same snake_case
- * {@code errors} map the field-level constraints do, once the handler resolves the wire name.
+ * {@code approvalNumber} / {@code transporterCategory}) so the failure keys the same camelCase
+ * {@code errors} map the field-level constraints do — the wire name is the Java field name.
  *
  * <p>A null or missing {@code operatorType} is left to {@code @NotNull} — an absent type is not a
  * non-TRANSPORTER type, so the cross-field rule stays silent and does not double up on the missing

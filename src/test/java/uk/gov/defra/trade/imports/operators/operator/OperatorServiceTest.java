@@ -235,7 +235,7 @@ class OperatorServiceTest {
                 assertThat(ex.getErrors())
                     .containsExactly(
                         org.assertj.core.api.Assertions.entry(
-                            "operator_type", List.of("Operator type cannot be changed"))));
+                            "operatorType", List.of("Operator type cannot be changed"))));
   }
 
   @Test

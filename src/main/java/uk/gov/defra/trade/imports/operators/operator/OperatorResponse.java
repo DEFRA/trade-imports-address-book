@@ -1,15 +1,13 @@
 package uk.gov.defra.trade.imports.operators.operator;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Instant;
 import java.util.Objects;
 import lombok.Builder;
 
 /**
  * Operator wire response — the object the entity is mapped onto so the locked contract is decoupled
- * from persistence (the {@code @Document} entity is never serialised). The wire is snake_case; the
- * two digit-bearing fields carry an explicit {@code @JsonProperty} for {@code address_line_1} /
- * {@code address_line_2}, which the naming strategy cannot produce.
+ * from persistence (the {@code @Document} entity is never serialised). The wire is camelCase, so
+ * every field serialises under its Java name.
  *
  * <p>Server-constructed and always-present fields are null-guarded in the compact constructor
  * (service-boundary rule): a null here is a server bug and fails loud, not a malformed wire value.
@@ -21,8 +19,8 @@ public record OperatorResponse(
     String id,
     OperatorType operatorType,
     String name,
-    @JsonProperty("address_line_1") String addressLine1,
-    @JsonProperty("address_line_2") String addressLine2,
+    String addressLine1,
+    String addressLine2,
     String town,
     String county,
     String postcode,

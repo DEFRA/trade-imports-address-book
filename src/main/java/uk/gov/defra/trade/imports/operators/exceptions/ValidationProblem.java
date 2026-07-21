@@ -14,15 +14,15 @@ import java.util.Map;
  * contract uses {@code anyOf} and not {@code oneOf}: {@code oneOf} would reject the commonest 400
  * this service returns. Do not "tidy" it back to {@code oneOf}.
  *
- * <p>The {@code errors} keys are always the snake_case wire field names ({@code address_line_1},
- * never {@code addressLine1}) — the frontend error mapping depends on it.
+ * <p>The {@code errors} keys are always the camelCase wire field names ({@code addressLine1}) — the
+ * frontend error mapping depends on it.
  *
  * @param type one of the CDP problem-family URIs
  * @param title short human-readable summary
  * @param status HTTP status code
  * @param detail human-readable explanation, may be {@code null}
  * @param traceId x-cdp-request-id correlation value, may be {@code null}
- * @param errors map of snake_case wire field name to its list of messages
+ * @param errors map of camelCase wire field name to its list of messages
  */
 public record ValidationProblem(
     String type,

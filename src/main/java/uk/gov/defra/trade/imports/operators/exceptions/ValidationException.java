@@ -5,10 +5,10 @@ import java.util.Map;
 
 /**
  * A field-validation failure raised by the service layer rather than by Bean Validation — the
- * {@code operator_type} immutability rule on PUT (design §1.5: a body type differing from the stored
+ * {@code operatorType} immutability rule on PUT (design §1.5: a body type differing from the stored
  * value is rejected, not silently ignored). Mapped by {@link GlobalExceptionHandler} to the same 400
  * <em>validation-error</em> problem as a {@link org.springframework.web.bind.MethodArgumentNotValidException},
- * carrying a per-field {@code errors} map keyed by the snake_case wire field name — so the frontend
+ * carrying a per-field {@code errors} map keyed by the camelCase wire field name — so the frontend
  * error mapping treats a business-rule rejection identically to a bean-validation one.
  */
 public class ValidationException extends RuntimeException {

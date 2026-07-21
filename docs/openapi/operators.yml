@@ -66,7 +66,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/OperatorResponse'
         '400':
-          description: Validation error (including an operator_type change), or a missing crn header
+          description: Validation error (including an operatorType change), or a missing crn header
           content:
             application/problem+json:
               schema:
@@ -210,7 +210,7 @@ components:
   schemas:
     OperatorRequest:
       properties:
-        operator_type:
+        operatorType:
           type: string
           enum:
           - PLACE_OF_ORIGIN
@@ -224,11 +224,11 @@ components:
           type: string
           maxLength: 255
           minLength: 0
-        address_line_1:
+        addressLine1:
           type: string
           maxLength: 255
           minLength: 0
-        address_line_2:
+        addressLine2:
           type: string
           maxLength: 255
           minLength: 0
@@ -256,21 +256,21 @@ components:
           type: string
           maxLength: 254
           minLength: 0
-        approval_number:
+        approvalNumber:
           type: string
           maxLength: 255
           minLength: 0
-        transporter_category:
+        transporterCategory:
           type: string
           enum:
           - PRIVATE
           - COMMERCIAL
       required:
-      - address_line_1
+      - addressLine1
       - country
       - email
       - name
-      - operator_type
+      - operatorType
       - postcode
       - telephone
       - town
@@ -285,7 +285,7 @@ components:
           format: int32
         detail:
           type: string
-        trace_id:
+        traceId:
           type: string
         errors:
           type: object
@@ -304,13 +304,13 @@ components:
           format: int32
         detail:
           type: string
-        trace_id:
+        traceId:
           type: string
     OperatorResponse:
       properties:
         id:
           type: string
-        operator_type:
+        operatorType:
           type: string
           enum:
           - PLACE_OF_ORIGIN
@@ -322,9 +322,9 @@ components:
           - BRANCH_ADDRESS
         name:
           type: string
-        address_line_1:
+        addressLine1:
           type: string
-        address_line_2:
+        addressLine2:
           type: string
         town:
           type: string
@@ -338,26 +338,26 @@ components:
           type: string
         email:
           type: string
-        approval_number:
+        approvalNumber:
           type: string
-        transporter_category:
+        transporterCategory:
           type: string
           enum:
           - PRIVATE
           - COMMERCIAL
         crn:
           type: string
-        organisation_id:
+        organisationId:
           type: string
         status:
           type: string
           enum:
           - ACTIVE
           - DELETED
-        created_at:
+        createdAt:
           type: string
           format: date-time
-        modified_at:
+        modifiedAt:
           type: string
           format: date-time
     OperatorPageResponse:
@@ -369,12 +369,12 @@ components:
         page:
           type: integer
           format: int32
-        page_size:
+        pageSize:
           type: integer
           format: int32
-        total_items:
+        totalItems:
           type: integer
           format: int32
-        total_pages:
+        totalPages:
           type: integer
           format: int32

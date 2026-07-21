@@ -16,7 +16,7 @@ class OperatorMapperTest {
   private final ObjectMapper mapper =
       new ObjectMapper()
           .findAndRegisterModules()
-          .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
+          .setPropertyNamingStrategy(PropertyNamingStrategies.LOWER_CAMEL_CASE)
           .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
   private Operator sampleEntity() {
@@ -67,39 +67,39 @@ class OperatorMapperTest {
   }
 
   @Test
-  void response_serialisesEntirelyInSnakeCaseWithUpperSnakeEnums() throws Exception {
+  void response_serialisesEntirelyInCamelCaseWithUpperSnakeEnums() throws Exception {
     OperatorResponse response = OperatorMapper.toResponse(sampleEntity());
 
     JsonNode json = mapper.valueToTree(response);
 
-    // Digit-bearing fields cannot be produced by the naming strategy alone — the wire
-    // name must be address_line_1 / address_line_2, never address_line1.
-    assertThat(json.has("address_line_1")).isTrue();
-    assertThat(json.has("address_line_2")).isTrue();
-    assertThat(json.has("addressLine1")).isFalse();
+    // Every field serialises under its Java name — the digit-bearing fields are addressLine1 /
+    // addressLine2, never the snake_case address_line_1.
+    assertThat(json.has("addressLine1")).isTrue();
+    assertThat(json.has("addressLine2")).isTrue();
+    assertThat(json.has("address_line_1")).isFalse();
     assertThat(json.has("address_line1")).isFalse();
 
-    assertThat(json.has("operator_type")).isTrue();
-    assertThat(json.has("transporter_category")).isTrue();
-    assertThat(json.has("approval_number")).isTrue();
-    assertThat(json.has("organisation_id")).isTrue();
-    assertThat(json.has("created_at")).isTrue();
-    assertThat(json.has("modified_at")).isTrue();
+    assertThat(json.has("operatorType")).isTrue();
+    assertThat(json.has("transporterCategory")).isTrue();
+    assertThat(json.has("approvalNumber")).isTrue();
+    assertThat(json.has("organisationId")).isTrue();
+    assertThat(json.has("createdAt")).isTrue();
+    assertThat(json.has("modifiedAt")).isTrue();
 
-    assertThat(json.get("operator_type").asText()).isEqualTo("TRANSPORTER");
-    assertThat(json.get("transporter_category").asText()).isEqualTo("COMMERCIAL");
+    assertThat(json.get("operatorType").asText()).isEqualTo("TRANSPORTER");
+    assertThat(json.get("transporterCategory").asText()).isEqualTo("COMMERCIAL");
     assertThat(json.get("status").asText()).isEqualTo("ACTIVE");
   }
 
   @Test
-  void request_deserialisesFromSnakeCaseAndMapsOntoAnEntity() throws Exception {
+  void request_deserialisesFromCamelCaseAndMapsOntoAnEntity() throws Exception {
     String body =
         """
         {
-          "operator_type": "IMPORTER",
+          "operatorType": "IMPORTER",
           "name": "Port Importers Ltd",
-          "address_line_1": "7 Quay Road",
-          "address_line_2": "Berth 4",
+          "addressLine1": "7 Quay Road",
+          "addressLine2": "Berth 4",
           "town": "Dover",
           "county": "Kent",
           "postcode": "CT16 1AA",
@@ -135,9 +135,9 @@ class OperatorMapperTest {
     String body =
         """
         {
-          "operator_type": "NOT_A_REAL_TYPE",
+          "operatorType": "NOT_A_REAL_TYPE",
           "name": "x",
-          "address_line_1": "y",
+          "addressLine1": "y",
           "town": "z",
           "postcode": "p",
           "country": "c",

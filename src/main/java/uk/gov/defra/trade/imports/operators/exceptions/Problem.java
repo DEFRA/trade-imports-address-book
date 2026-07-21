@@ -8,9 +8,7 @@ package uk.gov.defra.trade.imports.operators.exceptions;
  * {@code @Schema(anyOf = {ValidationProblem.class, Problem.class})} (design §1.6). It carries no
  * {@code errors} map — that is what distinguishes a bad-request from a {@link ValidationProblem}.
  *
- * <p>{@code trace_id} is snake_case by literal field name — a deliberate divergence from the
- * animals-backend's camelCase {@code traceId}; this is a new API surface and the locked contract
- * fixes the wire name.
+ * <p>{@code traceId} is camelCase (cv-001), matching the animals-backend and reference-data.
  *
  * @param type one of the CDP problem-family URIs
  * @param title short human-readable summary

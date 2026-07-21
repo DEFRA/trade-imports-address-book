@@ -4,8 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import java.lang.reflect.Method;
 import java.net.URI;
 import java.util.List;
@@ -22,7 +20,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import uk.gov.defra.trade.imports.operators.operator.OperatorRequest;
 
 class GlobalExceptionHandlerTest {
 
@@ -30,9 +27,7 @@ class GlobalExceptionHandlerTest {
 
   @BeforeEach
   void setUp() {
-    ObjectMapper objectMapper =
-        new ObjectMapper().setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
-    exceptionHandler = new GlobalExceptionHandler(objectMapper);
+    exceptionHandler = new GlobalExceptionHandler();
     MDC.clear();
   }
 
@@ -42,7 +37,7 @@ class GlobalExceptionHandlerTest {
   }
 
   @Test
-  void validationError_hasProblemJsonBodyWithSnakeCaseErrorsMapAndTraceId() {
+  void validationError_hasProblemJsonBodyWithCamelCaseErrorsMapAndTraceId() {
     MDC.put("trace.id", "trace-abc");
 
     ResponseEntity<ProblemDetail> response =
@@ -63,17 +58,16 @@ class GlobalExceptionHandlerTest {
     assertThat(body.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
 
     Map<String, Object> properties = body.getProperties();
-    assertThat(properties).containsEntry("trace_id", "trace-abc");
-    assertThat(properties).doesNotContainKey("traceId");
+    assertThat(properties).containsEntry("traceId", "trace-abc");
+    assertThat(properties).doesNotContainKey("trace_id");
 
     @SuppressWarnings("unchecked")
     Map<String, List<String>> errors = (Map<String, List<String>>) properties.get("errors");
-    // The rejected Java field addressLine1 must be keyed by its WIRE name address_line_1,
-    // NOT Jackson's naive snake of the identifier (address_line1).
-    assertThat(errors).containsKey("address_line_1");
-    assertThat(errors).doesNotContainKey("addressLine1");
+    // The rejected Java field addressLine1 is keyed by its camelCase wire name verbatim.
+    assertThat(errors).containsKey("addressLine1");
+    assertThat(errors).doesNotContainKey("address_line_1");
     assertThat(errors).doesNotContainKey("address_line1");
-    assertThat(errors.get("address_line_1")).containsExactly("Enter address line 1");
+    assertThat(errors.get("addressLine1")).containsExactly("Enter address line 1");
     assertThat(errors.get("email")).containsExactly("Enter an email address");
   }
 
@@ -110,7 +104,7 @@ class GlobalExceptionHandlerTest {
         .isEqualTo(URI.create("https://api.cdp.defra.cloud/problems/bad-request"));
     assertThat(body.getTitle()).isEqualTo("Bad Request");
     assertThat(body.getDetail()).isEqualTo("Trade-Imports-Crn header is required");
-    assertThat(body.getProperties()).containsEntry("trace_id", "trace-xyz");
+    assertThat(body.getProperties()).containsEntry("traceId", "trace-xyz");
     // The anyOf pin: a bad-request carries NO errors key whatsoever.
     assertThat(body.getProperties()).doesNotContainKey("errors");
   }
@@ -150,7 +144,7 @@ class GlobalExceptionHandlerTest {
         .isEqualTo(URI.create("https://api.cdp.defra.cloud/problems/not-found"));
     assertThat(body.getTitle()).isEqualTo("Resource Not Found");
     assertThat(body.getDetail()).isEqualTo("Operator not found");
-    assertThat(body.getProperties()).containsEntry("trace_id", "trace-404");
+    assertThat(body.getProperties()).containsEntry("traceId", "trace-404");
     assertThat(body.getProperties()).doesNotContainKey("errors");
   }
 
@@ -175,7 +169,7 @@ class GlobalExceptionHandlerTest {
 
     Map<String, Object> properties = response.getBody().getProperties();
     if (properties != null) {
-      assertThat(properties).doesNotContainKey("trace_id");
+      assertThat(properties).doesNotContainKey("traceId");
     }
   }
 
@@ -184,9 +178,6 @@ class GlobalExceptionHandlerTest {
       Method method = this.getClass().getDeclaredMethod("setUp");
       MethodParameter methodParameter = new MethodParameter(method, -1);
       BindingResult bindingResult = mock(BindingResult.class);
-      when(bindingResult.getTarget())
-          .thenReturn(
-              OperatorRequest.builder().name("target-for-introspection").build());
       when(bindingResult.getFieldErrors()).thenReturn(List.of(fieldErrors));
       return new MethodArgumentNotValidException(methodParameter, bindingResult);
     } catch (NoSuchMethodException e) {

@@ -94,9 +94,9 @@ class OperatorListIT extends IntegrationBase {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items.length()").value(25))
         .andExpect(jsonPath("$.page").value(1))
-        .andExpect(jsonPath("$.page_size").value(25))
-        .andExpect(jsonPath("$.total_items").value(30))
-        .andExpect(jsonPath("$.total_pages").value(2));
+        .andExpect(jsonPath("$.pageSize").value(25))
+        .andExpect(jsonPath("$.totalItems").value(30))
+        .andExpect(jsonPath("$.totalPages").value(2));
   }
 
   @Test
@@ -108,8 +108,8 @@ class OperatorListIT extends IntegrationBase {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items.length()").value(5))
         .andExpect(jsonPath("$.page").value(2))
-        .andExpect(jsonPath("$.total_items").value(30))
-        .andExpect(jsonPath("$.total_pages").value(2));
+        .andExpect(jsonPath("$.totalItems").value(30))
+        .andExpect(jsonPath("$.totalPages").value(2));
   }
 
   @Test
@@ -120,7 +120,7 @@ class OperatorListIT extends IntegrationBase {
     mockMvc
         .perform(get("/operators").header("Trade-Imports-Crn", CRN))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.total_items").value(3))
+        .andExpect(jsonPath("$.totalItems").value(3))
         .andExpect(jsonPath("$.items.length()").value(3))
         .andExpect(jsonPath("$.items[*].status", everyItem(is("ACTIVE"))))
         .andExpect(jsonPath("$.items[*].id", not(hasItem(deleted.getId()))));
@@ -134,7 +134,7 @@ class OperatorListIT extends IntegrationBase {
     mockMvc
         .perform(get("/operators").header("Trade-Imports-Crn", CRN))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.total_items").value(2))
+        .andExpect(jsonPath("$.totalItems").value(2))
         .andExpect(jsonPath("$.items.length()").value(2))
         .andExpect(jsonPath("$.items[*].crn", everyItem(is(CRN))));
   }
@@ -192,7 +192,7 @@ class OperatorListIT extends IntegrationBase {
     mockMvc
         .perform(get("/operators").header("Trade-Imports-Crn", CRN).param("q", "Highland"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.total_items").value(1))
+        .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].name").value("Highland Livestock Ltd"));
   }
 
@@ -204,7 +204,7 @@ class OperatorListIT extends IntegrationBase {
     mockMvc
         .perform(get("/operators").header("Trade-Imports-Crn", CRN).param("q", "Market"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.total_items").value(1))
+        .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].name").value("Lowland Cattle Co"));
   }
 
@@ -216,7 +216,7 @@ class OperatorListIT extends IntegrationBase {
     mockMvc
         .perform(get("/operators").header("Trade-Imports-Crn", CRN).param("q", "iv2"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.total_items").value(1))
+        .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].postcode").value("IV2 3JH"));
   }
 
@@ -230,7 +230,7 @@ class OperatorListIT extends IntegrationBase {
     mockMvc
         .perform(get("/operators").header("Trade-Imports-Crn", CRN).param("q", "United King"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.total_items").value(1))
+        .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].country").value("United Kingdom"));
   }
 
@@ -245,7 +245,7 @@ class OperatorListIT extends IntegrationBase {
     mockMvc
         .perform(get("/operators").header("Trade-Imports-Crn", CRN).param("q", ".*"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.total_items").value(0))
+        .andExpect(jsonPath("$.totalItems").value(0))
         .andExpect(jsonPath("$.items.length()").value(0));
   }
 
@@ -258,7 +258,7 @@ class OperatorListIT extends IntegrationBase {
     mockMvc
         .perform(get("/operators").header("Trade-Imports-Crn", CRN).param("q", "("))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.total_items").value(0));
+        .andExpect(jsonPath("$.totalItems").value(0));
   }
 
   @Test
@@ -270,8 +270,8 @@ class OperatorListIT extends IntegrationBase {
     mockMvc
         .perform(get("/operators").header("Trade-Imports-Crn", CRN).param("operator_type", "IMPORTER"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.total_items").value(1))
-        .andExpect(jsonPath("$.items[0].operator_type").value("IMPORTER"));
+        .andExpect(jsonPath("$.totalItems").value(1))
+        .andExpect(jsonPath("$.items[0].operatorType").value("IMPORTER"));
   }
 
   @Test
@@ -286,8 +286,8 @@ class OperatorListIT extends IntegrationBase {
                 .param("q", "Riverside")
                 .param("operator_type", "CONSIGNOR"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.total_items").value(1))
-        .andExpect(jsonPath("$.items[0].operator_type").value("CONSIGNOR"));
+        .andExpect(jsonPath("$.totalItems").value(1))
+        .andExpect(jsonPath("$.items[0].operatorType").value("CONSIGNOR"));
   }
 
   @Test
@@ -301,19 +301,19 @@ class OperatorListIT extends IntegrationBase {
     mockMvc
         .perform(get("/operators").header("Trade-Imports-Crn", CRN))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.total_items").value(3));
+        .andExpect(jsonPath("$.totalItems").value(3));
 
     // q only: "Farms" matches Alpha + Beta
     mockMvc
         .perform(get("/operators").header("Trade-Imports-Crn", CRN).param("q", "Farms"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.total_items").value(2));
+        .andExpect(jsonPath("$.totalItems").value(2));
 
     // type only: CONSIGNOR matches Alpha + Gamma
     mockMvc
         .perform(get("/operators").header("Trade-Imports-Crn", CRN).param("operator_type", "CONSIGNOR"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.total_items").value(2));
+        .andExpect(jsonPath("$.totalItems").value(2));
 
     // both: "Farms" AND CONSIGNOR matches only Alpha
     mockMvc
@@ -323,7 +323,7 @@ class OperatorListIT extends IntegrationBase {
                 .param("q", "Farms")
                 .param("operator_type", "CONSIGNOR"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.total_items").value(1))
+        .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].name").value("Alpha Farms"));
   }
 
@@ -335,7 +335,7 @@ class OperatorListIT extends IntegrationBase {
     mockMvc
         .perform(get("/operators").header("Trade-Imports-Crn", CRN).param("q", "Highland"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.total_items").value(1))
+        .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[*].crn", everyItem(is(CRN))));
   }
 
@@ -347,7 +347,7 @@ class OperatorListIT extends IntegrationBase {
     mockMvc
         .perform(get("/operators").header("Trade-Imports-Crn", CRN).param("q", "Highland"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.total_items").value(1))
+        .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[*].status", everyItem(is("ACTIVE"))));
   }
 }

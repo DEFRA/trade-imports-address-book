@@ -148,7 +148,7 @@ public class OperatorService {
    * off it, and a notification's embedded operator copy is not refreshed by an edit).
    *
    * <p>{@code operatorType} is immutable after create: a request whose type differs from the stored
-   * value is <strong>rejected</strong> with a 400 validation error keyed {@code operator_type} — the
+   * value is <strong>rejected</strong> with a 400 validation error keyed {@code operatorType} — the
    * design locks reject over silent-ignore because a silent ignore hides a client bug and is
    * undiagnosable from logs. An unknown id, an id owned by another crn, or a soft-deleted tombstone
    * are all outside the caller's live set and yield a 404 (existence is never leaked; the tombstone
@@ -170,7 +170,7 @@ public class OperatorService {
 
     if (request.operatorType() != existing.getOperatorType()) {
       throw new ValidationException(
-          Map.of("operator_type", List.of("Operator type cannot be changed")));
+          Map.of("operatorType", List.of("Operator type cannot be changed")));
     }
 
     existing.setName(request.name());

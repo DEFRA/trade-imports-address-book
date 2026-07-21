@@ -23,7 +23,7 @@ import uk.gov.defra.trade.imports.operators.operator.OperatorType;
 /**
  * Full-stack CRUD integration test for {@code /operators}. This increment (inc-005) covers the
  * create leg: 201 + {@code Location} + the server-stamped identity, and the 400 validation problem
- * whose {@code errors} map is keyed by the snake_case wire field names — the end-to-end pin that
+ * whose {@code errors} map is keyed by the camelCase wire field names — the end-to-end pin that
  * the field-level and cross-field constraints surface through the real handler.
  */
 class OperatorCrudIT extends IntegrationBase {
@@ -43,10 +43,10 @@ class OperatorCrudIT extends IntegrationBase {
     String body =
         """
         {
-          "operator_type": "CONSIGNOR",
+          "operatorType": "CONSIGNOR",
           "name": "Highland Livestock Ltd",
-          "address_line_1": "14 Drover's Way",
-          "address_line_2": "Unit 3",
+          "addressLine1": "14 Drover's Way",
+          "addressLine2": "Unit 3",
           "town": "Inverness",
           "county": "Highland",
           "postcode": "IV2 3JH",
@@ -66,16 +66,16 @@ class OperatorCrudIT extends IntegrationBase {
         .andExpect(status().isCreated())
         .andExpect(header().string("Location", startsWith("/operators/")))
         .andExpect(jsonPath("$.id").exists())
-        .andExpect(jsonPath("$.operator_type").value("CONSIGNOR"))
+        .andExpect(jsonPath("$.operatorType").value("CONSIGNOR"))
         .andExpect(jsonPath("$.name").value("Highland Livestock Ltd"))
-        .andExpect(jsonPath("$.address_line_1").value("14 Drover's Way"))
-        .andExpect(jsonPath("$.address_line_2").value("Unit 3"))
+        .andExpect(jsonPath("$.addressLine1").value("14 Drover's Way"))
+        .andExpect(jsonPath("$.addressLine2").value("Unit 3"))
         .andExpect(jsonPath("$.country").value("United Kingdom"))
         .andExpect(jsonPath("$.crn").value(CRN))
-        .andExpect(jsonPath("$.organisation_id").value(ORGANISATION_ID))
+        .andExpect(jsonPath("$.organisationId").value(ORGANISATION_ID))
         .andExpect(jsonPath("$.status").value("ACTIVE"))
-        .andExpect(jsonPath("$.created_at").exists())
-        .andExpect(jsonPath("$.modified_at").exists());
+        .andExpect(jsonPath("$.createdAt").exists())
+        .andExpect(jsonPath("$.modifiedAt").exists());
 
     assertThat(repository.findAll())
         .singleElement()
@@ -89,20 +89,20 @@ class OperatorCrudIT extends IntegrationBase {
   }
 
   @Test
-  void createReturns400ValidationProblemKeyedBySnakeCaseFieldNames() throws Exception {
-    // address_line_1 blank, email malformed, approval_number supplied on a non-TRANSPORTER type.
+  void createReturns400ValidationProblemKeyedByCamelCaseFieldNames() throws Exception {
+    // addressLine1 blank, email malformed, approvalNumber supplied on a non-TRANSPORTER type.
     String body =
         """
         {
-          "operator_type": "CONSIGNOR",
+          "operatorType": "CONSIGNOR",
           "name": "Highland Livestock Ltd",
-          "address_line_1": "",
+          "addressLine1": "",
           "town": "Inverness",
           "postcode": "IV2 3JH",
           "country": "United Kingdom",
           "telephone": "+44 1463 234567",
           "email": "not-an-email",
-          "approval_number": "APR-123"
+          "approvalNumber": "APR-123"
         }
         """;
 
@@ -118,12 +118,12 @@ class OperatorCrudIT extends IntegrationBase {
         .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/validation-error"))
         .andExpect(jsonPath("$.title").value("Validation Error"))
         .andExpect(jsonPath("$.status").value(400))
-        .andExpect(jsonPath("$.errors.address_line_1").exists())
+        .andExpect(jsonPath("$.errors.addressLine1").exists())
         .andExpect(jsonPath("$.errors.email").exists())
         .andExpect(
-            jsonPath("$.errors.approval_number[0]").value("Only allowed for transporter operators"))
-        // never the camelCase Java identifier
-        .andExpect(jsonPath("$.errors.addressLine1").doesNotExist());
+            jsonPath("$.errors.approvalNumber[0]").value("Only allowed for transporter operators"))
+        // never the snake_case form
+        .andExpect(jsonPath("$.errors.address_line_1").doesNotExist());
 
     assertThat(repository.findAll()).isEmpty();
   }
@@ -191,9 +191,9 @@ class OperatorCrudIT extends IntegrationBase {
   private static final String UPDATE_BODY =
       """
       {
-        "operator_type": "CONSIGNOR",
+        "operatorType": "CONSIGNOR",
         "name": "Lowland Cattle Co",
-        "address_line_1": "2 Market Street",
+        "addressLine1": "2 Market Street",
         "town": "Perth",
         "postcode": "PH1 5AA",
         "country": "United Kingdom",
@@ -216,9 +216,9 @@ class OperatorCrudIT extends IntegrationBase {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(saved.getId()))
         .andExpect(jsonPath("$.name").value("Lowland Cattle Co"))
-        .andExpect(jsonPath("$.address_line_1").value("2 Market Street"))
+        .andExpect(jsonPath("$.addressLine1").value("2 Market Street"))
         .andExpect(jsonPath("$.town").value("Perth"))
-        .andExpect(jsonPath("$.operator_type").value("CONSIGNOR"))
+        .andExpect(jsonPath("$.operatorType").value("CONSIGNOR"))
         .andExpect(jsonPath("$.crn").value(CRN))
         .andExpect(jsonPath("$.status").value("ACTIVE"));
 
@@ -250,7 +250,7 @@ class OperatorCrudIT extends IntegrationBase {
         .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/validation-error"))
         .andExpect(jsonPath("$.title").value("Validation Error"))
         .andExpect(jsonPath("$.status").value(400))
-        .andExpect(jsonPath("$.errors.operator_type[0]").value("Operator type cannot be changed"));
+        .andExpect(jsonPath("$.errors.operatorType[0]").value("Operator type cannot be changed"));
 
     // the stored operator is untouched by the rejected type change
     assertThat(repository.findById(saved.getId()))
@@ -281,9 +281,9 @@ class OperatorCrudIT extends IntegrationBase {
     String body =
         """
         {
-          "operator_type": "CONSIGNOR",
+          "operatorType": "CONSIGNOR",
           "name": "Highland Livestock Ltd",
-          "address_line_1": "14 Drover's Way",
+          "addressLine1": "14 Drover's Way",
           "town": "Inverness",
           "postcode": "IV2 3JH",
           "country": "United Kingdom",
