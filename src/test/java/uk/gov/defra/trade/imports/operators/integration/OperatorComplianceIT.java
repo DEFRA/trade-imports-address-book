@@ -76,7 +76,7 @@ class OperatorComplianceIT extends IntegrationBase {
   void createAndReadEmitCamelCasePropertiesAndADerivedDeletedBoolean() throws Exception {
     mockMvc
         .perform(
-            post("/operators")
+            post("/organisation/{orgId}/addresses", ORGANISATION_ID)
                 .header(ORG_HEADER, ORGANISATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(CREATE_BODY))
@@ -99,14 +99,14 @@ class OperatorComplianceIT extends IntegrationBase {
   void listResponseIsATopLevelObjectNeverABareArray() throws Exception {
     mockMvc
         .perform(
-            post("/operators")
+            post("/organisation/{orgId}/addresses", ORGANISATION_ID)
                 .header(ORG_HEADER, ORGANISATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(CREATE_BODY))
         .andExpect(status().isCreated());
 
     mockMvc
-        .perform(get("/operators").header(ORG_HEADER, ORGANISATION_ID))
+        .perform(get("/organisation/{orgId}/addresses", ORGANISATION_ID).header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$").isMap())
         .andExpect(jsonPath("$.items").isArray())
@@ -123,7 +123,7 @@ class OperatorComplianceIT extends IntegrationBase {
 
     mockMvc
         .perform(
-            get("/operators/{operator-id}", "665f1c2ab3e4d51a2c9d0e77")
+            get("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, "665f1c2ab3e4d51a2c9d0e77")
                 .header(ORG_HEADER, ORGANISATION_ID)
                 .header("x-cdp-request-id", traceId))
         .andExpect(status().isNotFound())
@@ -140,7 +140,7 @@ class OperatorComplianceIT extends IntegrationBase {
 
     mockMvc
         .perform(
-            post("/operators")
+            post("/organisation/{orgId}/addresses", ORGANISATION_ID)
                 .header(ORG_HEADER, ORGANISATION_ID)
                 .header("x-cdp-request-id", traceId)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -199,8 +199,8 @@ class OperatorComplianceIT extends IntegrationBase {
     assertThat(schemas).containsKeys("Problem", "ValidationProblem");
 
     // POST and PUT 400 are anyOf(ValidationProblem, Problem) — NOT oneOf
-    assertAnyOfProblem(doc, "/operators", "post");
-    assertAnyOfProblem(doc, "/operators/{operator-id}", "put");
+    assertAnyOfProblem(doc, "/organisation/{orgId}/addresses", "post");
+    assertAnyOfProblem(doc, "/organisation/{orgId}/addresses/{operator-id}", "put");
   }
 
   @Test
@@ -251,8 +251,8 @@ class OperatorComplianceIT extends IntegrationBase {
         });
 
     // the locked contract itself declares the anyOf 400 — the pin the whole design leans on
-    assertAnyOfProblem(locked, "/operators", "post");
-    assertAnyOfProblem(locked, "/operators/{operator-id}", "put");
+    assertAnyOfProblem(locked, "/organisation/{orgId}/addresses", "post");
+    assertAnyOfProblem(locked, "/organisation/{orgId}/addresses/{operator-id}", "put");
   }
 
   // ---- helpers ----------------------------------------------------------------------------
@@ -297,7 +297,7 @@ class OperatorComplianceIT extends IntegrationBase {
   private static String listResponseSchemaRef(Map<String, Object> doc) {
     Map<String, Object> content =
         (Map<String, Object>)
-            nested(doc, "paths", "/operators", "get", "responses", "200", "content");
+            nested(doc, "paths", "/organisation/{orgId}/addresses", "get", "responses", "200", "content");
     Map<String, Object> mediaType = (Map<String, Object>) content.values().iterator().next();
     return (String) ((Map<String, Object>) mediaType.get("schema")).get("$ref");
   }

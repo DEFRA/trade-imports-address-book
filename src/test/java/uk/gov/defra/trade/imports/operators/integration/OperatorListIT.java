@@ -86,7 +86,7 @@ class OperatorListIT extends IntegrationBase {
     seedActive(30);
 
     mockMvc
-        .perform(get("/operators").header(ORG_HEADER, ORG))
+        .perform(get("/organisation/{orgId}/addresses", ORG).header(ORG_HEADER, ORG))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items.length()").value(25))
         .andExpect(jsonPath("$.page").value(1))
@@ -100,7 +100,7 @@ class OperatorListIT extends IntegrationBase {
     seedActive(30);
 
     mockMvc
-        .perform(get("/operators").header(ORG_HEADER, ORG).param("page", "2"))
+        .perform(get("/organisation/{orgId}/addresses", ORG).header(ORG_HEADER, ORG).param("page", "2"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items.length()").value(5))
         .andExpect(jsonPath("$.page").value(2))
@@ -114,7 +114,7 @@ class OperatorListIT extends IntegrationBase {
     Address deleted = save(ORG, AddressStatus.DELETED, "Ghost Address");
 
     mockMvc
-        .perform(get("/operators").header(ORG_HEADER, ORG))
+        .perform(get("/organisation/{orgId}/addresses", ORG).header(ORG_HEADER, ORG))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(3))
         .andExpect(jsonPath("$.items.length()").value(3))
@@ -128,7 +128,7 @@ class OperatorListIT extends IntegrationBase {
     save(OTHER_ORG, AddressStatus.ACTIVE, "Other Org Address");
 
     mockMvc
-        .perform(get("/operators").header(ORG_HEADER, ORG))
+        .perform(get("/organisation/{orgId}/addresses", ORG).header(ORG_HEADER, ORG))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(2))
         .andExpect(jsonPath("$.items.length()").value(2))
@@ -138,7 +138,7 @@ class OperatorListIT extends IntegrationBase {
   @Test
   void listWithPage0Returns400BadRequestProblemWithNoErrorsMap() throws Exception {
     mockMvc
-        .perform(get("/operators").header(ORG_HEADER, ORG).param("page", "0"))
+        .perform(get("/organisation/{orgId}/addresses", ORG).header(ORG_HEADER, ORG).param("page", "0"))
         .andExpect(status().isBadRequest())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
         .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/bad-request"))
@@ -150,7 +150,7 @@ class OperatorListIT extends IntegrationBase {
   @Test
   void listWithPageSize101Returns400BadRequestProblemWithNoErrorsMap() throws Exception {
     mockMvc
-        .perform(get("/operators").header(ORG_HEADER, ORG).param("page_size", "101"))
+        .perform(get("/organisation/{orgId}/addresses", ORG).header(ORG_HEADER, ORG).param("page_size", "101"))
         .andExpect(status().isBadRequest())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
         .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/bad-request"))
@@ -161,7 +161,7 @@ class OperatorListIT extends IntegrationBase {
   @Test
   void listWithANonNumericPageReturns400BadRequestProblem() throws Exception {
     mockMvc
-        .perform(get("/operators").header(ORG_HEADER, ORG).param("page", "abc"))
+        .perform(get("/organisation/{orgId}/addresses", ORG).header(ORG_HEADER, ORG).param("page", "abc"))
         .andExpect(status().isBadRequest())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
         .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/bad-request"))
@@ -172,7 +172,7 @@ class OperatorListIT extends IntegrationBase {
   @Test
   void listWithoutTheOrgHeaderReturns400BadRequestWithNoErrorsMap() throws Exception {
     mockMvc
-        .perform(get("/operators"))
+        .perform(get("/organisation/{orgId}/addresses", ORG))
         .andExpect(status().isBadRequest())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
         .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/bad-request"))
@@ -186,7 +186,7 @@ class OperatorListIT extends IntegrationBase {
     saveSearchable("Lowland Cattle Co", "2 Market Street", "PH1 5AA", "IE");
 
     mockMvc
-        .perform(get("/operators").header(ORG_HEADER, ORG).param("q", "Highland"))
+        .perform(get("/organisation/{orgId}/addresses", ORG).header(ORG_HEADER, ORG).param("q", "Highland"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].name").value("Highland Livestock Ltd"));
@@ -198,7 +198,7 @@ class OperatorListIT extends IntegrationBase {
     saveSearchable("Lowland Cattle Co", "2 Market Street", "PH1 5AA", "IE");
 
     mockMvc
-        .perform(get("/operators").header(ORG_HEADER, ORG).param("q", "Market"))
+        .perform(get("/organisation/{orgId}/addresses", ORG).header(ORG_HEADER, ORG).param("q", "Market"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].name").value("Lowland Cattle Co"));
@@ -210,7 +210,7 @@ class OperatorListIT extends IntegrationBase {
     saveSearchable("Lowland Cattle Co", "2 Market Street", "PH1 5AA", "IE");
 
     mockMvc
-        .perform(get("/operators").header(ORG_HEADER, ORG).param("q", "iv2"))
+        .perform(get("/organisation/{orgId}/addresses", ORG).header(ORG_HEADER, ORG).param("q", "iv2"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].postcode").value("IV2 3JH"));
@@ -224,7 +224,7 @@ class OperatorListIT extends IntegrationBase {
     saveSearchable("Lowland Cattle Co", "2 Market Street", "PH1 5AA", "IE");
 
     mockMvc
-        .perform(get("/operators").header(ORG_HEADER, ORG).param("q", "gb"))
+        .perform(get("/organisation/{orgId}/addresses", ORG).header(ORG_HEADER, ORG).param("q", "gb"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].countryCode").value("GB"));
@@ -239,7 +239,7 @@ class OperatorListIT extends IntegrationBase {
     saveSearchable("Lowland Cattle Co", "2 Market Street", "PH1 5AA", "IE");
 
     mockMvc
-        .perform(get("/operators").header(ORG_HEADER, ORG).param("q", ".*"))
+        .perform(get("/organisation/{orgId}/addresses", ORG).header(ORG_HEADER, ORG).param("q", ".*"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(0))
         .andExpect(jsonPath("$.items.length()").value(0));
@@ -252,7 +252,7 @@ class OperatorListIT extends IntegrationBase {
     saveSearchable("Highland Livestock Ltd", "14 Drover's Way", "IV2 3JH", "GB");
 
     mockMvc
-        .perform(get("/operators").header(ORG_HEADER, ORG).param("q", "("))
+        .perform(get("/organisation/{orgId}/addresses", ORG).header(ORG_HEADER, ORG).param("q", "("))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(0));
   }
@@ -263,7 +263,7 @@ class OperatorListIT extends IntegrationBase {
     save(OTHER_ORG, AddressStatus.ACTIVE, "Highland Rivals Ltd");
 
     mockMvc
-        .perform(get("/operators").header(ORG_HEADER, ORG).param("q", "Highland"))
+        .perform(get("/organisation/{orgId}/addresses", ORG).header(ORG_HEADER, ORG).param("q", "Highland"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[*].organisationId", everyItem(is(ORG))));
@@ -275,7 +275,7 @@ class OperatorListIT extends IntegrationBase {
     save(ORG, AddressStatus.DELETED, "Highland Ghost Ltd");
 
     mockMvc
-        .perform(get("/operators").header(ORG_HEADER, ORG).param("q", "Highland"))
+        .perform(get("/organisation/{orgId}/addresses", ORG).header(ORG_HEADER, ORG).param("q", "Highland"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[*].deleted", everyItem(is(false))));

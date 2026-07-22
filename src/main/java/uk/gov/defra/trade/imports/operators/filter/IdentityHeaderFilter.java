@@ -21,7 +21,7 @@ import org.springframework.stereotype.Component;
 import uk.gov.defra.trade.imports.operators.exceptions.Problem;
 
 /**
- * Enforces the trusted-forwarded-header identity contract on every {@code /operators*} request
+ * Enforces the trusted-forwarded-header identity contract on every {@code /organisation/**} request
  * (cv-010).
  *
  * <p>{@code Trade-Imports-Organisation-Id} is required on every operation — missing or blank fails
@@ -47,7 +47,7 @@ public class IdentityHeaderFilter implements Filter {
   static final String MDC_ORGANISATION_ID = "organisationId";
 
   private static final String MDC_TRACE_ID = "trace.id";
-  private static final String PATH_PREFIX = "/operators";
+  private static final String PATH_PREFIX = "/organisation";
   private static final String BAD_REQUEST_TYPE =
       "https://api.cdp.defra.cloud/problems/bad-request";
   private static final String BAD_REQUEST_TITLE = "Bad Request";
@@ -86,7 +86,7 @@ public class IdentityHeaderFilter implements Filter {
 
   private void reject(HttpServletResponse response, String detail) throws IOException {
     String traceId = MDC.get(MDC_TRACE_ID);
-    log.warn("Rejected /operators request: {} (trace: {})", detail, traceId);
+    log.warn("Rejected /organisation request: {} (trace: {})", detail, traceId);
 
     Problem problem =
         new Problem(BAD_REQUEST_TYPE, BAD_REQUEST_TITLE, HttpStatus.BAD_REQUEST.value(), detail, traceId);

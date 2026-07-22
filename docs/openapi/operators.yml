@@ -6,13 +6,18 @@ tags:
 - name: operators
   description: Address book, scoped to the caller's organisation
 paths:
-  /operators/{operator-id}:
+  /organisation/{orgId}/addresses/{operator-id}:
     get:
       tags:
       - operators
       summary: Fetch one address, including tombstones
       operationId: get-operator
       parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
       - name: Trade-Imports-Organisation-Id
         in: header
         required: true
@@ -42,6 +47,11 @@ paths:
       summary: Replace an address's mutable fields
       operationId: update-operator
       parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
       - name: Trade-Imports-Organisation-Id
         in: header
         required: true
@@ -86,6 +96,11 @@ paths:
       summary: Soft-delete an address (tombstone)
       operationId: delete-operator
       parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
       - name: Trade-Imports-Organisation-Id
         in: header
         required: true
@@ -111,13 +126,18 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
-  /operators:
+  /organisation/{orgId}/addresses:
     get:
       tags:
       - operators
       summary: List the caller's ACTIVE addresses (paginated, searchable)
       operationId: list-operators
       parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
       - name: Trade-Imports-Organisation-Id
         in: header
         required: true
@@ -161,6 +181,11 @@ paths:
       summary: Create an address in the caller's address book
       operationId: create-operator
       parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
       - name: Trade-Imports-Organisation-Id
         in: header
         required: true

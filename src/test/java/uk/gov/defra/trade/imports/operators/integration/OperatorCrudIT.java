@@ -56,12 +56,13 @@ class OperatorCrudIT extends IntegrationBase {
 
     mockMvc
         .perform(
-            post("/operators")
+            post("/organisation/{orgId}/addresses", ORGANISATION_ID)
                 .header(ORG_HEADER, ORGANISATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
         .andExpect(status().isCreated())
-        .andExpect(header().string("Location", startsWith("/operators/")))
+        .andExpect(
+            header().string("Location", startsWith("/organisation/" + ORGANISATION_ID + "/addresses/")))
         .andExpect(jsonPath("$.id").exists())
         .andExpect(jsonPath("$.name").value("Highland Livestock Ltd"))
         .andExpect(jsonPath("$.addressLine1").value("14 Drover's Way"))
@@ -103,7 +104,7 @@ class OperatorCrudIT extends IntegrationBase {
 
     mockMvc
         .perform(
-            post("/operators")
+            post("/organisation/{orgId}/addresses", ORGANISATION_ID)
                 .header(ORG_HEADER, ORGANISATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
@@ -143,7 +144,7 @@ class OperatorCrudIT extends IntegrationBase {
     Address saved = saveAddress(AddressStatus.ACTIVE);
 
     mockMvc
-        .perform(get("/operators/{operator-id}", saved.getId()).header(ORG_HEADER, ORGANISATION_ID))
+        .perform(get("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, saved.getId()).header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(saved.getId()))
         .andExpect(jsonPath("$.name").value("Highland Livestock Ltd"))
@@ -159,7 +160,7 @@ class OperatorCrudIT extends IntegrationBase {
     Address saved = saveAddress(AddressStatus.DELETED);
 
     mockMvc
-        .perform(get("/operators/{operator-id}", saved.getId()).header(ORG_HEADER, ORGANISATION_ID))
+        .perform(get("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, saved.getId()).header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(saved.getId()))
         .andExpect(jsonPath("$.deleted").value(true));
@@ -169,7 +170,7 @@ class OperatorCrudIT extends IntegrationBase {
   void getOfAnUnknownIdReturns404NotFoundProblem() throws Exception {
     mockMvc
         .perform(
-            get("/operators/{operator-id}", "665f1c2ab3e4d51a2c9d0e77")
+            get("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, "665f1c2ab3e4d51a2c9d0e77")
                 .header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isNotFound())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
@@ -199,7 +200,7 @@ class OperatorCrudIT extends IntegrationBase {
 
     mockMvc
         .perform(
-            put("/operators/{operator-id}", saved.getId())
+            put("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, saved.getId())
                 .header(ORG_HEADER, ORGANISATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(UPDATE_BODY))
@@ -231,7 +232,7 @@ class OperatorCrudIT extends IntegrationBase {
 
     mockMvc
         .perform(
-            put("/operators/{operator-id}", saved.getId())
+            put("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, saved.getId())
                 .header(ORG_HEADER, ORGANISATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(UPDATE_BODY))
@@ -248,7 +249,7 @@ class OperatorCrudIT extends IntegrationBase {
 
     mockMvc
         .perform(
-            put("/operators/{operator-id}", tombstone.getId())
+            put("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, tombstone.getId())
                 .header(ORG_HEADER, ORGANISATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(UPDATE_BODY))
@@ -276,7 +277,7 @@ class OperatorCrudIT extends IntegrationBase {
     String location =
         mockMvc
             .perform(
-                post("/operators")
+                post("/organisation/{orgId}/addresses", ORGANISATION_ID)
                     .header(ORG_HEADER, ORGANISATION_ID)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(body))
@@ -288,14 +289,14 @@ class OperatorCrudIT extends IntegrationBase {
 
     // get -> deleted false
     mockMvc
-        .perform(get("/operators/{operator-id}", id).header(ORG_HEADER, ORGANISATION_ID))
+        .perform(get("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, id).header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.deleted").value(false));
 
     // put -> 200
     mockMvc
         .perform(
-            put("/operators/{operator-id}", id)
+            put("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, id)
                 .header(ORG_HEADER, ORGANISATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(UPDATE_BODY))
@@ -304,14 +305,14 @@ class OperatorCrudIT extends IntegrationBase {
 
     // delete -> 204, the document is NOT removed
     mockMvc
-        .perform(delete("/operators/{operator-id}", id).header(ORG_HEADER, ORGANISATION_ID))
+        .perform(delete("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, id).header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isNoContent());
     assertThat(repository.findById(id)).isPresent();
     Instant modifiedAtAfterDelete = repository.findById(id).orElseThrow().getModifiedAt();
 
     // get -> the deleted tombstone is still fetchable (EUDPA-293.AC2)
     mockMvc
-        .perform(get("/operators/{operator-id}", id).header(ORG_HEADER, ORGANISATION_ID))
+        .perform(get("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, id).header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(id))
         .andExpect(jsonPath("$.deleted").value(true));
@@ -319,7 +320,7 @@ class OperatorCrudIT extends IntegrationBase {
     // put on the tombstone -> 404 (outside the caller's live set)
     mockMvc
         .perform(
-            put("/operators/{operator-id}", id)
+            put("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, id)
                 .header(ORG_HEADER, ORGANISATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(UPDATE_BODY))
@@ -327,7 +328,7 @@ class OperatorCrudIT extends IntegrationBase {
 
     // repeat delete -> 204, idempotent, no state change (modifiedAt not bumped again)
     mockMvc
-        .perform(delete("/operators/{operator-id}", id).header(ORG_HEADER, ORGANISATION_ID))
+        .perform(delete("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, id).header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isNoContent());
     assertThat(repository.findById(id))
         .get()
@@ -342,7 +343,7 @@ class OperatorCrudIT extends IntegrationBase {
   void deleteOfAnUnknownIdReturns404NotFoundProblem() throws Exception {
     mockMvc
         .perform(
-            delete("/operators/{operator-id}", "665f1c2ab3e4d51a2c9d0e77")
+            delete("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, "665f1c2ab3e4d51a2c9d0e77")
                 .header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isNotFound())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
@@ -357,7 +358,7 @@ class OperatorCrudIT extends IntegrationBase {
 
     mockMvc
         .perform(
-            delete("/operators/{operator-id}", saved.getId())
+            delete("/organisation/{orgId}/addresses/{operator-id}", "org-other", saved.getId())
                 .header(ORG_HEADER, "org-other"))
         .andExpect(status().isNotFound());
 
@@ -373,7 +374,7 @@ class OperatorCrudIT extends IntegrationBase {
 
     mockMvc
         .perform(
-            put("/operators/{operator-id}", saved.getId())
+            put("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, saved.getId())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(UPDATE_BODY))
         .andExpect(status().isBadRequest())

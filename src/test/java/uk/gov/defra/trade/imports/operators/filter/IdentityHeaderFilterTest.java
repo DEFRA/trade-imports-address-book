@@ -56,7 +56,7 @@ class IdentityHeaderFilterTest {
 
   @Test
   void missingOrganisationId_writesBadRequestProblemAndHaltsTheChain() throws Exception {
-    MockHttpServletRequest request = new MockHttpServletRequest("GET", "/operators");
+    MockHttpServletRequest request = new MockHttpServletRequest("GET", "/organisation/org-1/addresses");
     MockHttpServletResponse response = new MockHttpServletResponse();
     RecordingChain chain = new RecordingChain();
 
@@ -79,7 +79,7 @@ class IdentityHeaderFilterTest {
 
   @Test
   void blankOrganisationId_writesBadRequestProblem() throws Exception {
-    MockHttpServletRequest request = new MockHttpServletRequest("GET", "/operators");
+    MockHttpServletRequest request = new MockHttpServletRequest("GET", "/organisation/org-1/addresses");
     request.addHeader(ORGANISATION_ID_HEADER, "   ");
     MockHttpServletResponse response = new MockHttpServletResponse();
     RecordingChain chain = new RecordingChain();
@@ -95,7 +95,7 @@ class IdentityHeaderFilterTest {
   void organisationIdIsRequiredOnEveryOperation() throws Exception {
     for (String method : new String[] {"GET", "POST", "PUT", "DELETE"}) {
       MockHttpServletRequest request =
-          new MockHttpServletRequest(method, "/operators/665f1c2ab3e4d51a2c9d0e77");
+          new MockHttpServletRequest(method, "/organisation/org-1/addresses/665f1c2ab3e4d51a2c9d0e77");
       MockHttpServletResponse response = new MockHttpServletResponse();
       RecordingChain chain = new RecordingChain();
 
@@ -111,7 +111,7 @@ class IdentityHeaderFilterTest {
 
   @Test
   void validHeader_proceedsAndOrganisationIdLandsInMdcDuringTheChain() throws Exception {
-    MockHttpServletRequest request = new MockHttpServletRequest("POST", "/operators");
+    MockHttpServletRequest request = new MockHttpServletRequest("POST", "/organisation/org-1/addresses");
     request.addHeader(ORGANISATION_ID_HEADER, "org-42");
     MockHttpServletResponse response = new MockHttpServletResponse();
     RecordingChain chain = new RecordingChain();
@@ -125,7 +125,7 @@ class IdentityHeaderFilterTest {
   @Test
   void badRequestBodyCarriesTraceIdFromMdc() throws Exception {
     MDC.put(MDC_TRACE_ID, "trace-abc-123");
-    MockHttpServletRequest request = new MockHttpServletRequest("GET", "/operators");
+    MockHttpServletRequest request = new MockHttpServletRequest("GET", "/organisation/org-1/addresses");
     MockHttpServletResponse response = new MockHttpServletResponse();
 
     filter.doFilter(request, response, new RecordingChain());
@@ -134,7 +134,7 @@ class IdentityHeaderFilterTest {
   }
 
   @Test
-  void nonOperatorsPathsBypassTheFilterEntirely() throws Exception {
+  void nonOrganisationPathsBypassTheFilterEntirely() throws Exception {
     MockHttpServletRequest request = new MockHttpServletRequest("GET", "/health");
     MockHttpServletResponse response = new MockHttpServletResponse();
     RecordingChain chain = new RecordingChain();
@@ -147,7 +147,7 @@ class IdentityHeaderFilterTest {
 
   @Test
   void addsOnlyOrganisationIdToTheLoggingContext_noPiiFieldValues() throws Exception {
-    MockHttpServletRequest request = new MockHttpServletRequest("POST", "/operators");
+    MockHttpServletRequest request = new MockHttpServletRequest("POST", "/organisation/org-1/addresses");
     request.addHeader(ORGANISATION_ID_HEADER, "org-42");
     // PII-shaped body must never surface in the logging context.
     request.setContent("{\"name\":\"Highland Livestock Ltd\",\"email\":\"secret@example.com\"}".getBytes());

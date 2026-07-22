@@ -27,13 +27,15 @@ import uk.gov.defra.trade.imports.operators.exceptions.Problem;
 import uk.gov.defra.trade.imports.operators.exceptions.ValidationProblem;
 
 /**
- * REST API for an organisation's address book. Every operation is scoped to the caller's
- * {@code organisationId}, taken from the trusted {@code Trade-Imports-Organisation-Id} forwarded
- * header (cv-010). The {@code IdentityHeaderFilter} fails fast on a missing or blank header, so it
- * is present and non-blank by the time a handler runs.
+ * REST API for an organisation's address book. Every operation is path-scoped to an
+ * {@code orgId} and authorised against the caller's trusted {@code Trade-Imports-Organisation-Id}
+ * forwarded header (cv-010, cv-040): the path is never trusted alone. The
+ * {@code IdentityHeaderFilter} fails fast on a missing or blank header, so it is present and
+ * non-blank by the time a handler runs; {@link #authoriseOrg} then rejects a caller whose session
+ * organisation disagrees with the path {@code orgId} with a 404 (no existence disclosure).
  */
 @RestController
-@RequestMapping("/operators")
+@RequestMapping("/organisation/{orgId}/addresses")
 @Tag(name = "operators", description = "Address book, scoped to the caller's organisation")
 @Slf4j
 @RequiredArgsConstructor
@@ -44,6 +46,22 @@ public class OperatorController {
   private final OperatorService operatorService;
 
   /**
+   * Authorises the caller's forwarded session organisation against the path {@code orgId}. A
+   * mismatch throws {@link NotFoundException} &rarr; 404 (never 403): the API must not disclose that
+   * another organisation's addresses exist (cv-040). The filter guarantees {@code sessionOrg} is
+   * present and non-blank before any handler — and therefore before this guard — runs.
+   *
+   * @param orgId the organisation id from the path
+   * @param sessionOrg the caller's organisation id from the forwarded identity header
+   * @throws NotFoundException if the session organisation does not match the path {@code orgId}
+   */
+  private static void authoriseOrg(String orgId, String sessionOrg) {
+    if (!sessionOrg.equals(orgId)) {
+      throw new NotFoundException("Address not found");
+    }
+  }
+
+  /**
    * Lists the caller's ACTIVE addresses, newest first, one page at a time, optionally searched.
    * DELETED tombstones are excluded. {@code q} is a case-insensitive free-text match over
    * {@code name}, both address lines, {@code townOrCity}, {@code county}, {@code postcode} and
@@ -52,7 +70,8 @@ public class OperatorController {
    * is a 400 bad-request problem with no {@code errors} map. The response is a top-level object
    * ({@code items} + pagination metadata), never a bare array.
    *
-   * @param organisationId the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
+   * @param orgId the organisation scope from the path, authorised against the identity header
+   * @param sessionOrg the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
    * @param q the free-text search
    * @param page the 1-based page number (default 1)
    * @param pageSize the page size (default 25, max 100)
@@ -74,12 +93,14 @@ public class OperatorController {
   })
   @Timed("controller.listOperators.time")
   public OperatorPageResponse list(
-      @RequestHeader(ORGANISATION_ID_HEADER) String organisationId,
+      @PathVariable String orgId,
+      @RequestHeader(ORGANISATION_ID_HEADER) String sessionOrg,
       @RequestParam(required = false) String q,
       @RequestParam(defaultValue = "1") int page,
       @RequestParam(name = "page_size", defaultValue = "25") int pageSize) {
-    log.info("GET /operators - q present {} page {} size {}", q != null, page, pageSize);
-    return operatorService.list(organisationId, q, page, pageSize);
+    authoriseOrg(orgId, sessionOrg);
+    log.info("GET addresses - q present {} page {} size {}", q != null, page, pageSize);
+    return operatorService.list(orgId, q, page, pageSize);
   }
 
   /**
@@ -87,7 +108,8 @@ public class OperatorController {
    * identity header, never from the body; server-assigned fields carried in the body are ignored,
    * not rejected (Zalando default).
    *
-   * @param organisationId the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
+   * @param orgId the organisation scope from the path, authorised against the identity header
+   * @param sessionOrg the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
    * @param request the validated create body
    * @return 201 with the created address and a {@code Location} header
    */
@@ -107,11 +129,13 @@ public class OperatorController {
   })
   @Timed("controller.createOperator.time")
   public ResponseEntity<OperatorResponse> create(
-      @RequestHeader(ORGANISATION_ID_HEADER) String organisationId,
+      @PathVariable String orgId,
+      @RequestHeader(ORGANISATION_ID_HEADER) String sessionOrg,
       @Valid @RequestBody OperatorRequest request) {
-    log.info("POST /operators - creating address");
-    Address created = operatorService.create(request, organisationId);
-    URI location = URI.create("/operators/" + created.getId());
+    authoriseOrg(orgId, sessionOrg);
+    log.info("POST addresses - creating address");
+    Address created = operatorService.create(request, orgId);
+    URI location = URI.create("/organisation/" + orgId + "/addresses/" + created.getId());
     return ResponseEntity.created(location).body(OperatorMapper.toResponse(created));
   }
 
@@ -121,7 +145,8 @@ public class OperatorController {
    * unknown id, or one belonging to another organisation, is a 404 (existence is never leaked). A
    * 404 is therefore NOT a deletion signal: only the tombstone is.
    *
-   * @param organisationId the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
+   * @param orgId the organisation scope from the path, authorised against the identity header
+   * @param sessionOrg the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
    * @param operatorId the opaque address id from the path
    * @return 200 with the address (deleted false or true)
    */
@@ -139,12 +164,14 @@ public class OperatorController {
   })
   @Timed("controller.getOperator.time")
   public OperatorResponse get(
-      @RequestHeader(ORGANISATION_ID_HEADER) String organisationId,
+      @PathVariable String orgId,
+      @RequestHeader(ORGANISATION_ID_HEADER) String sessionOrg,
       @PathVariable("operator-id") String operatorId) {
-    log.info("GET /operators/{}", operatorId);
+    authoriseOrg(orgId, sessionOrg);
+    log.info("GET addresses/{}", operatorId);
     Address address =
         operatorService
-            .get(operatorId, organisationId)
+            .get(operatorId, orgId)
             .orElseThrow(() -> new NotFoundException("Address not found"));
     return OperatorMapper.toResponse(address);
   }
@@ -155,7 +182,8 @@ public class OperatorController {
    * soft-deleted tombstone all yield a 404 — tombstones are outside the caller's live set and
    * existence is never leaked.
    *
-   * @param organisationId the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
+   * @param orgId the organisation scope from the path, authorised against the identity header
+   * @param sessionOrg the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
    * @param operatorId the opaque address id from the path
    * @param request the validated update body
    * @return 200 with the updated address and its bumped {@code modifiedAt}
@@ -181,11 +209,13 @@ public class OperatorController {
   })
   @Timed("controller.updateOperator.time")
   public OperatorResponse update(
-      @RequestHeader(ORGANISATION_ID_HEADER) String organisationId,
+      @PathVariable String orgId,
+      @RequestHeader(ORGANISATION_ID_HEADER) String sessionOrg,
       @PathVariable("operator-id") String operatorId,
       @Valid @RequestBody OperatorRequest request) {
-    log.info("PUT /operators/{}", operatorId);
-    Address updated = operatorService.update(operatorId, request, organisationId);
+    authoriseOrg(orgId, sessionOrg);
+    log.info("PUT addresses/{}", operatorId);
+    Address updated = operatorService.update(operatorId, request, orgId);
     return OperatorMapper.toResponse(updated);
   }
 
@@ -196,7 +226,8 @@ public class OperatorController {
    * unknown id, or one outside the caller's organisation, is a 404 (existence is never leaked). The
    * UI reaches this only via the delete-confirmation page.
    *
-   * @param organisationId the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
+   * @param orgId the organisation scope from the path, authorised against the identity header
+   * @param sessionOrg the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
    * @param operatorId the opaque address id from the path
    * @return 204 No Content (soft-deleted, or already deleted)
    */
@@ -221,10 +252,12 @@ public class OperatorController {
   })
   @Timed("controller.deleteOperator.time")
   public ResponseEntity<Void> delete(
-      @RequestHeader(ORGANISATION_ID_HEADER) String organisationId,
+      @PathVariable String orgId,
+      @RequestHeader(ORGANISATION_ID_HEADER) String sessionOrg,
       @PathVariable("operator-id") String operatorId) {
-    log.info("DELETE /operators/{}", operatorId);
-    operatorService.delete(operatorId, organisationId);
+    authoriseOrg(orgId, sessionOrg);
+    log.info("DELETE addresses/{}", operatorId);
+    operatorService.delete(operatorId, orgId);
     return ResponseEntity.noContent().build();
   }
 }

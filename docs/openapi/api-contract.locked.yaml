@@ -84,7 +84,7 @@ tags:
     description: CRUD + search over a caller's address-book operators
 
 paths:
-  /operators:
+  /organisation/{orgId}/addresses:
     get:
       tags: [operators]
       operationId: list-operators
@@ -230,7 +230,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /operators/{operator-id}:
+  /organisation/{orgId}/addresses/{operator-id}:
     parameters:
       - name: operator-id
         in: path
