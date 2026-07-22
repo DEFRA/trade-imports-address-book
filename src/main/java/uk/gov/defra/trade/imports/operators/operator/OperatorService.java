@@ -88,7 +88,7 @@ public class OperatorService {
    * @param organisationId the owning organisation id, from the identity header
    * @return the persisted address, with its Mongo-assigned id and audited timestamps
    */
-  public Address create(OperatorRequest request, String organisationId) {
+  public Address create(AddressRequest request, String organisationId) {
     Address address = OperatorMapper.toEntity(request);
     address.setOrganisationId(organisationId);
     address.setStatus(AddressStatus.ACTIVE);
@@ -126,7 +126,7 @@ public class OperatorService {
    * @return the updated address, with its bumped {@code modifiedAt}
    * @throws NotFoundException if the id is unknown, out of scope, or a tombstone
    */
-  public Address update(String id, OperatorRequest request, String organisationId) {
+  public Address update(String id, AddressRequest request, String organisationId) {
     Address existing =
         repository
             .findByIdAndOrganisationId(id, organisationId)

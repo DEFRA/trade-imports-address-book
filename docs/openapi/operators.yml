@@ -66,7 +66,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/OperatorRequest'
+              $ref: '#/components/schemas/AddressRequest'
         required: true
       responses:
         '200':
@@ -195,7 +195,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/OperatorRequest'
+              $ref: '#/components/schemas/AddressRequest'
         required: true
       responses:
         '201':
@@ -215,7 +215,7 @@ paths:
                 - $ref: '#/components/schemas/Problem'
 components:
   schemas:
-    OperatorRequest:
+    AddressRequest:
       properties:
         name:
           type: string
@@ -252,6 +252,10 @@ components:
           type: string
           maxLength: 254
           minLength: 0
+        type:
+          type: object
+        role:
+          type: object
       required:
       - addressLine1
       - countryCode

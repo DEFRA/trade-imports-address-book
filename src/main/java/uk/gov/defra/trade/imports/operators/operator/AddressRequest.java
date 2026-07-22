@@ -2,6 +2,7 @@ package uk.gov.defra.trade.imports.operators.operator;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Null;
 import jakarta.validation.constraints.Size;
 import lombok.Builder;
 
@@ -11,7 +12,14 @@ import lombok.Builder;
  *
  * <p>Server-assigned fields ({@code id}, {@code organisationId}, {@code deleted}, timestamps) are
  * not components here, so they are ignored if supplied — Spring Boot leaves
- * {@code fail-on-unknown-properties} off (Zalando default).
+ * {@code fail-on-unknown-properties} off (Zalando default): a body echoing a read-only field from a
+ * prior GET is accepted and the field dropped, never a 400.
+ *
+ * <p>{@code type} and {@code role} are the one exception (cv-044): the address book is untyped and
+ * unroled, so they are modelled as explicit {@code @Null} components. A supplied value binds and
+ * fails {@code @Null}, landing in the same Bean-Validation {@code errors} map keyed {@code type} /
+ * {@code role} — a per-field 400, not a silent drop and not a deserialization failure. They are
+ * never mapped onto the entity.
  *
  * <p>This record carries <strong>no</strong> null guards: it is client-supplied and its non-null
  * enforcement is Bean Validation's job, which must collect every field's error into the
@@ -21,7 +29,7 @@ import lombok.Builder;
  * check): it is stored exactly as given (cv-011).
  */
 @Builder
-public record OperatorRequest(
+public record AddressRequest(
     @NotBlank(message = "Enter a name")
         @Size(max = 255, message = "Name must be 255 characters or less")
         String name,
@@ -44,4 +52,6 @@ public record OperatorRequest(
     @NotBlank(message = "Enter an email address")
         @Email(message = "Enter an email address in the correct format")
         @Size(max = 254, message = "Email address must be 254 characters or less")
-        String email) {}
+        String email,
+    @Null(message = "type is not a supported field") Object type,
+    @Null(message = "role is not a supported field") Object role) {}

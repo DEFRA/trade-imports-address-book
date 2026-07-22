@@ -114,7 +114,7 @@ class OperatorMapperTest {
         }
         """;
 
-    OperatorRequest request = mapper.readValue(body, OperatorRequest.class);
+    AddressRequest request = mapper.readValue(body, AddressRequest.class);
     Address entity = OperatorMapper.toEntity(request);
 
     assertThat(entity.getName()).isEqualTo("Port Importers Ltd");

@@ -43,8 +43,8 @@ class OperatorServiceTest {
     service = new OperatorService(repository, meterRegistry);
   }
 
-  private OperatorRequest request() {
-    return OperatorRequest.builder()
+  private AddressRequest request() {
+    return AddressRequest.builder()
         .name("Highland Livestock Ltd")
         .addressLine1("14 Drover's Way")
         .addressLine2("Unit 3")
@@ -143,8 +143,8 @@ class OperatorServiceTest {
     assertThat(found.get().getStatus()).isEqualTo(AddressStatus.DELETED);
   }
 
-  private OperatorRequest updateRequest() {
-    return OperatorRequest.builder()
+  private AddressRequest updateRequest() {
+    return AddressRequest.builder()
         .name("Lowland Cattle Co")
         .addressLine1("2 Market Street")
         .addressLine2("Suite 5")

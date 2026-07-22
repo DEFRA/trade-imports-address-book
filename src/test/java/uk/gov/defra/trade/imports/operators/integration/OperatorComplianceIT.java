@@ -178,7 +178,7 @@ class OperatorComplianceIT extends IntegrationBase {
 
     // the untyped model carries no operatorType/transporterCategory/status enum on the wire
     Map<String, Object> requestProps =
-        (Map<String, Object>) nested(schemas, "OperatorRequest", "properties");
+        (Map<String, Object>) nested(schemas, "AddressRequest", "properties");
     assertThat(requestProps).doesNotContainKeys("operatorType", "transporterCategory");
     Map<String, Object> responseProps =
         (Map<String, Object>) nested(schemas, "OperatorResponse", "properties");

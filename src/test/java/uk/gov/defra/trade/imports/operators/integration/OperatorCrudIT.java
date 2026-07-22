@@ -121,6 +121,136 @@ class OperatorCrudIT extends IntegrationBase {
     assertThat(repository.findAll()).isEmpty();
   }
 
+  @Test
+  void createRejectsAStrayTypeOrRoleFieldWithAPerFieldError() throws Exception {
+    // cv-044: the book is untyped/unroled — a supplied type/role is a per-field 400, keyed by the
+    // field, not a silent drop and not a deserialization failure.
+    String body =
+        """
+        {
+          "name": "Highland Livestock Ltd",
+          "addressLine1": "14 Drover's Way",
+          "townOrCity": "Inverness",
+          "postcode": "IV2 3JH",
+          "countryCode": "GB",
+          "phone": "+44 1463 234567",
+          "email": "exports@highlandlivestock.example.com",
+          "type": "IMPORTER",
+          "role": "consignor"
+        }
+        """;
+
+    mockMvc
+        .perform(
+            post("/organisation/{orgId}/addresses", ORGANISATION_ID)
+                .header(ORG_HEADER, ORGANISATION_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+        .andExpect(status().isBadRequest())
+        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/validation-error"))
+        .andExpect(jsonPath("$.errors.type").exists())
+        .andExpect(jsonPath("$.errors.role").exists());
+
+    assertThat(repository.findAll()).isEmpty();
+  }
+
+  @Test
+  void createIgnoresEchoedReadOnlyAndUnrelatedUnknownFieldsRatherThanRejectingThem() throws Exception {
+    // An echoed read-only field (id/createdAt from a prior GET) and an unrelated unknown field are
+    // silently dropped (Zalando failOnUnknownProperties(false)) — only type/role are rejected.
+    String body =
+        """
+        {
+          "name": "Highland Livestock Ltd",
+          "addressLine1": "14 Drover's Way",
+          "townOrCity": "Inverness",
+          "postcode": "IV2 3JH",
+          "countryCode": "GB",
+          "phone": "+44 1463 234567",
+          "email": "exports@highlandlivestock.example.com",
+          "id": "echoed-read-only-id",
+          "createdAt": "2020-01-01T00:00:00Z",
+          "deleted": true,
+          "somethingUnknown": "ignored"
+        }
+        """;
+
+    mockMvc
+        .perform(
+            post("/organisation/{orgId}/addresses", ORGANISATION_ID)
+                .header(ORG_HEADER, ORGANISATION_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+        .andExpect(status().isCreated())
+        // the server assigns id/deleted — the echoed values are ignored
+        .andExpect(jsonPath("$.id").exists())
+        .andExpect(jsonPath("$.id").value(org.hamcrest.Matchers.not("echoed-read-only-id")))
+        .andExpect(jsonPath("$.deleted").value(false));
+
+    assertThat(repository.findAll()).singleElement();
+  }
+
+  @Test
+  void createAcceptsCountryCodeAsGivenAndAFreeStringPhone() throws Exception {
+    // cv-011: countryCode is stored exactly as given (no list check). cv-044: phone is not
+    // format-validated, so a free string is accepted.
+    String body =
+        """
+        {
+          "name": "Ferme des Deux Rivieres",
+          "addressLine1": "12 Rue du Marche",
+          "townOrCity": "Calais",
+          "postcode": "62100",
+          "countryCode": "FR",
+          "phone": "ring the office",
+          "email": "exports@deuxrivieres.example.com"
+        }
+        """;
+
+    mockMvc
+        .perform(
+            post("/organisation/{orgId}/addresses", ORGANISATION_ID)
+                .header(ORG_HEADER, ORGANISATION_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.countryCode").value("FR"))
+        .andExpect(jsonPath("$.phone").value("ring the office"));
+
+    assertThat(repository.findAll())
+        .singleElement()
+        .satisfies(address -> assertThat(address.getCountryCode()).isEqualTo("FR"));
+  }
+
+  @Test
+  void createWithABlankCountryCodeReturns400() throws Exception {
+    String body =
+        """
+        {
+          "name": "Highland Livestock Ltd",
+          "addressLine1": "14 Drover's Way",
+          "townOrCity": "Inverness",
+          "postcode": "IV2 3JH",
+          "countryCode": "",
+          "phone": "+44 1463 234567",
+          "email": "exports@highlandlivestock.example.com"
+        }
+        """;
+
+    mockMvc
+        .perform(
+            post("/organisation/{orgId}/addresses", ORGANISATION_ID)
+                .header(ORG_HEADER, ORGANISATION_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+        .andExpect(status().isBadRequest())
+        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+        .andExpect(jsonPath("$.errors.countryCode").exists());
+
+    assertThat(repository.findAll()).isEmpty();
+  }
+
   private Address saveAddress(AddressStatus status) {
     Address address =
         Address.builder()

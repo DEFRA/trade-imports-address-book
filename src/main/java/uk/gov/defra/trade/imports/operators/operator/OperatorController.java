@@ -131,7 +131,7 @@ public class OperatorController {
   public ResponseEntity<OperatorResponse> create(
       @PathVariable String orgId,
       @RequestHeader(ORGANISATION_ID_HEADER) String sessionOrg,
-      @Valid @RequestBody OperatorRequest request) {
+      @Valid @RequestBody AddressRequest request) {
     authoriseOrg(orgId, sessionOrg);
     log.info("POST addresses - creating address");
     Address created = operatorService.create(request, orgId);
@@ -212,7 +212,7 @@ public class OperatorController {
       @PathVariable String orgId,
       @RequestHeader(ORGANISATION_ID_HEADER) String sessionOrg,
       @PathVariable("operator-id") String operatorId,
-      @Valid @RequestBody OperatorRequest request) {
+      @Valid @RequestBody AddressRequest request) {
     authoriseOrg(orgId, sessionOrg);
     log.info("PUT addresses/{}", operatorId);
     Address updated = operatorService.update(operatorId, request, orgId);

@@ -33,7 +33,7 @@ public final class OperatorMapper {
    * fields ({@code id}, {@code organisationId}, {@code status}, timestamps) are set by the service
    * on create/update, not here.
    */
-  public static Address toEntity(OperatorRequest request) {
+  public static Address toEntity(AddressRequest request) {
     return Address.builder()
         .name(request.name())
         .addressLine1(request.addressLine1())
