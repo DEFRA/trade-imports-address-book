@@ -2,7 +2,6 @@ package uk.gov.defra.trade.imports.operators.filter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
@@ -23,18 +22,18 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 /**
- * Unit tests for {@link IdentityHeaderFilter} (design §2, §5; c-001, b-010).
+ * Unit tests for {@link IdentityHeaderFilter} (cv-010).
  *
  * <p>The filter runs before {@code DispatcherServlet}, so {@code GlobalExceptionHandler}
  * (a {@code @RestControllerAdvice}) cannot format its failures — the filter must write the RFC 9457
  * {@code application/problem+json} bad-request body itself. These tests pin that self-written body,
- * the POST-only organisation-id rule, MDC scoping and the no-PII-in-logs guarantee.
+ * the {@code Trade-Imports-Organisation-Id} required-on-every-operation rule, MDC scoping and the
+ * no-PII-in-logs guarantee.
  */
 class IdentityHeaderFilterTest {
 
-  private static final String CRN_HEADER = "Trade-Imports-Crn";
   private static final String ORGANISATION_ID_HEADER = "Trade-Imports-Organisation-Id";
-  private static final String MDC_CRN = "crn";
+  private static final String MDC_ORGANISATION_ID = "organisationId";
   private static final String MDC_TRACE_ID = "trace.id";
   private static final String BAD_REQUEST_TYPE =
       "https://api.cdp.defra.cloud/problems/bad-request";
@@ -56,7 +55,7 @@ class IdentityHeaderFilterTest {
   }
 
   @Test
-  void missingCrn_writesBadRequestProblemAndHaltsTheChain() throws Exception {
+  void missingOrganisationId_writesBadRequestProblemAndHaltsTheChain() throws Exception {
     MockHttpServletRequest request = new MockHttpServletRequest("GET", "/operators");
     MockHttpServletResponse response = new MockHttpServletResponse();
     RecordingChain chain = new RecordingChain();
@@ -71,7 +70,7 @@ class IdentityHeaderFilterTest {
     assertThat(body).containsEntry("type", BAD_REQUEST_TYPE);
     assertThat(body).containsEntry("title", "Bad Request");
     assertThat(body).containsEntry("status", HttpStatus.BAD_REQUEST.value());
-    assertThat(body.get("detail").toString()).contains(CRN_HEADER);
+    assertThat(body.get("detail").toString()).contains(ORGANISATION_ID_HEADER);
     // The bad-request 400 shape carries NO errors map — a scoping failure is not field validation.
     assertThat(body).doesNotContainKey("errors");
     // Not 401/403 — those are outside the ruled status set.
@@ -79,9 +78,9 @@ class IdentityHeaderFilterTest {
   }
 
   @Test
-  void blankCrn_writesBadRequestProblem() throws Exception {
+  void blankOrganisationId_writesBadRequestProblem() throws Exception {
     MockHttpServletRequest request = new MockHttpServletRequest("GET", "/operators");
-    request.addHeader(CRN_HEADER, "   ");
+    request.addHeader(ORGANISATION_ID_HEADER, "   ");
     MockHttpServletResponse response = new MockHttpServletResponse();
     RecordingChain chain = new RecordingChain();
 
@@ -93,56 +92,26 @@ class IdentityHeaderFilterTest {
   }
 
   @Test
-  void postWithoutOrganisationId_writesBadRequestProblemWithNoErrorsMap() throws Exception {
-    MockHttpServletRequest request = new MockHttpServletRequest("POST", "/operators");
-    request.addHeader(CRN_HEADER, "GB123456789000");
-    MockHttpServletResponse response = new MockHttpServletResponse();
-    RecordingChain chain = new RecordingChain();
-
-    filter.doFilter(request, response, chain);
-
-    assertThat(chain.wasCalled()).isFalse();
-    assertThat(response.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
-    Map<String, Object> body = parseBody(response);
-    assertThat(body).containsEntry("type", BAD_REQUEST_TYPE);
-    assertThat(body.get("detail").toString()).contains(ORGANISATION_ID_HEADER);
-    assertThat(body).doesNotContainKey("errors");
-  }
-
-  @Test
-  void postWithBlankOrganisationId_writesBadRequestProblem() throws Exception {
-    MockHttpServletRequest request = new MockHttpServletRequest("POST", "/operators");
-    request.addHeader(CRN_HEADER, "GB123456789000");
-    request.addHeader(ORGANISATION_ID_HEADER, "  ");
-    MockHttpServletResponse response = new MockHttpServletResponse();
-    RecordingChain chain = new RecordingChain();
-
-    filter.doFilter(request, response, chain);
-
-    assertThat(chain.wasCalled()).isFalse();
-    assertThat(response.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
-    assertThat(parseBody(response).get("detail").toString()).contains(ORGANISATION_ID_HEADER);
-  }
-
-  @Test
-  void organisationIdIsIgnoredOnNonPostOperations() throws Exception {
-    for (String method : new String[] {"GET", "PUT", "DELETE"}) {
-      MockHttpServletRequest request = new MockHttpServletRequest(method, "/operators/665f1c2ab3e4d51a2c9d0e77");
-      request.addHeader(CRN_HEADER, "GB123456789000");
+  void organisationIdIsRequiredOnEveryOperation() throws Exception {
+    for (String method : new String[] {"GET", "POST", "PUT", "DELETE"}) {
+      MockHttpServletRequest request =
+          new MockHttpServletRequest(method, "/operators/665f1c2ab3e4d51a2c9d0e77");
       MockHttpServletResponse response = new MockHttpServletResponse();
       RecordingChain chain = new RecordingChain();
 
       filter.doFilter(request, response, chain);
 
-      assertThat(chain.wasCalled()).as("chain should proceed for %s with no org-id header", method).isTrue();
-      assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
+      assertThat(chain.wasCalled())
+          .as("chain must halt for %s without the org-id header", method)
+          .isFalse();
+      assertThat(response.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+      assertThat(parseBody(response).get("detail").toString()).contains(ORGANISATION_ID_HEADER);
     }
   }
 
   @Test
-  void validHeadersOnPost_proceedAndCrnLandsInMdcDuringTheChain() throws Exception {
+  void validHeader_proceedsAndOrganisationIdLandsInMdcDuringTheChain() throws Exception {
     MockHttpServletRequest request = new MockHttpServletRequest("POST", "/operators");
-    request.addHeader(CRN_HEADER, "GB123456789000");
     request.addHeader(ORGANISATION_ID_HEADER, "org-42");
     MockHttpServletResponse response = new MockHttpServletResponse();
     RecordingChain chain = new RecordingChain();
@@ -150,7 +119,7 @@ class IdentityHeaderFilterTest {
     filter.doFilter(request, response, chain);
 
     assertThat(chain.wasCalled()).isTrue();
-    assertThat(chain.mdcDuringChain()).containsEntry(MDC_CRN, "GB123456789000");
+    assertThat(chain.mdcDuringChain()).containsEntry(MDC_ORGANISATION_ID, "org-42");
   }
 
   @Test
@@ -177,9 +146,8 @@ class IdentityHeaderFilterTest {
   }
 
   @Test
-  void addsOnlyCrnToTheLoggingContext_noPiiFieldValues() throws Exception {
+  void addsOnlyOrganisationIdToTheLoggingContext_noPiiFieldValues() throws Exception {
     MockHttpServletRequest request = new MockHttpServletRequest("POST", "/operators");
-    request.addHeader(CRN_HEADER, "GB123456789000");
     request.addHeader(ORGANISATION_ID_HEADER, "org-42");
     // PII-shaped body must never surface in the logging context.
     request.setContent("{\"name\":\"Highland Livestock Ltd\",\"email\":\"secret@example.com\"}".getBytes());
@@ -196,8 +164,9 @@ class IdentityHeaderFilterTest {
       filterLogger.detachAppender(appender);
     }
 
-    // The only diagnostic key the filter contributes is crn — never a name, email or address value.
-    assertThat(chain.mdcDuringChain()).containsOnlyKeys(MDC_CRN);
+    // The only diagnostic key the filter contributes is organisationId — never a name, email or
+    // address value.
+    assertThat(chain.mdcDuringChain()).containsOnlyKeys(MDC_ORGANISATION_ID);
     assertThat(appender.list)
         .allSatisfy(
             event -> {

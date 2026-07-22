@@ -14,36 +14,35 @@ import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 /**
- * An operator (address-book entry) owned by an organisation. The field set is flat — the Jira
- * ticket field table is one flat form, so there is no {@code Address} value object.
+ * An untyped, organisation-owned address-book entry. The field set is flat — the Standard Address
+ * Block is one flat form, so there is no nested {@code Address} value object.
  *
- * <p>{@code country} is a display-name string (c-004), not an ISO alpha-2 code — do not "fix" it.
+ * <p>{@code countryCode} is stored as an ISO 3166-1 alpha-2 code (cv-011), exactly as supplied — the
+ * service does not convert it to or from a display name.
  *
  * <p>{@code modifiedAt} is bumped by auditing on every write (PUT and soft delete) but is
- * <strong>audit only</strong>: c-017 removed re-sync entirely, so nothing reads it to refresh
- * anything. The two compound indexes serve every production read ({@code crn_status_type_created})
- * and the ruled future org-sharing flip ({@code org_status}); both are built now while the
- * collection is empty so neither is a later migration or index build on a populated collection.
+ * <strong>audit only</strong>: nothing reads it to refresh anything.
+ *
+ * <p>The single compound index {@code org_status_created} serves every production read: org-scoped,
+ * status-bounded (ACTIVE), newest-first. It is built now while the collection is empty so it is
+ * never a later migration or index build on a populated collection.
  *
  * <p>The entity is never serialised onto the wire — the response records own the wire contract.
  */
 @Document(collection = "operators")
 @CompoundIndex(
-    name = "crn_status_type_created",
-    def = "{'crn': 1, 'status': 1, 'operatorType': 1, 'createdAt': -1}")
-@CompoundIndex(name = "org_status", def = "{'organisationId': 1, 'status': 1}")
+    name = "org_status_created",
+    def = "{'organisationId': 1, 'status': 1, 'createdAt': -1}")
 @Data
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @Builder
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @NoArgsConstructor
-public class Operator {
+public class Address {
 
   @EqualsAndHashCode.Include
   @Id
   private String id;
-
-  private OperatorType operatorType;
 
   private String name;
 
@@ -51,27 +50,21 @@ public class Operator {
 
   private String addressLine2;
 
-  private String town;
+  private String townOrCity;
 
   private String county;
 
   private String postcode;
 
-  private String country;
+  private String countryCode;
 
-  private String telephone;
+  private String phone;
 
   private String email;
 
-  private String approvalNumber;
-
-  private TransporterCategory transporterCategory;
-
-  private String crn;
-
   private String organisationId;
 
-  private OperatorStatus status;
+  private AddressStatus status;
 
   @CreatedDate
   private Instant createdAt;

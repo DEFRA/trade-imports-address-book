@@ -65,29 +65,6 @@ public class GlobalExceptionHandler {
   }
 
   /**
-   * Service-layer field-validation failure — 400 validation-error, WITH a per-field errors map. The
-   * {@code operatorType} immutability rejection on PUT lands here; the map is keyed by the camelCase
-   * wire field name already (the service supplies wire keys), producing an identical shape to the
-   * bean-validation 400.
-   */
-  @ExceptionHandler(ValidationException.class)
-  public ResponseEntity<ProblemDetail> handleServiceValidationException(ValidationException ex) {
-    String traceId = MDC.get(MDC_TRACE_ID);
-    log.warn("Validation error (trace: {}): {}", traceId, ex.getMessage());
-
-    ProblemDetail problem =
-        problemDetail(
-            HttpStatus.BAD_REQUEST,
-            "validation-error",
-            "Validation Error",
-            "Validation failed for one or more fields",
-            traceId);
-    problem.setProperty("errors", ex.getErrors());
-
-    return problemResponse(HttpStatus.BAD_REQUEST, problem);
-  }
-
-  /**
    * A query/path parameter that could not be bound to its target type (e.g. a non-numeric
    * {@code page} or {@code page_size}) — 400 bad-request, NO errors map. Without this, Spring's
    * {@link MethodArgumentTypeMismatchException} would fall through to the 500 handler.
@@ -121,7 +98,7 @@ public class GlobalExceptionHandler {
     return problemResponse(HttpStatus.BAD_REQUEST, problem);
   }
 
-  /** Unknown / cross-crn id, or a PUT on a tombstone — 404 not-found. */
+  /** Unknown / cross-org id, or a PUT on a tombstone — 404 not-found. */
   @ExceptionHandler(NotFoundException.class)
   public ResponseEntity<ProblemDetail> handleNotFoundException(NotFoundException ex) {
     String traceId = MDC.get(MDC_TRACE_ID);

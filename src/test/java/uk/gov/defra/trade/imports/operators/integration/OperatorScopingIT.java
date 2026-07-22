@@ -19,29 +19,28 @@ import org.springframework.test.web.servlet.MvcResult;
 import uk.gov.defra.trade.imports.operators.operator.OperatorRepository;
 
 /**
- * Cross-crn scoping and identity-header pins (design §2, §9.2 — c-001, c-018). crn A's operators are
- * invisible and unreachable to crn B; {@code organisation_id} is persisted on create but never used
- * to filter reads; a missing {@code Trade-Imports-Crn} (any op) or {@code Trade-Imports-Organisation-Id}
- * (POST) is a 400 bad-request with no {@code errors} map; and — the load-bearing c-018 pin — a 404
- * for another crn's LIVE operator is byte-for-byte identical to a 404 for an unknown id, so a 404
- * leaks neither existence nor a deletion signal.
+ * Cross-organisation scoping and identity-header pins (cv-010, cv-040). Organisation A's addresses
+ * are invisible and unreachable to organisation B; {@code organisationId} is stamped on create from
+ * the trusted {@code Trade-Imports-Organisation-Id} header and scopes every read and write; a
+ * missing header is a 400 bad-request with no {@code errors} map; and — the load-bearing pin — a 404
+ * for another organisation's LIVE address is byte-for-byte identical to a 404 for an unknown id, so a
+ * 404 leaks neither existence nor a deletion signal.
  */
 class OperatorScopingIT extends IntegrationBase {
 
-  private static final String CRN_A = "1100014934";
-  private static final String CRN_B = "9900000000";
+  private static final String ORG_HEADER = "Trade-Imports-Organisation-Id";
   private static final String ORG_A = "5a8d2b19-6f4e-4d21-9c1b-7e3f0a2d5c88";
+  private static final String ORG_B = "9c1b7e3f-0a2d-5c88-5a8d-2b196f4e4d21";
 
   private static final String CREATE_BODY =
       """
       {
-        "operatorType": "CONSIGNOR",
         "name": "Highland Livestock Ltd",
         "addressLine1": "14 Drover's Way",
-        "town": "Inverness",
+        "townOrCity": "Inverness",
         "postcode": "IV2 3JH",
-        "country": "United Kingdom",
-        "telephone": "+44 1463 234567",
+        "countryCode": "GB",
+        "phone": "+44 1463 234567",
         "email": "exports@highlandlivestock.example.com"
       }
       """;
@@ -54,13 +53,12 @@ class OperatorScopingIT extends IntegrationBase {
     repository.deleteAll();
   }
 
-  private String createAsCrnA() throws Exception {
+  private String createAsOrgA() throws Exception {
     String location =
         mockMvc
             .perform(
                 post("/operators")
-                    .header("Trade-Imports-Crn", CRN_A)
-                    .header("Trade-Imports-Organisation-Id", ORG_A)
+                    .header(ORG_HEADER, ORG_A)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(CREATE_BODY))
             .andExpect(status().isCreated())
@@ -71,65 +69,61 @@ class OperatorScopingIT extends IntegrationBase {
   }
 
   @Test
-  void crnBCannotSeeOrReachCrnAsOperator() throws Exception {
-    String id = createAsCrnA();
+  void orgBCannotSeeOrReachOrgAsAddress() throws Exception {
+    String id = createAsOrgA();
 
-    // crn B lists nothing
+    // org B lists nothing
     mockMvc
-        .perform(get("/operators").header("Trade-Imports-Crn", CRN_B))
+        .perform(get("/operators").header(ORG_HEADER, ORG_B))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items").isEmpty())
         .andExpect(jsonPath("$.totalItems").value(0));
 
-    // crn B gets 404 on GET / PUT / DELETE of A's id
+    // org B gets 404 on GET / PUT / DELETE of A's id
     mockMvc
-        .perform(get("/operators/{operator-id}", id).header("Trade-Imports-Crn", CRN_B))
+        .perform(get("/operators/{operator-id}", id).header(ORG_HEADER, ORG_B))
         .andExpect(status().isNotFound());
     mockMvc
         .perform(
             put("/operators/{operator-id}", id)
-                .header("Trade-Imports-Crn", CRN_B)
+                .header(ORG_HEADER, ORG_B)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(CREATE_BODY))
         .andExpect(status().isNotFound());
     mockMvc
-        .perform(delete("/operators/{operator-id}", id).header("Trade-Imports-Crn", CRN_B))
+        .perform(delete("/operators/{operator-id}", id).header(ORG_HEADER, ORG_B))
         .andExpect(status().isNotFound());
 
-    // A's operator is untouched under its owning crn
+    // A's address is untouched under its owning organisation
     mockMvc
-        .perform(get("/operators/{operator-id}", id).header("Trade-Imports-Crn", CRN_A))
+        .perform(get("/operators/{operator-id}", id).header(ORG_HEADER, ORG_A))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.status").value("ACTIVE"));
+        .andExpect(jsonPath("$.deleted").value(false));
   }
 
   @Test
-  void organisationIdIsPersistedButNotUsedToFilterReads() throws Exception {
-    String id = createAsCrnA();
+  void organisationIdIsStampedOnCreateAndScopesReads() throws Exception {
+    String id = createAsOrgA();
 
-    // both crn and organisationId are stored (the c-001 both-stored ruling)
+    // organisationId is stamped from the header, never the body (cv-010)
     assertThat(repository.findById(id))
         .get()
-        .satisfies(
-            operator -> {
-              assertThat(operator.getCrn()).isEqualTo(CRN_A);
-              assertThat(operator.getOrganisationId()).isEqualTo(ORG_A);
-            });
+        .satisfies(address -> assertThat(address.getOrganisationId()).isEqualTo(ORG_A));
 
-    // a read carries NO organisation-id header and is not filtered by it — crn alone scopes reads
+    // a read under the owning organisation resolves the address
     mockMvc
-        .perform(get("/operators/{operator-id}", id).header("Trade-Imports-Crn", CRN_A))
+        .perform(get("/operators/{operator-id}", id).header(ORG_HEADER, ORG_A))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(id))
         .andExpect(jsonPath("$.organisationId").value(ORG_A));
     mockMvc
-        .perform(get("/operators").header("Trade-Imports-Crn", CRN_A))
+        .perform(get("/operators").header(ORG_HEADER, ORG_A))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1));
   }
 
   @Test
-  void missingCrnHeaderIs400BadRequestWithNoErrorsMap() throws Exception {
+  void missingOrgHeaderIs400BadRequestWithNoErrorsMap() throws Exception {
     mockMvc
         .perform(get("/operators"))
         .andExpect(status().isBadRequest())
@@ -139,11 +133,10 @@ class OperatorScopingIT extends IntegrationBase {
   }
 
   @Test
-  void missingOrganisationIdHeaderOnPostIs400BadRequestWithNoErrorsMap() throws Exception {
+  void missingOrgHeaderOnPostIs400BadRequestWithNoErrorsMap() throws Exception {
     mockMvc
         .perform(
             post("/operators")
-                .header("Trade-Imports-Crn", CRN_A)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(CREATE_BODY))
         .andExpect(status().isBadRequest())
@@ -155,29 +148,29 @@ class OperatorScopingIT extends IntegrationBase {
   }
 
   @Test
-  void a404ForAnotherCrnsLiveOperatorIsIdenticalToA404ForAnUnknownId() throws Exception {
-    String liveId = createAsCrnA();
+  void a404ForAnotherOrgsLiveAddressIsIdenticalToA404ForAnUnknownId() throws Exception {
+    String liveId = createAsOrgA();
 
-    // crn B fetching crn A's LIVE operator — no trace header, so the body has no traceId
-    MvcResult crossCrn =
+    // org B fetching org A's LIVE address — no trace header, so the body has no traceId
+    MvcResult crossOrg =
         mockMvc
-            .perform(get("/operators/{operator-id}", liveId).header("Trade-Imports-Crn", CRN_B))
+            .perform(get("/operators/{operator-id}", liveId).header(ORG_HEADER, ORG_B))
             .andExpect(status().isNotFound())
             .andReturn();
 
-    // crn B fetching an id that does not exist at all
+    // org B fetching an id that does not exist at all
     MvcResult unknown =
         mockMvc
             .perform(
                 get("/operators/{operator-id}", "665f1c2ab3e4d51a2c9d0e77")
-                    .header("Trade-Imports-Crn", CRN_B))
+                    .header(ORG_HEADER, ORG_B))
             .andExpect(status().isNotFound())
             .andReturn();
 
-    // Identical problem — a 404 carries no existence and no deletion information (c-018). The RFC
-    // 9457 `instance` echoes the caller's own request URI (the id it already put in the URL), so it
-    // is excluded: it reveals nothing about whether the resource exists elsewhere or was deleted.
-    assertThat(problemWithoutInstance(crossCrn)).isEqualTo(problemWithoutInstance(unknown));
+    // Identical problem — a 404 carries no existence and no deletion information. The RFC 9457
+    // `instance` echoes the caller's own request URI (the id it already put in the URL), so it is
+    // excluded: it reveals nothing about whether the resource exists elsewhere or was deleted.
+    assertThat(problemWithoutInstance(crossOrg)).isEqualTo(problemWithoutInstance(unknown));
   }
 
   private Map<String, Object> problemWithoutInstance(MvcResult result) throws Exception {

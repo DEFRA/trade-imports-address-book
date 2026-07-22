@@ -6,14 +6,13 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import uk.gov.defra.trade.imports.operators.operator.Operator;
+import uk.gov.defra.trade.imports.operators.operator.Address;
+import uk.gov.defra.trade.imports.operators.operator.AddressStatus;
 import uk.gov.defra.trade.imports.operators.operator.OperatorRepository;
-import uk.gov.defra.trade.imports.operators.operator.OperatorStatus;
-import uk.gov.defra.trade.imports.operators.operator.OperatorType;
 
 /**
- * Proves {@link OperatorRepository#findByIdAndCrn} scopes reads by CRN, so one organisation's CRN
- * can never fetch another organisation's operator by guessing its id.
+ * Proves {@link OperatorRepository#findByIdAndOrganisationId} scopes reads by organisation, so one
+ * organisation can never fetch another organisation's address by guessing its id (cv-010).
  */
 class OperatorRepositoryIT extends IntegrationBase {
 
@@ -26,49 +25,45 @@ class OperatorRepositoryIT extends IntegrationBase {
   }
 
   @Test
-  void findByIdAndCrn_returnsOperator_whenCrnMatches() {
-    Operator saved =
+  void findByIdAndOrganisationId_returnsAddress_whenOrganisationMatches() {
+    Address saved =
         operatorRepository.save(
-            Operator.builder()
-                .operatorType(OperatorType.CONSIGNOR)
+            Address.builder()
                 .name("Acme Farms")
                 .addressLine1("1 Farm Lane")
-                .town("Exeter")
+                .townOrCity("Exeter")
                 .postcode("EX1 1AA")
-                .country("United Kingdom")
-                .telephone("01234567890")
+                .countryCode("GB")
+                .phone("01234567890")
                 .email("acme@example.com")
-                .crn("CRN-A")
                 .organisationId("ORG-A")
-                .status(OperatorStatus.ACTIVE)
+                .status(AddressStatus.ACTIVE)
                 .build());
 
-    Optional<Operator> found = operatorRepository.findByIdAndCrn(saved.getId(), "CRN-A");
+    Optional<Address> found = operatorRepository.findByIdAndOrganisationId(saved.getId(), "ORG-A");
 
     assertThat(found).isPresent();
     assertThat(found.get().getName()).isEqualTo("Acme Farms");
-    assertThat(found.get().getCountry()).isEqualTo("United Kingdom");
+    assertThat(found.get().getCountryCode()).isEqualTo("GB");
   }
 
   @Test
-  void findByIdAndCrn_returnsEmpty_whenCrnDiffers() {
-    Operator saved =
+  void findByIdAndOrganisationId_returnsEmpty_whenOrganisationDiffers() {
+    Address saved =
         operatorRepository.save(
-            Operator.builder()
-                .operatorType(OperatorType.IMPORTER)
+            Address.builder()
                 .name("Other Traders")
                 .addressLine1("2 Trade Road")
-                .town("Bristol")
+                .townOrCity("Bristol")
                 .postcode("BS1 2BB")
-                .country("United Kingdom")
-                .telephone("09876543210")
+                .countryCode("GB")
+                .phone("09876543210")
                 .email("other@example.com")
-                .crn("CRN-A")
                 .organisationId("ORG-A")
-                .status(OperatorStatus.ACTIVE)
+                .status(AddressStatus.ACTIVE)
                 .build());
 
-    Optional<Operator> found = operatorRepository.findByIdAndCrn(saved.getId(), "CRN-B");
+    Optional<Address> found = operatorRepository.findByIdAndOrganisationId(saved.getId(), "ORG-B");
 
     assertThat(found).isEmpty();
   }

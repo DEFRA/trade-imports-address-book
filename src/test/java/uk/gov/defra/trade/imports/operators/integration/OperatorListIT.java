@@ -14,22 +14,22 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
-import uk.gov.defra.trade.imports.operators.operator.Operator;
+import uk.gov.defra.trade.imports.operators.operator.Address;
+import uk.gov.defra.trade.imports.operators.operator.AddressStatus;
 import uk.gov.defra.trade.imports.operators.operator.OperatorRepository;
-import uk.gov.defra.trade.imports.operators.operator.OperatorStatus;
-import uk.gov.defra.trade.imports.operators.operator.OperatorType;
 
 /**
- * Full-stack list integration test for {@code GET /operators} (inc-009). Pins the paginated,
- * newest-first, crn-scoped, ACTIVE-only listing: 30 seeded operators paginate 25 + 5 across two
- * pages, DELETED tombstones are excluded, another crn's operators are invisible, and out-of-range
- * pagination parameters produce a 400 bad-request problem with no {@code errors} map.
+ * Full-stack list integration test for {@code GET /operators}. Pins the paginated, newest-first,
+ * organisation-scoped, ACTIVE-only listing: 30 seeded addresses paginate 25 + 5 across two pages,
+ * DELETED tombstones are excluded, another organisation's addresses are invisible, and out-of-range
+ * pagination parameters produce a 400 bad-request problem with no {@code errors} map. Addresses are
+ * untyped (cv-017), so there is no type filter — free text is the only filter.
  */
 class OperatorListIT extends IntegrationBase {
 
-  private static final String CRN = "1100014934";
-  private static final String OTHER_CRN = "9900000000";
-  private static final String ORGANISATION_ID = "5a8d2b19-6f4e-4d21-9c1b-7e3f0a2d5c88";
+  private static final String ORG_HEADER = "Trade-Imports-Organisation-Id";
+  private static final String ORG = "5a8d2b19-6f4e-4d21-9c1b-7e3f0a2d5c88";
+  private static final String OTHER_ORG = "9c1b7e3f-0a2d-5c88-5a8d-2b196f4e4d21";
 
   @Autowired private OperatorRepository repository;
 
@@ -38,59 +38,55 @@ class OperatorListIT extends IntegrationBase {
     repository.deleteAll();
   }
 
-  private Operator save(String crn, OperatorStatus status, String name) {
-    Operator operator =
-        Operator.builder()
-            .operatorType(OperatorType.CONSIGNOR)
+  private Address save(String org, AddressStatus status, String name) {
+    Address address =
+        Address.builder()
             .name(name)
             .addressLine1("14 Drover's Way")
-            .town("Inverness")
+            .townOrCity("Inverness")
             .postcode("IV2 3JH")
-            .country("United Kingdom")
-            .telephone("+44 1463 234567")
+            .countryCode("GB")
+            .phone("+44 1463 234567")
             .email("exports@highlandlivestock.example.com")
-            .crn(crn)
-            .organisationId(ORGANISATION_ID)
+            .organisationId(org)
             .status(status)
             .createdAt(Instant.parse("2026-07-14T09:15:27Z"))
             .modifiedAt(Instant.parse("2026-07-14T09:15:27Z"))
             .build();
-    return repository.save(operator);
+    return repository.save(address);
   }
 
   private void seedActive(int count) {
     for (int i = 0; i < count; i++) {
-      save(CRN, OperatorStatus.ACTIVE, "Operator " + i);
+      save(ORG, AddressStatus.ACTIVE, "Address " + i);
     }
   }
 
-  private Operator saveSearchable(
-      OperatorType type, String name, String addressLine1, String postcode, String country) {
-    Operator operator =
-        Operator.builder()
-            .operatorType(type)
+  private Address saveSearchable(
+      String name, String addressLine1, String postcode, String countryCode) {
+    Address address =
+        Address.builder()
             .name(name)
             .addressLine1(addressLine1)
-            .town("Inverness")
+            .townOrCity("Inverness")
             .postcode(postcode)
-            .country(country)
-            .telephone("+44 1463 234567")
+            .countryCode(countryCode)
+            .phone("+44 1463 234567")
             .email("ops@example.com")
-            .crn(CRN)
-            .organisationId(ORGANISATION_ID)
-            .status(OperatorStatus.ACTIVE)
+            .organisationId(ORG)
+            .status(AddressStatus.ACTIVE)
             .createdAt(Instant.parse("2026-07-14T09:15:27Z"))
             .modifiedAt(Instant.parse("2026-07-14T09:15:27Z"))
             .build();
-    return repository.save(operator);
+    return repository.save(address);
   }
 
   @Test
-  void listDefaultsToPage1Size25AndReportsTotalPages2For30Operators() throws Exception {
+  void listDefaultsToPage1Size25AndReportsTotalPages2For30Addresses() throws Exception {
     seedActive(30);
 
     mockMvc
-        .perform(get("/operators").header("Trade-Imports-Crn", CRN))
+        .perform(get("/operators").header(ORG_HEADER, ORG))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items.length()").value(25))
         .andExpect(jsonPath("$.page").value(1))
@@ -104,7 +100,7 @@ class OperatorListIT extends IntegrationBase {
     seedActive(30);
 
     mockMvc
-        .perform(get("/operators").header("Trade-Imports-Crn", CRN).param("page", "2"))
+        .perform(get("/operators").header(ORG_HEADER, ORG).param("page", "2"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items.length()").value(5))
         .andExpect(jsonPath("$.page").value(2))
@@ -115,34 +111,34 @@ class OperatorListIT extends IntegrationBase {
   @Test
   void listExcludesDeletedTombstones() throws Exception {
     seedActive(3);
-    Operator deleted = save(CRN, OperatorStatus.DELETED, "Ghost Operator");
+    Address deleted = save(ORG, AddressStatus.DELETED, "Ghost Address");
 
     mockMvc
-        .perform(get("/operators").header("Trade-Imports-Crn", CRN))
+        .perform(get("/operators").header(ORG_HEADER, ORG))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(3))
         .andExpect(jsonPath("$.items.length()").value(3))
-        .andExpect(jsonPath("$.items[*].status", everyItem(is("ACTIVE"))))
+        .andExpect(jsonPath("$.items[*].deleted", everyItem(is(false))))
         .andExpect(jsonPath("$.items[*].id", not(hasItem(deleted.getId()))));
   }
 
   @Test
-  void listIsScopedToTheCallersCrn() throws Exception {
+  void listIsScopedToTheCallersOrganisation() throws Exception {
     seedActive(2);
-    save(OTHER_CRN, OperatorStatus.ACTIVE, "Other Org Operator");
+    save(OTHER_ORG, AddressStatus.ACTIVE, "Other Org Address");
 
     mockMvc
-        .perform(get("/operators").header("Trade-Imports-Crn", CRN))
+        .perform(get("/operators").header(ORG_HEADER, ORG))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(2))
         .andExpect(jsonPath("$.items.length()").value(2))
-        .andExpect(jsonPath("$.items[*].crn", everyItem(is(CRN))));
+        .andExpect(jsonPath("$.items[*].organisationId", everyItem(is(ORG))));
   }
 
   @Test
   void listWithPage0Returns400BadRequestProblemWithNoErrorsMap() throws Exception {
     mockMvc
-        .perform(get("/operators").header("Trade-Imports-Crn", CRN).param("page", "0"))
+        .perform(get("/operators").header(ORG_HEADER, ORG).param("page", "0"))
         .andExpect(status().isBadRequest())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
         .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/bad-request"))
@@ -154,7 +150,7 @@ class OperatorListIT extends IntegrationBase {
   @Test
   void listWithPageSize101Returns400BadRequestProblemWithNoErrorsMap() throws Exception {
     mockMvc
-        .perform(get("/operators").header("Trade-Imports-Crn", CRN).param("page_size", "101"))
+        .perform(get("/operators").header(ORG_HEADER, ORG).param("page_size", "101"))
         .andExpect(status().isBadRequest())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
         .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/bad-request"))
@@ -165,7 +161,7 @@ class OperatorListIT extends IntegrationBase {
   @Test
   void listWithANonNumericPageReturns400BadRequestProblem() throws Exception {
     mockMvc
-        .perform(get("/operators").header("Trade-Imports-Crn", CRN).param("page", "abc"))
+        .perform(get("/operators").header(ORG_HEADER, ORG).param("page", "abc"))
         .andExpect(status().isBadRequest())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
         .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/bad-request"))
@@ -174,7 +170,7 @@ class OperatorListIT extends IntegrationBase {
   }
 
   @Test
-  void listWithoutTheCrnHeaderReturns400BadRequestWithNoErrorsMap() throws Exception {
+  void listWithoutTheOrgHeaderReturns400BadRequestWithNoErrorsMap() throws Exception {
     mockMvc
         .perform(get("/operators"))
         .andExpect(status().isBadRequest())
@@ -186,11 +182,11 @@ class OperatorListIT extends IntegrationBase {
 
   @Test
   void searchMatchesOnName() throws Exception {
-    saveSearchable(OperatorType.CONSIGNOR, "Highland Livestock Ltd", "14 Drover's Way", "IV2 3JH", "United Kingdom");
-    saveSearchable(OperatorType.IMPORTER, "Lowland Cattle Co", "2 Market Street", "PH1 5AA", "Ireland");
+    saveSearchable("Highland Livestock Ltd", "14 Drover's Way", "IV2 3JH", "GB");
+    saveSearchable("Lowland Cattle Co", "2 Market Street", "PH1 5AA", "IE");
 
     mockMvc
-        .perform(get("/operators").header("Trade-Imports-Crn", CRN).param("q", "Highland"))
+        .perform(get("/operators").header(ORG_HEADER, ORG).param("q", "Highland"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].name").value("Highland Livestock Ltd"));
@@ -198,11 +194,11 @@ class OperatorListIT extends IntegrationBase {
 
   @Test
   void searchMatchesOnAnAddressLine() throws Exception {
-    saveSearchable(OperatorType.CONSIGNOR, "Highland Livestock Ltd", "14 Drover's Way", "IV2 3JH", "United Kingdom");
-    saveSearchable(OperatorType.IMPORTER, "Lowland Cattle Co", "2 Market Street", "PH1 5AA", "Ireland");
+    saveSearchable("Highland Livestock Ltd", "14 Drover's Way", "IV2 3JH", "GB");
+    saveSearchable("Lowland Cattle Co", "2 Market Street", "PH1 5AA", "IE");
 
     mockMvc
-        .perform(get("/operators").header("Trade-Imports-Crn", CRN).param("q", "Market"))
+        .perform(get("/operators").header(ORG_HEADER, ORG).param("q", "Market"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].name").value("Lowland Cattle Co"));
@@ -210,40 +206,40 @@ class OperatorListIT extends IntegrationBase {
 
   @Test
   void searchMatchesOnPostcodeCaseInsensitively() throws Exception {
-    saveSearchable(OperatorType.CONSIGNOR, "Highland Livestock Ltd", "14 Drover's Way", "IV2 3JH", "United Kingdom");
-    saveSearchable(OperatorType.IMPORTER, "Lowland Cattle Co", "2 Market Street", "PH1 5AA", "Ireland");
+    saveSearchable("Highland Livestock Ltd", "14 Drover's Way", "IV2 3JH", "GB");
+    saveSearchable("Lowland Cattle Co", "2 Market Street", "PH1 5AA", "IE");
 
     mockMvc
-        .perform(get("/operators").header("Trade-Imports-Crn", CRN).param("q", "iv2"))
+        .perform(get("/operators").header(ORG_HEADER, ORG).param("q", "iv2"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].postcode").value("IV2 3JH"));
   }
 
   @Test
-  void searchMatchesOnACountryDisplayNameSubstring() throws Exception {
-    // c-004: country is stored as the display-name STRING ("United Kingdom"), never an ISO code — so
-    // a substring of the display name matches. There is no code<->name conversion anywhere.
-    saveSearchable(OperatorType.CONSIGNOR, "Highland Livestock Ltd", "14 Drover's Way", "IV2 3JH", "United Kingdom");
-    saveSearchable(OperatorType.IMPORTER, "Lowland Cattle Co", "2 Market Street", "PH1 5AA", "Ireland");
+  void searchMatchesOnCountryCode() throws Exception {
+    // cv-011: countryCode is stored as the ISO alpha-2 code exactly as given, so a substring of the
+    // code matches. There is no code<->display-name conversion anywhere in the service.
+    saveSearchable("Highland Livestock Ltd", "14 Drover's Way", "IV2 3JH", "GB");
+    saveSearchable("Lowland Cattle Co", "2 Market Street", "PH1 5AA", "IE");
 
     mockMvc
-        .perform(get("/operators").header("Trade-Imports-Crn", CRN).param("q", "United King"))
+        .perform(get("/operators").header(ORG_HEADER, ORG).param("q", "gb"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[0].country").value("United Kingdom"));
+        .andExpect(jsonPath("$.items[0].countryCode").value("GB"));
   }
 
   @Test
   void searchWithRegexMetacharactersIsInertAndMatchesNothingRatherThanEverything() throws Exception {
     // Pattern.quote() makes ".*" a literal — it matches only a field literally containing ".*", of
-    // which there are none — so the result is empty, NOT every operator (which an unquoted regex
+    // which there are none — so the result is empty, NOT every address (which an unquoted regex
     // would return) and NOT a 500.
-    saveSearchable(OperatorType.CONSIGNOR, "Highland Livestock Ltd", "14 Drover's Way", "IV2 3JH", "United Kingdom");
-    saveSearchable(OperatorType.IMPORTER, "Lowland Cattle Co", "2 Market Street", "PH1 5AA", "Ireland");
+    saveSearchable("Highland Livestock Ltd", "14 Drover's Way", "IV2 3JH", "GB");
+    saveSearchable("Lowland Cattle Co", "2 Market Street", "PH1 5AA", "IE");
 
     mockMvc
-        .perform(get("/operators").header("Trade-Imports-Crn", CRN).param("q", ".*"))
+        .perform(get("/operators").header(ORG_HEADER, ORG).param("q", ".*"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(0))
         .andExpect(jsonPath("$.items.length()").value(0));
@@ -253,101 +249,35 @@ class OperatorListIT extends IntegrationBase {
   void searchWithAnUnbalancedRegexParenIsInertAndDoesNotError() throws Exception {
     // "(" is an invalid regex on its own; unquoted it would 500. Pattern.quote() makes it a literal
     // so it simply matches nothing.
-    saveSearchable(OperatorType.CONSIGNOR, "Highland Livestock Ltd", "14 Drover's Way", "IV2 3JH", "United Kingdom");
+    saveSearchable("Highland Livestock Ltd", "14 Drover's Way", "IV2 3JH", "GB");
 
     mockMvc
-        .perform(get("/operators").header("Trade-Imports-Crn", CRN).param("q", "("))
+        .perform(get("/operators").header(ORG_HEADER, ORG).param("q", "("))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(0));
   }
 
   @Test
-  void operatorTypeFilterReturnsOnlyThatType() throws Exception {
-    saveSearchable(OperatorType.CONSIGNOR, "Highland Livestock Ltd", "14 Drover's Way", "IV2 3JH", "United Kingdom");
-    saveSearchable(OperatorType.IMPORTER, "Lowland Cattle Co", "2 Market Street", "PH1 5AA", "Ireland");
-    saveSearchable(OperatorType.TRANSPORTER, "Border Hauliers", "9 Bridge Road", "CA1 1AA", "France");
+  void searchIsStillScopedToTheCallersOrganisation() throws Exception {
+    saveSearchable("Highland Livestock Ltd", "14 Drover's Way", "IV2 3JH", "GB");
+    save(OTHER_ORG, AddressStatus.ACTIVE, "Highland Rivals Ltd");
 
     mockMvc
-        .perform(get("/operators").header("Trade-Imports-Crn", CRN).param("operator_type", "IMPORTER"))
+        .perform(get("/operators").header(ORG_HEADER, ORG).param("q", "Highland"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[0].operatorType").value("IMPORTER"));
-  }
-
-  @Test
-  void searchAndOperatorTypeCombineAsAnAnd() throws Exception {
-    saveSearchable(OperatorType.CONSIGNOR, "Riverside Farms", "1 River Lane", "IV2 3JH", "United Kingdom");
-    saveSearchable(OperatorType.IMPORTER, "Riverside Farms", "1 River Lane", "PH1 5AA", "Ireland");
-
-    mockMvc
-        .perform(
-            get("/operators")
-                .header("Trade-Imports-Crn", CRN)
-                .param("q", "Riverside")
-                .param("operator_type", "CONSIGNOR"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[0].operatorType").value("CONSIGNOR"));
-  }
-
-  @Test
-  void allFourSentinelCombinationsOfQAndOperatorTypeFilterAsExpected() throws Exception {
-    // §1.3 four combinations against one seed of 3: neither -> all, q only, type only, both.
-    saveSearchable(OperatorType.CONSIGNOR, "Alpha Farms", "1 Alpha Way", "AL1 1AA", "United Kingdom");
-    saveSearchable(OperatorType.IMPORTER, "Beta Farms", "2 Beta Way", "BE1 1BB", "United Kingdom");
-    saveSearchable(OperatorType.CONSIGNOR, "Gamma Traders", "3 Gamma Way", "GA1 1GG", "United Kingdom");
-
-    // neither: unfiltered list returns all active
-    mockMvc
-        .perform(get("/operators").header("Trade-Imports-Crn", CRN))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(3));
-
-    // q only: "Farms" matches Alpha + Beta
-    mockMvc
-        .perform(get("/operators").header("Trade-Imports-Crn", CRN).param("q", "Farms"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(2));
-
-    // type only: CONSIGNOR matches Alpha + Gamma
-    mockMvc
-        .perform(get("/operators").header("Trade-Imports-Crn", CRN).param("operator_type", "CONSIGNOR"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(2));
-
-    // both: "Farms" AND CONSIGNOR matches only Alpha
-    mockMvc
-        .perform(
-            get("/operators")
-                .header("Trade-Imports-Crn", CRN)
-                .param("q", "Farms")
-                .param("operator_type", "CONSIGNOR"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[0].name").value("Alpha Farms"));
-  }
-
-  @Test
-  void searchIsStillScopedToTheCallersCrn() throws Exception {
-    saveSearchable(OperatorType.CONSIGNOR, "Highland Livestock Ltd", "14 Drover's Way", "IV2 3JH", "United Kingdom");
-    save(OTHER_CRN, OperatorStatus.ACTIVE, "Highland Rivals Ltd");
-
-    mockMvc
-        .perform(get("/operators").header("Trade-Imports-Crn", CRN).param("q", "Highland"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[*].crn", everyItem(is(CRN))));
+        .andExpect(jsonPath("$.items[*].organisationId", everyItem(is(ORG))));
   }
 
   @Test
   void searchExcludesDeletedTombstones() throws Exception {
-    saveSearchable(OperatorType.CONSIGNOR, "Highland Livestock Ltd", "14 Drover's Way", "IV2 3JH", "United Kingdom");
-    save(CRN, OperatorStatus.DELETED, "Highland Ghost Ltd");
+    saveSearchable("Highland Livestock Ltd", "14 Drover's Way", "IV2 3JH", "GB");
+    save(ORG, AddressStatus.DELETED, "Highland Ghost Ltd");
 
     mockMvc
-        .perform(get("/operators").header("Trade-Imports-Crn", CRN).param("q", "Highland"))
+        .perform(get("/operators").header(ORG_HEADER, ORG).param("q", "Highland"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[*].status", everyItem(is("ACTIVE"))));
+        .andExpect(jsonPath("$.items[*].deleted", everyItem(is(false))));
   }
 }

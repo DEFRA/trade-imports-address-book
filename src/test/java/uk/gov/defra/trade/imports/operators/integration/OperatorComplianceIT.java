@@ -24,12 +24,13 @@ import org.yaml.snakeyaml.Yaml;
 import uk.gov.defra.trade.imports.operators.operator.OperatorRepository;
 
 /**
- * Executable contract lock for {@code /operators} (design §1.6, §9.2 — the M1 close). Two halves:
+ * Executable contract lock for {@code /operators} (the M1 close). Two halves:
  *
  * <ol>
- *   <li><b>Runtime wire behaviour</b> — real requests prove the boundary is camelCase, enums are
- *       UPPER_SNAKE_CASE, the list response is a top-level object (never a bare array), and 400/404
- *       problems are {@code application/problem+json} carrying {@code traceId}.
+ *   <li><b>Runtime wire behaviour</b> — real requests prove the boundary is camelCase, the tombstone
+ *       is a derived {@code deleted} boolean (never an internal status enum), the list response is a
+ *       top-level object (never a bare array), and 400/404 problems are
+ *       {@code application/problem+json} carrying {@code traceId}.
  *   <li><b>Generated document lock</b> — the live {@code /v3/api-docs} is parsed and asserted to
  *       carry the whole contract surface, including the POST/PUT 400 {@code anyOf} (NOT
  *       {@code oneOf}) with both {@code ValidationProblem} and {@code Problem} registered; it is
@@ -43,7 +44,7 @@ import uk.gov.defra.trade.imports.operators.operator.OperatorRepository;
  */
 class OperatorComplianceIT extends IntegrationBase {
 
-  private static final String CRN = "1100014934";
+  private static final String ORG_HEADER = "Trade-Imports-Organisation-Id";
   private static final String ORGANISATION_ID = "5a8d2b19-6f4e-4d21-9c1b-7e3f0a2d5c88";
 
   private static final Path GENERATED_DOC = Path.of("docs/openapi/operators.yml");
@@ -52,13 +53,12 @@ class OperatorComplianceIT extends IntegrationBase {
   private static final String CREATE_BODY =
       """
       {
-        "operatorType": "CONSIGNOR",
         "name": "Highland Livestock Ltd",
         "addressLine1": "14 Drover's Way",
-        "town": "Inverness",
+        "townOrCity": "Inverness",
         "postcode": "IV2 3JH",
-        "country": "United Kingdom",
-        "telephone": "+44 1463 234567",
+        "countryCode": "GB",
+        "phone": "+44 1463 234567",
         "email": "exports@highlandlivestock.example.com"
       }
       """;
@@ -73,24 +73,26 @@ class OperatorComplianceIT extends IntegrationBase {
   // ---- runtime wire behaviour -------------------------------------------------------------
 
   @Test
-  void createAndReadEmitCamelCasePropertiesAndUpperSnakeEnums() throws Exception {
+  void createAndReadEmitCamelCasePropertiesAndADerivedDeletedBoolean() throws Exception {
     mockMvc
         .perform(
             post("/operators")
-                .header("Trade-Imports-Crn", CRN)
-                .header("Trade-Imports-Organisation-Id", ORGANISATION_ID)
+                .header(ORG_HEADER, ORGANISATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(CREATE_BODY))
         .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.operatorType").value("CONSIGNOR"))
         .andExpect(jsonPath("$.addressLine1").value("14 Drover's Way"))
+        .andExpect(jsonPath("$.townOrCity").value("Inverness"))
+        .andExpect(jsonPath("$.countryCode").value("GB"))
         .andExpect(jsonPath("$.organisationId").value(ORGANISATION_ID))
         .andExpect(jsonPath("$.createdAt").exists())
         .andExpect(jsonPath("$.modifiedAt").exists())
-        .andExpect(jsonPath("$.status").value("ACTIVE"))
-        // never the snake_case forms
-        .andExpect(jsonPath("$.operator_type").doesNotExist())
-        .andExpect(jsonPath("$.address_line_1").doesNotExist());
+        // the tombstone is a derived boolean, never the internal status enum (cv-016)
+        .andExpect(jsonPath("$.deleted").value(false))
+        .andExpect(jsonPath("$.status").doesNotExist())
+        // never the snake_case forms, and no retired typed fields
+        .andExpect(jsonPath("$.address_line_1").doesNotExist())
+        .andExpect(jsonPath("$.operatorType").doesNotExist());
   }
 
   @Test
@@ -98,14 +100,13 @@ class OperatorComplianceIT extends IntegrationBase {
     mockMvc
         .perform(
             post("/operators")
-                .header("Trade-Imports-Crn", CRN)
-                .header("Trade-Imports-Organisation-Id", ORGANISATION_ID)
+                .header(ORG_HEADER, ORGANISATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(CREATE_BODY))
         .andExpect(status().isCreated());
 
     mockMvc
-        .perform(get("/operators").header("Trade-Imports-Crn", CRN))
+        .perform(get("/operators").header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$").isMap())
         .andExpect(jsonPath("$.items").isArray())
@@ -113,7 +114,7 @@ class OperatorComplianceIT extends IntegrationBase {
         .andExpect(jsonPath("$.pageSize").value(25))
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.totalPages").value(1))
-        .andExpect(jsonPath("$.items[0].operatorType").value("CONSIGNOR"));
+        .andExpect(jsonPath("$.items[0].name").value("Highland Livestock Ltd"));
   }
 
   @Test
@@ -123,7 +124,7 @@ class OperatorComplianceIT extends IntegrationBase {
     mockMvc
         .perform(
             get("/operators/{operator-id}", "665f1c2ab3e4d51a2c9d0e77")
-                .header("Trade-Imports-Crn", CRN)
+                .header(ORG_HEADER, ORGANISATION_ID)
                 .header("x-cdp-request-id", traceId))
         .andExpect(status().isNotFound())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
@@ -140,8 +141,7 @@ class OperatorComplianceIT extends IntegrationBase {
     mockMvc
         .perform(
             post("/operators")
-                .header("Trade-Imports-Crn", CRN)
-                .header("Trade-Imports-Organisation-Id", ORGANISATION_ID)
+                .header(ORG_HEADER, ORGANISATION_ID)
                 .header("x-cdp-request-id", traceId)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(badBody))
@@ -157,7 +157,7 @@ class OperatorComplianceIT extends IntegrationBase {
 
   @Test
   @SuppressWarnings("unchecked")
-  void apiDocsCarryTheWholeCamelCaseEnumAndAnyOfContractSurface() {
+  void apiDocsCarryTheWholeCamelCaseAndAnyOfContractSurface() {
     Map<String, Object> doc = fetchApiDocs();
     Map<String, Object> schemas = (Map<String, Object>) nested(doc, "components", "schemas");
 
@@ -176,19 +176,14 @@ class OperatorComplianceIT extends IntegrationBase {
           }
         });
 
-    // enums are UPPER_SNAKE_CASE and complete (springdoc inlines them on the referencing property)
-    assertThat(enumAt(schemas, "OperatorRequest", "operatorType"))
-        .containsExactly(
-            "PLACE_OF_ORIGIN",
-            "CONSIGNOR",
-            "CONSIGNEE",
-            "IMPORTER",
-            "PLACE_OF_DESTINATION",
-            "TRANSPORTER",
-            "BRANCH_ADDRESS");
-    assertThat(enumAt(schemas, "OperatorResponse", "status")).containsExactly("ACTIVE", "DELETED");
-    assertThat(enumAt(schemas, "OperatorRequest", "transporterCategory"))
-        .containsExactly("PRIVATE", "COMMERCIAL");
+    // the untyped model carries no operatorType/transporterCategory/status enum on the wire
+    Map<String, Object> requestProps =
+        (Map<String, Object>) nested(schemas, "OperatorRequest", "properties");
+    assertThat(requestProps).doesNotContainKeys("operatorType", "transporterCategory");
+    Map<String, Object> responseProps =
+        (Map<String, Object>) nested(schemas, "OperatorResponse", "properties");
+    assertThat(responseProps).doesNotContainKey("status");
+    assertThat(responseProps).containsKey("deleted");
 
     // the list schema is a top-level object with an items array, never a bare array (OpenAPI 3.1
     // omits `type: object` on a schema that declares properties, so pin the absence of a bare array)
@@ -288,12 +283,6 @@ class OperatorComplianceIT extends IntegrationBase {
     options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
     options.setSplitLines(false);
     return new Yaml(options);
-  }
-
-  @SuppressWarnings("unchecked")
-  private static List<String> enumAt(
-      Map<String, Object> schemas, String schemaName, String property) {
-    return (List<String>) nested(schemas, schemaName, "properties", property, "enum");
   }
 
   private static final java.util.Set<String> HTTP_METHODS =

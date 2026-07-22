@@ -15,21 +15,20 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
-import uk.gov.defra.trade.imports.operators.operator.Operator;
+import uk.gov.defra.trade.imports.operators.operator.Address;
+import uk.gov.defra.trade.imports.operators.operator.AddressStatus;
 import uk.gov.defra.trade.imports.operators.operator.OperatorRepository;
-import uk.gov.defra.trade.imports.operators.operator.OperatorStatus;
-import uk.gov.defra.trade.imports.operators.operator.OperatorType;
 
 /**
- * Full-stack CRUD integration test for {@code /operators}. This increment (inc-005) covers the
- * create leg: 201 + {@code Location} + the server-stamped identity, and the 400 validation problem
- * whose {@code errors} map is keyed by the camelCase wire field names — the end-to-end pin that
- * the field-level and cross-field constraints surface through the real handler.
+ * Full-stack CRUD integration test for {@code /operators}. Covers the create leg (201 +
+ * {@code Location} + the server-stamped organisationId), the camelCase wire, the derived
+ * {@code deleted} boolean tombstone signal, and the 400 validation problem whose {@code errors} map
+ * is keyed by the camelCase wire field names.
  */
 class OperatorCrudIT extends IntegrationBase {
 
-  private static final String CRN = "1100014934";
   private static final String ORGANISATION_ID = "5a8d2b19-6f4e-4d21-9c1b-7e3f0a2d5c88";
+  private static final String ORG_HEADER = "Trade-Imports-Organisation-Id";
 
   @Autowired private OperatorRepository repository;
 
@@ -39,19 +38,18 @@ class OperatorCrudIT extends IntegrationBase {
   }
 
   @Test
-  void createReturns201WithLocationAndServerStampedIdentity() throws Exception {
+  void createReturns201WithLocationAndServerStampedOrganisation() throws Exception {
     String body =
         """
         {
-          "operatorType": "CONSIGNOR",
           "name": "Highland Livestock Ltd",
           "addressLine1": "14 Drover's Way",
           "addressLine2": "Unit 3",
-          "town": "Inverness",
+          "townOrCity": "Inverness",
           "county": "Highland",
           "postcode": "IV2 3JH",
-          "country": "United Kingdom",
-          "telephone": "+44 1463 234567",
+          "countryCode": "GB",
+          "phone": "+44 1463 234567",
           "email": "exports@highlandlivestock.example.com"
         }
         """;
@@ -59,58 +57,54 @@ class OperatorCrudIT extends IntegrationBase {
     mockMvc
         .perform(
             post("/operators")
-                .header("Trade-Imports-Crn", CRN)
-                .header("Trade-Imports-Organisation-Id", ORGANISATION_ID)
+                .header(ORG_HEADER, ORGANISATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
         .andExpect(status().isCreated())
         .andExpect(header().string("Location", startsWith("/operators/")))
         .andExpect(jsonPath("$.id").exists())
-        .andExpect(jsonPath("$.operatorType").value("CONSIGNOR"))
         .andExpect(jsonPath("$.name").value("Highland Livestock Ltd"))
         .andExpect(jsonPath("$.addressLine1").value("14 Drover's Way"))
         .andExpect(jsonPath("$.addressLine2").value("Unit 3"))
-        .andExpect(jsonPath("$.country").value("United Kingdom"))
-        .andExpect(jsonPath("$.crn").value(CRN))
+        .andExpect(jsonPath("$.townOrCity").value("Inverness"))
+        .andExpect(jsonPath("$.countryCode").value("GB"))
+        .andExpect(jsonPath("$.phone").value("+44 1463 234567"))
         .andExpect(jsonPath("$.organisationId").value(ORGANISATION_ID))
-        .andExpect(jsonPath("$.status").value("ACTIVE"))
+        .andExpect(jsonPath("$.deleted").value(false))
         .andExpect(jsonPath("$.createdAt").exists())
         .andExpect(jsonPath("$.modifiedAt").exists());
 
     assertThat(repository.findAll())
         .singleElement()
         .satisfies(
-            operator -> {
-              assertThat(operator.getCrn()).isEqualTo(CRN);
-              assertThat(operator.getOrganisationId()).isEqualTo(ORGANISATION_ID);
-              assertThat(operator.getStatus()).isEqualTo(OperatorStatus.ACTIVE);
-              assertThat(operator.getCreatedAt()).isNotNull();
+            address -> {
+              assertThat(address.getOrganisationId()).isEqualTo(ORGANISATION_ID);
+              assertThat(address.getStatus()).isEqualTo(AddressStatus.ACTIVE);
+              assertThat(address.getCountryCode()).isEqualTo("GB");
+              assertThat(address.getCreatedAt()).isNotNull();
             });
   }
 
   @Test
   void createReturns400ValidationProblemKeyedByCamelCaseFieldNames() throws Exception {
-    // addressLine1 blank, email malformed, approvalNumber supplied on a non-TRANSPORTER type.
+    // addressLine1 blank, email malformed.
     String body =
         """
         {
-          "operatorType": "CONSIGNOR",
           "name": "Highland Livestock Ltd",
           "addressLine1": "",
-          "town": "Inverness",
+          "townOrCity": "Inverness",
           "postcode": "IV2 3JH",
-          "country": "United Kingdom",
-          "telephone": "+44 1463 234567",
-          "email": "not-an-email",
-          "approvalNumber": "APR-123"
+          "countryCode": "GB",
+          "phone": "+44 1463 234567",
+          "email": "not-an-email"
         }
         """;
 
     mockMvc
         .perform(
             post("/operators")
-                .header("Trade-Imports-Crn", CRN)
-                .header("Trade-Imports-Organisation-Id", ORGANISATION_ID)
+                .header(ORG_HEADER, ORGANISATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
         .andExpect(status().isBadRequest())
@@ -120,152 +114,142 @@ class OperatorCrudIT extends IntegrationBase {
         .andExpect(jsonPath("$.status").value(400))
         .andExpect(jsonPath("$.errors.addressLine1").exists())
         .andExpect(jsonPath("$.errors.email").exists())
-        .andExpect(
-            jsonPath("$.errors.approvalNumber[0]").value("Only allowed for transporter operators"))
         // never the snake_case form
         .andExpect(jsonPath("$.errors.address_line_1").doesNotExist());
 
     assertThat(repository.findAll()).isEmpty();
   }
 
-  private Operator saveOperator(OperatorStatus status) {
-    Operator operator =
-        Operator.builder()
-            .operatorType(OperatorType.CONSIGNOR)
+  private Address saveAddress(AddressStatus status) {
+    Address address =
+        Address.builder()
             .name("Highland Livestock Ltd")
             .addressLine1("14 Drover's Way")
-            .town("Inverness")
+            .townOrCity("Inverness")
             .postcode("IV2 3JH")
-            .country("United Kingdom")
-            .telephone("+44 1463 234567")
+            .countryCode("GB")
+            .phone("+44 1463 234567")
             .email("exports@highlandlivestock.example.com")
-            .crn(CRN)
             .organisationId(ORGANISATION_ID)
             .status(status)
             .createdAt(Instant.parse("2026-07-14T09:15:27Z"))
             .modifiedAt(Instant.parse("2026-07-14T09:15:27Z"))
             .build();
-    return repository.save(operator);
+    return repository.save(address);
   }
 
   @Test
-  void getReturns200WithTheOperatorAndItsStatusField() throws Exception {
-    Operator saved = saveOperator(OperatorStatus.ACTIVE);
+  void getReturns200WithTheAddressAndItsDeletedFalseSignal() throws Exception {
+    Address saved = saveAddress(AddressStatus.ACTIVE);
 
     mockMvc
-        .perform(get("/operators/{operator-id}", saved.getId()).header("Trade-Imports-Crn", CRN))
+        .perform(get("/operators/{operator-id}", saved.getId()).header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(saved.getId()))
         .andExpect(jsonPath("$.name").value("Highland Livestock Ltd"))
-        .andExpect(jsonPath("$.country").value("United Kingdom"))
-        .andExpect(jsonPath("$.crn").value(CRN))
-        .andExpect(jsonPath("$.status").value("ACTIVE"));
+        .andExpect(jsonPath("$.countryCode").value("GB"))
+        .andExpect(jsonPath("$.organisationId").value(ORGANISATION_ID))
+        .andExpect(jsonPath("$.deleted").value(false));
   }
 
   @Test
-  void getOfADeletedTombstoneReturns200WithStatusDeletedNotA404() throws Exception {
+  void getOfADeletedTombstoneReturns200WithDeletedTrueNotA404() throws Exception {
     // EUDPA-293.AC2: a tombstone stays FETCHABLE so a consumer can detect "the user deleted this"
-    // (200 + DELETED) as distinct from "unknown / not yours" (404).
-    Operator saved = saveOperator(OperatorStatus.DELETED);
+    // (200 + deleted true) as distinct from "unknown / not yours" (404).
+    Address saved = saveAddress(AddressStatus.DELETED);
 
     mockMvc
-        .perform(get("/operators/{operator-id}", saved.getId()).header("Trade-Imports-Crn", CRN))
+        .perform(get("/operators/{operator-id}", saved.getId()).header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(saved.getId()))
-        .andExpect(jsonPath("$.status").value("DELETED"));
+        .andExpect(jsonPath("$.deleted").value(true));
   }
 
   @Test
   void getOfAnUnknownIdReturns404NotFoundProblem() throws Exception {
     mockMvc
-        .perform(get("/operators/{operator-id}", "665f1c2ab3e4d51a2c9d0e77").header("Trade-Imports-Crn", CRN))
+        .perform(
+            get("/operators/{operator-id}", "665f1c2ab3e4d51a2c9d0e77")
+                .header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isNotFound())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
         .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/not-found"))
         .andExpect(jsonPath("$.title").value("Resource Not Found"))
         .andExpect(jsonPath("$.status").value(404))
-        // 404 carries no errors map — it is not a validation failure.
         .andExpect(jsonPath("$.errors").doesNotExist());
   }
 
   private static final String UPDATE_BODY =
       """
       {
-        "operatorType": "CONSIGNOR",
         "name": "Lowland Cattle Co",
         "addressLine1": "2 Market Street",
-        "town": "Perth",
+        "townOrCity": "Perth",
         "postcode": "PH1 5AA",
-        "country": "United Kingdom",
-        "telephone": "+44 1738 111222",
+        "countryCode": "IE",
+        "phone": "+44 1738 111222",
         "email": "ops@lowlandcattle.example.com"
       }
       """;
 
   @Test
   void putReplacesTheMutableFieldsReturns200AndBumpsModifiedAt() throws Exception {
-    Operator saved = saveOperator(OperatorStatus.ACTIVE);
+    Address saved = saveAddress(AddressStatus.ACTIVE);
     Instant baselineModifiedAt = saved.getModifiedAt();
 
     mockMvc
         .perform(
             put("/operators/{operator-id}", saved.getId())
-                .header("Trade-Imports-Crn", CRN)
+                .header(ORG_HEADER, ORGANISATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(UPDATE_BODY))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(saved.getId()))
         .andExpect(jsonPath("$.name").value("Lowland Cattle Co"))
         .andExpect(jsonPath("$.addressLine1").value("2 Market Street"))
-        .andExpect(jsonPath("$.town").value("Perth"))
-        .andExpect(jsonPath("$.operatorType").value("CONSIGNOR"))
-        .andExpect(jsonPath("$.crn").value(CRN))
-        .andExpect(jsonPath("$.status").value("ACTIVE"));
+        .andExpect(jsonPath("$.townOrCity").value("Perth"))
+        .andExpect(jsonPath("$.countryCode").value("IE"))
+        .andExpect(jsonPath("$.organisationId").value(ORGANISATION_ID))
+        .andExpect(jsonPath("$.deleted").value(false));
 
     assertThat(repository.findById(saved.getId()))
         .get()
         .satisfies(
-            operator -> {
-              assertThat(operator.getName()).isEqualTo("Lowland Cattle Co");
-              assertThat(operator.getAddressLine1()).isEqualTo("2 Market Street");
-              assertThat(operator.getStatus()).isEqualTo(OperatorStatus.ACTIVE);
-              // audit-only bump; nothing re-syncs off it (c-017)
-              assertThat(operator.getModifiedAt()).isAfter(baselineModifiedAt);
+            address -> {
+              assertThat(address.getName()).isEqualTo("Lowland Cattle Co");
+              assertThat(address.getAddressLine1()).isEqualTo("2 Market Street");
+              assertThat(address.getStatus()).isEqualTo(AddressStatus.ACTIVE);
+              assertThat(address.getModifiedAt()).isAfter(baselineModifiedAt);
             });
   }
 
   @Test
-  void putChangingTheOperatorTypeReturns400ValidationProblemKeyedOperatorType() throws Exception {
-    Operator saved = saveOperator(OperatorStatus.ACTIVE); // stored type is CONSIGNOR
-    String typeChangeBody = UPDATE_BODY.replace("\"CONSIGNOR\"", "\"IMPORTER\"");
+  void putClearsAnOmittedOptionalFieldBecauseItIsAFullReplace() throws Exception {
+    Address saved = saveAddress(AddressStatus.ACTIVE);
+    saved.setCounty("Highland");
+    repository.save(saved);
 
     mockMvc
         .perform(
             put("/operators/{operator-id}", saved.getId())
-                .header("Trade-Imports-Crn", CRN)
+                .header(ORG_HEADER, ORGANISATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(typeChangeBody))
-        .andExpect(status().isBadRequest())
-        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
-        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/validation-error"))
-        .andExpect(jsonPath("$.title").value("Validation Error"))
-        .andExpect(jsonPath("$.status").value(400))
-        .andExpect(jsonPath("$.errors.operatorType[0]").value("Operator type cannot be changed"));
+                .content(UPDATE_BODY))
+        .andExpect(status().isOk());
 
-    // the stored operator is untouched by the rejected type change
     assertThat(repository.findById(saved.getId()))
         .get()
-        .satisfies(operator -> assertThat(operator.getOperatorType()).isEqualTo(OperatorType.CONSIGNOR));
+        .satisfies(address -> assertThat(address.getCounty()).isNull());
   }
 
   @Test
   void putOnADeletedTombstoneReturns404() throws Exception {
-    Operator tombstone = saveOperator(OperatorStatus.DELETED);
+    Address tombstone = saveAddress(AddressStatus.DELETED);
 
     mockMvc
         .perform(
             put("/operators/{operator-id}", tombstone.getId())
-                .header("Trade-Imports-Crn", CRN)
+                .header(ORG_HEADER, ORGANISATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(UPDATE_BODY))
         .andExpect(status().isNotFound())
@@ -277,17 +261,15 @@ class OperatorCrudIT extends IntegrationBase {
 
   @Test
   void fullCrudRoundTripCreateGetPutDeleteTombstoneAndIdempotentRepeatDelete() throws Exception {
-    // create (201 + Location)
     String body =
         """
         {
-          "operatorType": "CONSIGNOR",
           "name": "Highland Livestock Ltd",
           "addressLine1": "14 Drover's Way",
-          "town": "Inverness",
+          "townOrCity": "Inverness",
           "postcode": "IV2 3JH",
-          "country": "United Kingdom",
-          "telephone": "+44 1463 234567",
+          "countryCode": "GB",
+          "phone": "+44 1463 234567",
           "email": "exports@highlandlivestock.example.com"
         }
         """;
@@ -295,8 +277,7 @@ class OperatorCrudIT extends IntegrationBase {
         mockMvc
             .perform(
                 post("/operators")
-                    .header("Trade-Imports-Crn", CRN)
-                    .header("Trade-Imports-Organisation-Id", ORGANISATION_ID)
+                    .header(ORG_HEADER, ORGANISATION_ID)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(body))
             .andExpect(status().isCreated())
@@ -305,17 +286,17 @@ class OperatorCrudIT extends IntegrationBase {
             .getHeader("Location");
     String id = location.substring(location.lastIndexOf('/') + 1);
 
-    // get -> ACTIVE
+    // get -> deleted false
     mockMvc
-        .perform(get("/operators/{operator-id}", id).header("Trade-Imports-Crn", CRN))
+        .perform(get("/operators/{operator-id}", id).header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.status").value("ACTIVE"));
+        .andExpect(jsonPath("$.deleted").value(false));
 
-    // put -> 200, modified_at bumped
+    // put -> 200
     mockMvc
         .perform(
             put("/operators/{operator-id}", id)
-                .header("Trade-Imports-Crn", CRN)
+                .header(ORG_HEADER, ORGANISATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(UPDATE_BODY))
         .andExpect(status().isOk())
@@ -323,37 +304,37 @@ class OperatorCrudIT extends IntegrationBase {
 
     // delete -> 204, the document is NOT removed
     mockMvc
-        .perform(delete("/operators/{operator-id}", id).header("Trade-Imports-Crn", CRN))
+        .perform(delete("/operators/{operator-id}", id).header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isNoContent());
     assertThat(repository.findById(id)).isPresent();
     Instant modifiedAtAfterDelete = repository.findById(id).orElseThrow().getModifiedAt();
 
-    // get -> the status:DELETED tombstone is still fetchable (EUDPA-293.AC2 / c-018)
+    // get -> the deleted tombstone is still fetchable (EUDPA-293.AC2)
     mockMvc
-        .perform(get("/operators/{operator-id}", id).header("Trade-Imports-Crn", CRN))
+        .perform(get("/operators/{operator-id}", id).header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(id))
-        .andExpect(jsonPath("$.status").value("DELETED"));
+        .andExpect(jsonPath("$.deleted").value(true));
 
     // put on the tombstone -> 404 (outside the caller's live set)
     mockMvc
         .perform(
             put("/operators/{operator-id}", id)
-                .header("Trade-Imports-Crn", CRN)
+                .header(ORG_HEADER, ORGANISATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(UPDATE_BODY))
         .andExpect(status().isNotFound());
 
-    // repeat delete -> 204, idempotent, no state change (modified_at not bumped again)
+    // repeat delete -> 204, idempotent, no state change (modifiedAt not bumped again)
     mockMvc
-        .perform(delete("/operators/{operator-id}", id).header("Trade-Imports-Crn", CRN))
+        .perform(delete("/operators/{operator-id}", id).header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isNoContent());
     assertThat(repository.findById(id))
         .get()
         .satisfies(
-            operator -> {
-              assertThat(operator.getStatus()).isEqualTo(OperatorStatus.DELETED);
-              assertThat(operator.getModifiedAt()).isEqualTo(modifiedAtAfterDelete);
+            address -> {
+              assertThat(address.getStatus()).isEqualTo(AddressStatus.DELETED);
+              assertThat(address.getModifiedAt()).isEqualTo(modifiedAtAfterDelete);
             });
   }
 
@@ -362,7 +343,7 @@ class OperatorCrudIT extends IntegrationBase {
     mockMvc
         .perform(
             delete("/operators/{operator-id}", "665f1c2ab3e4d51a2c9d0e77")
-                .header("Trade-Imports-Crn", CRN))
+                .header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isNotFound())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
         .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/not-found"))
@@ -371,24 +352,24 @@ class OperatorCrudIT extends IntegrationBase {
   }
 
   @Test
-  void deleteOfAnOperatorOwnedByAnotherCrnReturns404() throws Exception {
-    Operator saved = saveOperator(OperatorStatus.ACTIVE);
+  void deleteOfAnAddressOwnedByAnotherOrganisationReturns404() throws Exception {
+    Address saved = saveAddress(AddressStatus.ACTIVE);
 
     mockMvc
         .perform(
             delete("/operators/{operator-id}", saved.getId())
-                .header("Trade-Imports-Crn", "9900000000"))
+                .header(ORG_HEADER, "org-other"))
         .andExpect(status().isNotFound());
 
-    // the operator remains untouched under its owning crn
+    // the address remains untouched under its owning organisation
     assertThat(repository.findById(saved.getId()))
         .get()
-        .satisfies(operator -> assertThat(operator.getStatus()).isEqualTo(OperatorStatus.ACTIVE));
+        .satisfies(address -> assertThat(address.getStatus()).isEqualTo(AddressStatus.ACTIVE));
   }
 
   @Test
-  void putWithoutTheCrnHeaderReturns400BadRequestWithNoErrorsMap() throws Exception {
-    Operator saved = saveOperator(OperatorStatus.ACTIVE);
+  void putWithoutTheOrgHeaderReturns400BadRequestWithNoErrorsMap() throws Exception {
+    Address saved = saveAddress(AddressStatus.ACTIVE);
 
     mockMvc
         .perform(
@@ -400,7 +381,6 @@ class OperatorCrudIT extends IntegrationBase {
         .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/bad-request"))
         .andExpect(jsonPath("$.title").value("Bad Request"))
         .andExpect(jsonPath("$.status").value(400))
-        // a missing identity header is not a field-validation failure — no errors map.
         .andExpect(jsonPath("$.errors").doesNotExist());
   }
 }

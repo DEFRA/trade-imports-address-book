@@ -3,7 +3,6 @@ package uk.gov.defra.trade.imports.operators.operator;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
@@ -15,15 +14,14 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import uk.gov.defra.trade.imports.operators.exceptions.BadRequestException;
 import uk.gov.defra.trade.imports.operators.exceptions.NotFoundException;
-import uk.gov.defra.trade.imports.operators.exceptions.ValidationException;
 
 /**
- * Application service for operators. Owns the create/read/update/delete business rules; the wire
- * contract lives on the response records and the persistence shape on the {@link Operator} entity.
+ * Application service for addresses. Owns the create/read/update/delete business rules; the wire
+ * contract lives on the response records and the persistence shape on the {@link Address} entity.
  *
- * <p>On create the identity ({@code crn}, {@code organisationId}) is stamped from the trusted
- * forwarded headers (c-001), never taken from the body, and the operator starts {@code ACTIVE}.
- * {@code id} is left for Mongo and the timestamps for auditing.
+ * <p>On create the owning {@code organisationId} is stamped from the trusted forwarded header
+ * (cv-010), never taken from the body, and the address starts {@code ACTIVE}. {@code id} is left for
+ * Mongo and the timestamps for auditing.
  */
 @Service
 @Slf4j
@@ -36,48 +34,27 @@ public class OperatorService {
   private final MeterRegistry meterRegistry;
 
   /**
-   * One page of the caller's ACTIVE operators, newest first, optionally searched and type-filtered
-   * (design §1.2/§1.3, contract {@code list-operators}). Scoped to {@code crn}; DELETED tombstones
-   * are excluded because the query pins {@code status ACTIVE}. {@code page} is 1-based and translated
-   * to Spring Data's 0-based index; the sort is {@code created_at} descending, served by the
-   * {@code crn_status_type_created} index. {@code total_pages} is derived here, not in the
-   * controller.
+   * One page of the organisation's ACTIVE addresses, newest first, optionally searched. Scoped to
+   * {@code organisationId}; DELETED tombstones are excluded because the query pins
+   * {@code status ACTIVE}. {@code page} is 1-based and translated to Spring Data's 0-based index; the
+   * sort is {@code createdAt} descending, served by the {@code org_status_created} index.
    *
-   * <p><strong>Sentinel convention (documented here, in one place).</strong> The repository's single
-   * {@link OperatorRepository#search} method covers all four combinations of the two optional filters
-   * by never letting them be "absent" at the query layer:
-   *
-   * <ul>
-   *   <li>absent {@code operatorType} &rarr; the {@code $in} is passed <em>all seven</em>
-   *       {@link OperatorType} values, so it matches every operator;
-   *   <li>absent {@code q} &rarr; the search regex is the empty string {@code ""}, which matches
-   *       everything.
-   * </ul>
-   *
-   * <p>{@code q} is {@link Pattern#quote quoted} before it reaches Mongo, so a user's regex
-   * metacharacters (e.g. {@code .*} or {@code (}) are matched literally — never compiled as a
-   * pattern. This is the c-012 server-side-only search and the c-004 country match is against the
-   * stored display-name string (there is no code&lt;-&gt;name conversion anywhere).
+   * <p>Addresses are untyped (cv-017): the only optional filter is {@code q}. When {@code q} is
+   * absent the search regex is the empty string {@code ""}, which matches everything. {@code q} is
+   * {@link Pattern#quote quoted} before it reaches Mongo, so a user's regex metacharacters are
+   * matched literally — never compiled as a pattern.
    *
    * <p>An out-of-range {@code page} (&lt; 1) or {@code pageSize} (&lt; 1 or &gt; {@value
-   * #MAX_PAGE_SIZE}) is a {@link BadRequestException} — a 400 bad-request problem with no
-   * {@code errors} map, since these are malformed query parameters, not body-field validation
-   * failures.
+   * #MAX_PAGE_SIZE}) is a {@link BadRequestException}.
    *
-   * <p>The {@code OperatorListQuery} timer wraps the query, tagged {@code filtered=true} when a
-   * search or type filter is applied and {@code false} otherwise (§6) — the tripwire that measures
-   * the bounded-scan assumption.
-   *
-   * @param crn the caller's company reference number, from the identity header
+   * @param organisationId the owning organisation id, from the identity header
    * @param q the free-text search, or {@code null} when absent
-   * @param operatorType the exact operator-type filter, or {@code null} when absent
    * @param page the 1-based page number
    * @param pageSize the page size (1..{@value #MAX_PAGE_SIZE})
-   * @return one page of ACTIVE operators with pagination metadata
+   * @return one page of ACTIVE addresses with pagination metadata
    * @throws BadRequestException if {@code page} or {@code pageSize} is out of range
    */
-  public OperatorPageResponse list(
-      String crn, String q, OperatorType operatorType, int page, int pageSize) {
+  public OperatorPageResponse list(String organisationId, String q, int page, int pageSize) {
     if (page < 1) {
       throw new BadRequestException("page must be 1 or greater");
     }
@@ -85,16 +62,14 @@ public class OperatorService {
       throw new BadRequestException("page_size must be between 1 and " + MAX_PAGE_SIZE);
     }
 
-    List<OperatorType> types =
-        operatorType == null ? List.of(OperatorType.values()) : List.of(operatorType);
     String quotedRegex = q == null ? "" : Pattern.quote(q);
-    boolean filtered = operatorType != null || (q != null && !q.isBlank());
+    boolean filtered = q != null && !q.isBlank();
 
     Pageable pageable =
         PageRequest.of(page - 1, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
 
     Timer.Sample sample = Timer.start(meterRegistry);
-    Page<Operator> result = repository.search(crn, types, quotedRegex, pageable);
+    Page<Address> result = repository.search(organisationId, quotedRegex, pageable);
     sample.stop(
         Timer.builder("OperatorListQuery")
             .tag("filtered", Boolean.toString(filtered))
@@ -107,117 +82,99 @@ public class OperatorService {
   }
 
   /**
-   * Persists a new operator owned by the calling organisation.
+   * Persists a new address owned by the calling organisation.
    *
    * @param request the validated create body (client-supplied fields only)
-   * @param crn the owning organisation's company reference number, from the identity header
    * @param organisationId the owning organisation id, from the identity header
-   * @return the persisted operator, with its Mongo-assigned id and audited timestamps
+   * @return the persisted address, with its Mongo-assigned id and audited timestamps
    */
-  public Operator create(OperatorRequest request, String crn, String organisationId) {
-    Operator operator = OperatorMapper.toEntity(request);
-    operator.setCrn(crn);
-    operator.setOrganisationId(organisationId);
-    operator.setStatus(OperatorStatus.ACTIVE);
+  public Address create(OperatorRequest request, String organisationId) {
+    Address address = OperatorMapper.toEntity(request);
+    address.setOrganisationId(organisationId);
+    address.setStatus(AddressStatus.ACTIVE);
 
-    Operator saved = repository.save(operator);
-    log.info("Created operator {}", saved.getId());
+    Address saved = repository.save(address);
+    log.info("Created address {}", saved.getId());
     return saved;
   }
 
   /**
-   * Fetches one operator by id within the caller's crn scope, tombstones included. A
-   * soft-deleted operator is returned WITH {@code status DELETED} so a consumer can tell "deleted"
-   * (present, DELETED) from "unknown or not yours" (empty &rarr; 404) — c-003 / EUDPA-293.AC2. An id
-   * outside the caller's crn is indistinguishable from an unknown id: both are empty, so 404 leaks
-   * no existence across organisations (c-001).
+   * Fetches one address by id within the caller's organisation scope, tombstones included. A
+   * soft-deleted address is returned WITH {@code status DELETED} so a consumer can tell "deleted"
+   * (present, DELETED) from "unknown or not yours" (empty &rarr; 404). An id outside the caller's
+   * organisation is indistinguishable from an unknown id: both are empty, so 404 leaks no existence
+   * across organisations (cv-010).
    *
-   * @param id the operator id
-   * @param crn the caller's company reference number, from the identity header
-   * @return the operator if it exists in the caller's scope, otherwise empty
+   * @param id the address id
+   * @param organisationId the caller's organisation id, from the identity header
+   * @return the address if it exists in the caller's scope, otherwise empty
    */
-  public Optional<Operator> get(String id, String crn) {
-    return repository.findByIdAndCrn(id, crn);
+  public Optional<Address> get(String id, String organisationId) {
+    return repository.findByIdAndOrganisationId(id, organisationId);
   }
 
   /**
-   * Replaces an operator's mutable fields within the caller's crn scope (design §1.5). The wire can
-   * never move the server-owned fields: {@code id}, {@code crn}, {@code organisationId},
-   * {@code status}, {@code createdAt} and {@code operatorType} are all preserved from the stored
-   * entity; {@code modifiedAt} is bumped by auditing on save (audit only — c-017: nothing re-syncs
-   * off it, and a notification's embedded operator copy is not refreshed by an edit).
+   * Replaces an address's mutable fields within the caller's organisation scope (full replace). The
+   * wire can never move the server-owned fields: {@code id}, {@code organisationId}, {@code status}
+   * and {@code createdAt} are all preserved from the stored entity; {@code modifiedAt} is bumped by
+   * auditing on save (audit only). An unknown id, an id owned by another organisation, or a
+   * soft-deleted tombstone are all outside the caller's live set and yield a 404.
    *
-   * <p>{@code operatorType} is immutable after create: a request whose type differs from the stored
-   * value is <strong>rejected</strong> with a 400 validation error keyed {@code operatorType} — the
-   * design locks reject over silent-ignore because a silent ignore hides a client bug and is
-   * undiagnosable from logs. An unknown id, an id owned by another crn, or a soft-deleted tombstone
-   * are all outside the caller's live set and yield a 404 (existence is never leaked; the tombstone
-   * is immutable).
-   *
-   * @param id the operator id
+   * @param id the address id
    * @param request the validated update body (client-supplied fields only)
-   * @param crn the caller's company reference number, from the identity header
-   * @return the updated operator, with its bumped {@code modifiedAt}
+   * @param organisationId the caller's organisation id, from the identity header
+   * @return the updated address, with its bumped {@code modifiedAt}
    * @throws NotFoundException if the id is unknown, out of scope, or a tombstone
-   * @throws ValidationException if the request attempts to change {@code operatorType}
    */
-  public Operator update(String id, OperatorRequest request, String crn) {
-    Operator existing =
+  public Address update(String id, OperatorRequest request, String organisationId) {
+    Address existing =
         repository
-            .findByIdAndCrn(id, crn)
-            .filter(operator -> operator.getStatus() != OperatorStatus.DELETED)
-            .orElseThrow(() -> new NotFoundException("Operator not found"));
-
-    if (request.operatorType() != existing.getOperatorType()) {
-      throw new ValidationException(
-          Map.of("operatorType", List.of("Operator type cannot be changed")));
-    }
+            .findByIdAndOrganisationId(id, organisationId)
+            .filter(address -> address.getStatus() != AddressStatus.DELETED)
+            .orElseThrow(() -> new NotFoundException("Address not found"));
 
     existing.setName(request.name());
     existing.setAddressLine1(request.addressLine1());
     existing.setAddressLine2(request.addressLine2());
-    existing.setTown(request.town());
+    existing.setTownOrCity(request.townOrCity());
     existing.setCounty(request.county());
     existing.setPostcode(request.postcode());
-    existing.setCountry(request.country());
-    existing.setTelephone(request.telephone());
+    existing.setCountryCode(request.countryCode());
+    existing.setPhone(request.phone());
     existing.setEmail(request.email());
-    existing.setApprovalNumber(request.approvalNumber());
-    existing.setTransporterCategory(request.transporterCategory());
 
-    Operator saved = repository.save(existing);
-    log.info("Updated operator {}", saved.getId());
+    Address saved = repository.save(existing);
+    log.info("Updated address {}", saved.getId());
     return saved;
   }
 
   /**
-   * Soft-deletes an operator within the caller's crn scope (design §1.2). The document is
+   * Soft-deletes an address within the caller's organisation scope. The document is
    * <strong>not</strong> removed: its {@code status} flips to {@code DELETED} and {@code modifiedAt}
-   * is bumped on save. The tombstone is load-bearing (c-003 / c-018) — it stays fetchable by id so
-   * the EUDPA-293.AC2 existence check can tell "deleted" (200 + DELETED) from "unknown or not yours"
-   * (404); a hard delete would collapse both into a 404 and make deletion undetectable.
+   * is bumped on save. The tombstone stays fetchable by id so a consumer can tell "deleted" (200 +
+   * DELETED) from "unknown or not yours" (404); a hard delete would collapse both into a 404 and
+   * make deletion undetectable.
    *
-   * <p>Idempotent: deleting an operator that is already a tombstone is a no-op — no re-save, so
+   * <p>Idempotent: deleting an address that is already a tombstone is a no-op — no re-save, so
    * {@code modifiedAt} is not bumped a second time and the state is unchanged. An unknown id, or an
-   * id owned by another crn, is empty in the caller's scope and yields a 404 (existence is never
-   * leaked — c-001).
+   * id owned by another organisation, is empty in the caller's scope and yields a 404.
    *
-   * @param id the operator id
-   * @param crn the caller's company reference number, from the identity header
-   * @throws NotFoundException if the id is unknown or out of the caller's crn scope
+   * @param id the address id
+   * @param organisationId the caller's organisation id, from the identity header
+   * @throws NotFoundException if the id is unknown or out of the caller's organisation scope
    */
-  public void delete(String id, String crn) {
-    Operator existing =
+  public void delete(String id, String organisationId) {
+    Address existing =
         repository
-            .findByIdAndCrn(id, crn)
-            .orElseThrow(() -> new NotFoundException("Operator not found"));
+            .findByIdAndOrganisationId(id, organisationId)
+            .orElseThrow(() -> new NotFoundException("Address not found"));
 
-    if (existing.getStatus() == OperatorStatus.DELETED) {
+    if (existing.getStatus() == AddressStatus.DELETED) {
       return;
     }
 
-    existing.setStatus(OperatorStatus.DELETED);
+    existing.setStatus(AddressStatus.DELETED);
     repository.save(existing);
-    log.info("Soft-deleted operator {}", existing.getId());
+    log.info("Soft-deleted address {}", existing.getId());
   }
 }

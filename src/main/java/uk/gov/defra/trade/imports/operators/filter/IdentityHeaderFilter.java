@@ -15,7 +15,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -23,35 +22,29 @@ import uk.gov.defra.trade.imports.operators.exceptions.Problem;
 
 /**
  * Enforces the trusted-forwarded-header identity contract on every {@code /operators*} request
- * (design §2, c-001, b-010).
+ * (cv-010).
  *
- * <ul>
- *   <li>{@code Trade-Imports-Crn} is required on every operation — missing or blank fails fast and
- *       loud, so a scoping bug can never degrade into "all users see all operators".
- *   <li>{@code Trade-Imports-Organisation-Id} is required on POST only — it is stored on create and
- *       cannot be defaulted, because {@code organisation_id} is mandatory on the response schema.
- * </ul>
- *
- * <p>Both failures produce the <em>same</em> 400 bad-request problem (RFC 9457
- * {@code application/problem+json}, no {@code errors} map): the absence of a header is not a
- * body-field validation failure, so there is nothing to key an errors map on.
+ * <p>{@code Trade-Imports-Organisation-Id} is required on every operation — missing or blank fails
+ * fast and loud, so a scoping bug can never degrade into "all organisations see all addresses". The
+ * failure produces a 400 bad-request problem (RFC 9457 {@code application/problem+json}, no
+ * {@code errors} map): the absence of a header is not a body-field validation failure, so there is
+ * nothing to key an errors map on.
  *
  * <p>This filter runs before {@code DispatcherServlet}, so {@code GlobalExceptionHandler}
  * (a {@code @RestControllerAdvice}) never sees exceptions thrown here. The filter therefore writes
  * the problem+json body itself rather than delegating to the advice.
  *
- * <p>On success it stashes {@code crn} in the MDC so every log line for the request carries
- * {@code crn} + {@code trace.id} — the two keys needed to debug any "whose data is this" incident.
- * Address and other PII field values are never logged.
+ * <p>On success it stashes {@code organisationId} in the MDC so every log line for the request
+ * carries {@code organisationId} + {@code trace.id} — the two keys needed to debug any "whose data
+ * is this" incident. Address and other PII field values are never logged.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 1)
 @Slf4j
 public class IdentityHeaderFilter implements Filter {
 
-  static final String CRN_HEADER = "Trade-Imports-Crn";
   static final String ORGANISATION_ID_HEADER = "Trade-Imports-Organisation-Id";
-  static final String MDC_CRN = "crn";
+  static final String MDC_ORGANISATION_ID = "organisationId";
 
   private static final String MDC_TRACE_ID = "trace.id";
   private static final String PATH_PREFIX = "/operators";
@@ -77,23 +70,17 @@ public class IdentityHeaderFilter implements Filter {
       return;
     }
 
-    String crn = httpRequest.getHeader(CRN_HEADER);
-    if (isBlank(crn)) {
-      reject(httpResponse, "Missing required header " + CRN_HEADER);
-      return;
-    }
-
-    if (HttpMethod.POST.matches(httpRequest.getMethod())
-        && isBlank(httpRequest.getHeader(ORGANISATION_ID_HEADER))) {
+    String organisationId = httpRequest.getHeader(ORGANISATION_ID_HEADER);
+    if (isBlank(organisationId)) {
       reject(httpResponse, "Missing required header " + ORGANISATION_ID_HEADER);
       return;
     }
 
     try {
-      MDC.put(MDC_CRN, crn);
+      MDC.put(MDC_ORGANISATION_ID, organisationId);
       chain.doFilter(request, response);
     } finally {
-      MDC.remove(MDC_CRN);
+      MDC.remove(MDC_ORGANISATION_ID);
     }
   }
 

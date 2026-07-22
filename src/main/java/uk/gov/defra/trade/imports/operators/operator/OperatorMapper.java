@@ -8,49 +8,42 @@ public final class OperatorMapper {
 
   private OperatorMapper() {}
 
-  /** Maps a persisted {@link Operator} onto its wire response. */
-  public static OperatorResponse toResponse(Operator operator) {
+  /** Maps a persisted {@link Address} onto its wire response, deriving {@code deleted} from status. */
+  public static OperatorResponse toResponse(Address address) {
     return OperatorResponse.builder()
-        .id(operator.getId())
-        .operatorType(operator.getOperatorType())
-        .name(operator.getName())
-        .addressLine1(operator.getAddressLine1())
-        .addressLine2(operator.getAddressLine2())
-        .town(operator.getTown())
-        .county(operator.getCounty())
-        .postcode(operator.getPostcode())
-        .country(operator.getCountry())
-        .telephone(operator.getTelephone())
-        .email(operator.getEmail())
-        .approvalNumber(operator.getApprovalNumber())
-        .transporterCategory(operator.getTransporterCategory())
-        .crn(operator.getCrn())
-        .organisationId(operator.getOrganisationId())
-        .status(operator.getStatus())
-        .createdAt(operator.getCreatedAt())
-        .modifiedAt(operator.getModifiedAt())
+        .id(address.getId())
+        .name(address.getName())
+        .addressLine1(address.getAddressLine1())
+        .addressLine2(address.getAddressLine2())
+        .townOrCity(address.getTownOrCity())
+        .county(address.getCounty())
+        .postcode(address.getPostcode())
+        .countryCode(address.getCountryCode())
+        .phone(address.getPhone())
+        .email(address.getEmail())
+        .organisationId(address.getOrganisationId())
+        .deleted(address.getStatus() == AddressStatus.DELETED)
+        .createdAt(address.getCreatedAt())
+        .modifiedAt(address.getModifiedAt())
         .build();
   }
 
   /**
    * Maps a client request onto a new entity carrying only the client-supplied fields. Server-owned
-   * fields ({@code id}, {@code crn}, {@code organisationId}, {@code status}, timestamps) are set by
-   * the service on create/update, not here.
+   * fields ({@code id}, {@code organisationId}, {@code status}, timestamps) are set by the service
+   * on create/update, not here.
    */
-  public static Operator toEntity(OperatorRequest request) {
-    return Operator.builder()
-        .operatorType(request.operatorType())
+  public static Address toEntity(OperatorRequest request) {
+    return Address.builder()
         .name(request.name())
         .addressLine1(request.addressLine1())
         .addressLine2(request.addressLine2())
-        .town(request.town())
+        .townOrCity(request.townOrCity())
         .county(request.county())
         .postcode(request.postcode())
-        .country(request.country())
-        .telephone(request.telephone())
+        .countryCode(request.countryCode())
+        .phone(request.phone())
         .email(request.email())
-        .approvalNumber(request.approvalNumber())
-        .transporterCategory(request.transporterCategory())
         .build();
   }
 }
