@@ -62,30 +62,26 @@ public class OperatorController {
   }
 
   /**
-   * Lists the caller's ACTIVE addresses, newest first, one page at a time, optionally searched.
-   * DELETED tombstones are excluded. {@code q} is a case-insensitive free-text match over
-   * {@code name}, both address lines, {@code townOrCity}, {@code county}, {@code postcode} and
-   * {@code countryCode}; regex metacharacters in it are treated as literals. {@code page} is 1-based
-   * (default 1) and {@code page_size} defaults to 25, max 100; an out-of-range or non-numeric value
-   * is a 400 bad-request problem with no {@code errors} map. The response is a top-level object
-   * ({@code items} + pagination metadata), never a bare array.
+   * Lists the caller's ACTIVE addresses, newest first, one page at a time. DELETED tombstones are
+   * excluded. {@code page} is 1-based (default 1); an out-of-range or non-numeric value is a 400
+   * bad-request problem with no {@code errors} map. The page size is a server-side config (cv-025),
+   * not a request parameter. The response is a top-level object ({@code items} + pagination
+   * metadata), never a bare array.
    *
    * @param orgId the organisation scope from the path, authorised against the identity header
    * @param sessionOrg the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
-   * @param q the free-text search
    * @param page the 1-based page number (default 1)
-   * @param pageSize the page size (default 25, max 100)
    * @return 200 with one page of ACTIVE addresses
    */
   @GetMapping
   @Operation(
       operationId = "list-operators",
-      summary = "List the caller's ACTIVE addresses (paginated, searchable)")
+      summary = "List the caller's ACTIVE addresses (paginated)")
   @ApiResponses({
     @ApiResponse(responseCode = "200", description = "One page of the caller's ACTIVE addresses"),
     @ApiResponse(
         responseCode = "400",
-        description = "Out-of-range or non-numeric pagination parameters, or a missing org header",
+        description = "An out-of-range or non-numeric page, or a missing org header",
         content =
             @Content(
                 mediaType = "application/problem+json",
@@ -95,12 +91,10 @@ public class OperatorController {
   public OperatorPageResponse list(
       @PathVariable String orgId,
       @RequestHeader(ORGANISATION_ID_HEADER) String sessionOrg,
-      @RequestParam(required = false) String q,
-      @RequestParam(defaultValue = "1") int page,
-      @RequestParam(name = "page_size", defaultValue = "25") int pageSize) {
+      @RequestParam(defaultValue = "1") int page) {
     authoriseOrg(orgId, sessionOrg);
-    log.info("GET addresses - q present {} page {} size {}", q != null, page, pageSize);
-    return operatorService.list(orgId, q, page, pageSize);
+    log.info("GET addresses - page {}", page);
+    return operatorService.list(orgId, page);
   }
 
   /**

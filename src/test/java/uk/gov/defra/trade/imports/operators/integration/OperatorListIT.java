@@ -19,11 +19,12 @@ import uk.gov.defra.trade.imports.operators.operator.AddressStatus;
 import uk.gov.defra.trade.imports.operators.operator.OperatorRepository;
 
 /**
- * Full-stack list integration test for {@code GET /operators}. Pins the paginated, newest-first,
- * organisation-scoped, ACTIVE-only listing: 30 seeded addresses paginate 25 + 5 across two pages,
- * DELETED tombstones are excluded, another organisation's addresses are invisible, and out-of-range
- * pagination parameters produce a 400 bad-request problem with no {@code errors} map. Addresses are
- * untyped (cv-017), so there is no type filter — free text is the only filter.
+ * Full-stack list integration test for {@code GET /organisation/{orgId}/addresses}. Pins the
+ * paginated, newest-first, organisation-scoped, ACTIVE-only listing: 30 seeded addresses paginate
+ * 25 + 5 across two pages at the server-config page size (cv-025), DELETED tombstones are excluded,
+ * another organisation's addresses are invisible, an out-of-range or non-numeric {@code page} is a
+ * 400 bad-request problem with no {@code errors} map, and a supplied page-size request parameter is
+ * never honoured. Search ({@code ?q=}) is not part of this listing — it is M2 (EUDPA-186).
  */
 class OperatorListIT extends IntegrationBase {
 
@@ -60,25 +61,6 @@ class OperatorListIT extends IntegrationBase {
     for (int i = 0; i < count; i++) {
       save(ORG, AddressStatus.ACTIVE, "Address " + i);
     }
-  }
-
-  private Address saveSearchable(
-      String name, String addressLine1, String postcode, String countryCode) {
-    Address address =
-        Address.builder()
-            .name(name)
-            .addressLine1(addressLine1)
-            .townOrCity("Inverness")
-            .postcode(postcode)
-            .countryCode(countryCode)
-            .phone("+44 1463 234567")
-            .email("ops@example.com")
-            .organisationId(ORG)
-            .status(AddressStatus.ACTIVE)
-            .createdAt(Instant.parse("2026-07-14T09:15:27Z"))
-            .modifiedAt(Instant.parse("2026-07-14T09:15:27Z"))
-            .build();
-    return repository.save(address);
   }
 
   @Test
@@ -148,14 +130,21 @@ class OperatorListIT extends IntegrationBase {
   }
 
   @Test
-  void listWithPageSize101Returns400BadRequestProblemWithNoErrorsMap() throws Exception {
+  void aPageSizeRequestParamIsNotHonouredTheServerConfigSizeApplies() throws Exception {
+    seedActive(30);
+
+    // page_size / pageSize are not request parameters (cv-025): the server-config size (25) applies
+    // and a supplied value is ignored — never honoured, and never a 400.
     mockMvc
-        .perform(get("/organisation/{orgId}/addresses", ORG).header(ORG_HEADER, ORG).param("page_size", "101"))
-        .andExpect(status().isBadRequest())
-        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
-        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/bad-request"))
-        .andExpect(jsonPath("$.status").value(400))
-        .andExpect(jsonPath("$.errors").doesNotExist());
+        .perform(
+            get("/organisation/{orgId}/addresses", ORG)
+                .header(ORG_HEADER, ORG)
+                .param("page_size", "5")
+                .param("pageSize", "5"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items.length()").value(25))
+        .andExpect(jsonPath("$.pageSize").value(25))
+        .andExpect(jsonPath("$.totalItems").value(30));
   }
 
   @Test
@@ -180,104 +169,4 @@ class OperatorListIT extends IntegrationBase {
         .andExpect(jsonPath("$.errors").doesNotExist());
   }
 
-  @Test
-  void searchMatchesOnName() throws Exception {
-    saveSearchable("Highland Livestock Ltd", "14 Drover's Way", "IV2 3JH", "GB");
-    saveSearchable("Lowland Cattle Co", "2 Market Street", "PH1 5AA", "IE");
-
-    mockMvc
-        .perform(get("/organisation/{orgId}/addresses", ORG).header(ORG_HEADER, ORG).param("q", "Highland"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[0].name").value("Highland Livestock Ltd"));
-  }
-
-  @Test
-  void searchMatchesOnAnAddressLine() throws Exception {
-    saveSearchable("Highland Livestock Ltd", "14 Drover's Way", "IV2 3JH", "GB");
-    saveSearchable("Lowland Cattle Co", "2 Market Street", "PH1 5AA", "IE");
-
-    mockMvc
-        .perform(get("/organisation/{orgId}/addresses", ORG).header(ORG_HEADER, ORG).param("q", "Market"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[0].name").value("Lowland Cattle Co"));
-  }
-
-  @Test
-  void searchMatchesOnPostcodeCaseInsensitively() throws Exception {
-    saveSearchable("Highland Livestock Ltd", "14 Drover's Way", "IV2 3JH", "GB");
-    saveSearchable("Lowland Cattle Co", "2 Market Street", "PH1 5AA", "IE");
-
-    mockMvc
-        .perform(get("/organisation/{orgId}/addresses", ORG).header(ORG_HEADER, ORG).param("q", "iv2"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[0].postcode").value("IV2 3JH"));
-  }
-
-  @Test
-  void searchMatchesOnCountryCode() throws Exception {
-    // cv-011: countryCode is stored as the ISO alpha-2 code exactly as given, so a substring of the
-    // code matches. There is no code<->display-name conversion anywhere in the service.
-    saveSearchable("Highland Livestock Ltd", "14 Drover's Way", "IV2 3JH", "GB");
-    saveSearchable("Lowland Cattle Co", "2 Market Street", "PH1 5AA", "IE");
-
-    mockMvc
-        .perform(get("/organisation/{orgId}/addresses", ORG).header(ORG_HEADER, ORG).param("q", "gb"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[0].countryCode").value("GB"));
-  }
-
-  @Test
-  void searchWithRegexMetacharactersIsInertAndMatchesNothingRatherThanEverything() throws Exception {
-    // Pattern.quote() makes ".*" a literal — it matches only a field literally containing ".*", of
-    // which there are none — so the result is empty, NOT every address (which an unquoted regex
-    // would return) and NOT a 500.
-    saveSearchable("Highland Livestock Ltd", "14 Drover's Way", "IV2 3JH", "GB");
-    saveSearchable("Lowland Cattle Co", "2 Market Street", "PH1 5AA", "IE");
-
-    mockMvc
-        .perform(get("/organisation/{orgId}/addresses", ORG).header(ORG_HEADER, ORG).param("q", ".*"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(0))
-        .andExpect(jsonPath("$.items.length()").value(0));
-  }
-
-  @Test
-  void searchWithAnUnbalancedRegexParenIsInertAndDoesNotError() throws Exception {
-    // "(" is an invalid regex on its own; unquoted it would 500. Pattern.quote() makes it a literal
-    // so it simply matches nothing.
-    saveSearchable("Highland Livestock Ltd", "14 Drover's Way", "IV2 3JH", "GB");
-
-    mockMvc
-        .perform(get("/organisation/{orgId}/addresses", ORG).header(ORG_HEADER, ORG).param("q", "("))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(0));
-  }
-
-  @Test
-  void searchIsStillScopedToTheCallersOrganisation() throws Exception {
-    saveSearchable("Highland Livestock Ltd", "14 Drover's Way", "IV2 3JH", "GB");
-    save(OTHER_ORG, AddressStatus.ACTIVE, "Highland Rivals Ltd");
-
-    mockMvc
-        .perform(get("/organisation/{orgId}/addresses", ORG).header(ORG_HEADER, ORG).param("q", "Highland"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[*].organisationId", everyItem(is(ORG))));
-  }
-
-  @Test
-  void searchExcludesDeletedTombstones() throws Exception {
-    saveSearchable("Highland Livestock Ltd", "14 Drover's Way", "IV2 3JH", "GB");
-    save(ORG, AddressStatus.DELETED, "Highland Ghost Ltd");
-
-    mockMvc
-        .perform(get("/organisation/{orgId}/addresses", ORG).header(ORG_HEADER, ORG).param("q", "Highland"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[*].deleted", everyItem(is(false))));
-  }
 }

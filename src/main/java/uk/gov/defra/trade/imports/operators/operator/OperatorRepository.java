@@ -4,7 +4,6 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
-import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
 
 /** Spring Data MongoDB repository for {@link Address}. */
@@ -22,30 +21,17 @@ public interface OperatorRepository extends MongoRepository<Address, String> {
   Optional<Address> findByIdAndOrganisationId(String id, String organisationId);
 
   /**
-   * One page of an organisation's ACTIVE addresses matching the free-text search — the single query
-   * behind every production read of the address book. Addresses are untyped (cv-017), so there is no
-   * type filter: an empty {@code quotedRegex} (matches everything) covers the unsearched case.
-   *
-   * <p>{@code quotedRegex} is a case-insensitive {@code $regex} matched (as an {@code $or}) over
-   * {@code name}, both address lines, {@code townOrCity}, {@code county}, {@code postcode} and
-   * {@code countryCode}. The caller passes {@code Pattern.quote(q)} so user text is never compiled
-   * as a pattern (no ReDoS, no regex-syntax 500s). The whole match sits inside the
-   * {@code organisationId + status=ACTIVE} bound of the {@code org_status_created} index; DELETED
-   * tombstones are excluded by the literal status.
+   * One page of an organisation's addresses in the given lifecycle status — the single query behind
+   * every production read of the address book. Org-isolation is in the query (the
+   * {@code organisationId} lead), not a post-filter (186.AC5); passing {@code AddressStatus.ACTIVE}
+   * excludes DELETED tombstones. Both bounds sit inside the {@code org_status_created} compound
+   * index, which also serves the newest-first sort carried on the {@link Pageable}.
    *
    * @param organisationId the owning organisation id
-   * @param quotedRegex the {@link java.util.regex.Pattern#quote quoted} search text — "" when absent
+   * @param status the lifecycle status to match (ACTIVE for the live address book)
    * @param pageable the page number, size and sort (newest-first on {@code createdAt})
-   * @return one page of matching ACTIVE addresses plus the total count
+   * @return one page of matching addresses plus the total count
    */
-  @Query(
-      "{'organisationId': ?0, 'status': 'ACTIVE', "
-          + "$or: [{'name': {$regex: ?1, $options: 'i'}}, "
-          + "{'addressLine1': {$regex: ?1, $options: 'i'}}, "
-          + "{'addressLine2': {$regex: ?1, $options: 'i'}}, "
-          + "{'townOrCity': {$regex: ?1, $options: 'i'}}, "
-          + "{'county': {$regex: ?1, $options: 'i'}}, "
-          + "{'postcode': {$regex: ?1, $options: 'i'}}, "
-          + "{'countryCode': {$regex: ?1, $options: 'i'}}]}")
-  Page<Address> search(String organisationId, String quotedRegex, Pageable pageable);
+  Page<Address> findByOrganisationIdAndStatus(
+      String organisationId, AddressStatus status, Pageable pageable);
 }

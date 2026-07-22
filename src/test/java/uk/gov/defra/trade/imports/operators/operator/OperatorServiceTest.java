@@ -3,7 +3,6 @@ package uk.gov.defra.trade.imports.operators.operator;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
@@ -13,7 +12,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,7 +38,7 @@ class OperatorServiceTest {
 
   @BeforeEach
   void setUp() {
-    service = new OperatorService(repository, meterRegistry);
+    service = new OperatorService(repository, meterRegistry, 25);
   }
 
   private AddressRequest request() {
@@ -268,10 +266,11 @@ class OperatorServiceTest {
 
   @Test
   void listReturnsAFullFirstPageOf25WithTotalPages2For30ActiveAddresses() {
-    when(repository.search(eq(ORG), anyString(), any(Pageable.class)))
+    when(repository.findByOrganisationIdAndStatus(
+            eq(ORG), eq(AddressStatus.ACTIVE), any(Pageable.class)))
         .thenReturn(new PageImpl<>(activeAddresses(25), PageRequest.of(0, 25), 30));
 
-    OperatorPageResponse response = service.list(ORG, null, 1, 25);
+    OperatorPageResponse response = service.list(ORG, 1);
 
     assertThat(response.items()).hasSize(25);
     assertThat(response.page()).isEqualTo(1);
@@ -282,10 +281,11 @@ class OperatorServiceTest {
 
   @Test
   void listPageTwoReturnsTheRemaining5AddressesWithTotalPagesStill2() {
-    when(repository.search(eq(ORG), anyString(), any(Pageable.class)))
+    when(repository.findByOrganisationIdAndStatus(
+            eq(ORG), eq(AddressStatus.ACTIVE), any(Pageable.class)))
         .thenReturn(new PageImpl<>(activeAddresses(5), PageRequest.of(1, 25), 30));
 
-    OperatorPageResponse response = service.list(ORG, null, 2, 25);
+    OperatorPageResponse response = service.list(ORG, 2);
 
     assertThat(response.items()).hasSize(5);
     assertThat(response.page()).isEqualTo(2);
@@ -294,12 +294,13 @@ class OperatorServiceTest {
   }
 
   @Test
-  void listScopesTheQueryToTheOrgNewestFirstAndTranslatesToA0BasedPage() {
+  void listScopesTheQueryToTheActiveOrgNewestFirstAndTranslatesToA0BasedPage() {
     ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-    when(repository.search(eq(ORG), anyString(), pageableCaptor.capture()))
+    when(repository.findByOrganisationIdAndStatus(
+            eq(ORG), eq(AddressStatus.ACTIVE), pageableCaptor.capture()))
         .thenReturn(new PageImpl<>(List.of(), PageRequest.of(1, 25), 0));
 
-    service.list(ORG, null, 2, 25);
+    service.list(ORG, 2);
 
     Pageable pageable = pageableCaptor.getValue();
     assertThat(pageable.getPageNumber()).isEqualTo(1);
@@ -309,42 +310,22 @@ class OperatorServiceTest {
   }
 
   @Test
-  void listWithoutAqUsesTheEmptyRegexSentinelThatMatchesEverything() {
-    ArgumentCaptor<String> regexCaptor = ArgumentCaptor.forClass(String.class);
-    when(repository.search(eq(ORG), regexCaptor.capture(), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
+  void listUsesTheConfiguredPageSizeNotAValuePassedByTheCaller() {
+    OperatorService configured = new OperatorService(repository, meterRegistry, 10);
+    ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+    when(repository.findByOrganisationIdAndStatus(
+            eq(ORG), eq(AddressStatus.ACTIVE), pageableCaptor.capture()))
+        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
 
-    service.list(ORG, null, 1, 25);
+    OperatorPageResponse response = configured.list(ORG, 1);
 
-    assertThat(regexCaptor.getValue()).isEmpty();
-  }
-
-  @Test
-  void listQuotesUserInputSoRegexMetacharactersAreLiteral() {
-    ArgumentCaptor<String> regexCaptor = ArgumentCaptor.forClass(String.class);
-    when(repository.search(eq(ORG), regexCaptor.capture(), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
-
-    service.list(ORG, ".*", 1, 25);
-
-    assertThat(regexCaptor.getValue()).isEqualTo(Pattern.quote(".*"));
+    assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(10);
+    assertThat(response.pageSize()).isEqualTo(10);
   }
 
   @Test
   void listWithAPageBelow1IsABadRequest() {
     assertThatExceptionOfType(BadRequestException.class)
-        .isThrownBy(() -> service.list(ORG, null, 0, 25));
-  }
-
-  @Test
-  void listWithAPageSizeAbove100IsABadRequest() {
-    assertThatExceptionOfType(BadRequestException.class)
-        .isThrownBy(() -> service.list(ORG, null, 1, 101));
-  }
-
-  @Test
-  void listWithAPageSizeBelow1IsABadRequest() {
-    assertThatExceptionOfType(BadRequestException.class)
-        .isThrownBy(() -> service.list(ORG, null, 1, 0));
+        .isThrownBy(() -> service.list(ORG, 0));
   }
 }

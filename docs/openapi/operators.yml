@@ -130,7 +130,7 @@ paths:
     get:
       tags:
       - operators
-      summary: List the caller's ACTIVE addresses (paginated, searchable)
+      summary: List the caller's ACTIVE addresses (paginated)
       operationId: list-operators
       parameters:
       - name: orgId
@@ -143,11 +143,6 @@ paths:
         required: true
         schema:
           type: string
-      - name: q
-        in: query
-        required: false
-        schema:
-          type: string
       - name: page
         in: query
         required: false
@@ -155,13 +150,6 @@ paths:
           type: integer
           format: int32
           default: 1
-      - name: page_size
-        in: query
-        required: false
-        schema:
-          type: integer
-          format: int32
-          default: 25
       responses:
         '200':
           description: One page of the caller's ACTIVE addresses
@@ -170,7 +158,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/OperatorPageResponse'
         '400':
-          description: Out-of-range or non-numeric pagination parameters, or a missing org header
+          description: An out-of-range or non-numeric page, or a missing org header
           content:
             application/problem+json:
               schema:

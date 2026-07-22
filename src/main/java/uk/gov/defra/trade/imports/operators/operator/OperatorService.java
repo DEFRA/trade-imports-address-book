@@ -4,9 +4,8 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.util.List;
 import java.util.Optional;
-import java.util.regex.Pattern;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -25,55 +24,47 @@ import uk.gov.defra.trade.imports.operators.exceptions.NotFoundException;
  */
 @Service
 @Slf4j
-@RequiredArgsConstructor
 public class OperatorService {
-
-  private static final int MAX_PAGE_SIZE = 100;
 
   private final OperatorRepository repository;
   private final MeterRegistry meterRegistry;
+  private final int pageSize;
+
+  public OperatorService(
+      OperatorRepository repository,
+      MeterRegistry meterRegistry,
+      @Value("${address-book.list.page-size:25}") int pageSize) {
+    this.repository = repository;
+    this.meterRegistry = meterRegistry;
+    this.pageSize = pageSize;
+  }
 
   /**
-   * One page of the organisation's ACTIVE addresses, newest first, optionally searched. Scoped to
-   * {@code organisationId}; DELETED tombstones are excluded because the query pins
-   * {@code status ACTIVE}. {@code page} is 1-based and translated to Spring Data's 0-based index; the
-   * sort is {@code createdAt} descending, served by the {@code org_status_created} index.
+   * One page of the organisation's ACTIVE addresses, newest first. Scoped to {@code organisationId};
+   * DELETED tombstones are excluded because the query pins {@code status ACTIVE}. {@code page} is
+   * 1-based and translated to Spring Data's 0-based index; the page size is a server-side config
+   * (cv-025), not a request parameter; the sort is {@code createdAt} descending, served by the
+   * {@code org_status_created} index.
    *
-   * <p>Addresses are untyped (cv-017): the only optional filter is {@code q}. When {@code q} is
-   * absent the search regex is the empty string {@code ""}, which matches everything. {@code q} is
-   * {@link Pattern#quote quoted} before it reaches Mongo, so a user's regex metacharacters are
-   * matched literally — never compiled as a pattern.
-   *
-   * <p>An out-of-range {@code page} (&lt; 1) or {@code pageSize} (&lt; 1 or &gt; {@value
-   * #MAX_PAGE_SIZE}) is a {@link BadRequestException}.
+   * <p>An out-of-range {@code page} (&lt; 1) is a {@link BadRequestException}.
    *
    * @param organisationId the owning organisation id, from the identity header
-   * @param q the free-text search, or {@code null} when absent
    * @param page the 1-based page number
-   * @param pageSize the page size (1..{@value #MAX_PAGE_SIZE})
    * @return one page of ACTIVE addresses with pagination metadata
-   * @throws BadRequestException if {@code page} or {@code pageSize} is out of range
+   * @throws BadRequestException if {@code page} is less than 1
    */
-  public OperatorPageResponse list(String organisationId, String q, int page, int pageSize) {
+  public OperatorPageResponse list(String organisationId, int page) {
     if (page < 1) {
       throw new BadRequestException("page must be 1 or greater");
     }
-    if (pageSize < 1 || pageSize > MAX_PAGE_SIZE) {
-      throw new BadRequestException("page_size must be between 1 and " + MAX_PAGE_SIZE);
-    }
-
-    String quotedRegex = q == null ? "" : Pattern.quote(q);
-    boolean filtered = q != null && !q.isBlank();
 
     Pageable pageable =
         PageRequest.of(page - 1, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
 
     Timer.Sample sample = Timer.start(meterRegistry);
-    Page<Address> result = repository.search(organisationId, quotedRegex, pageable);
-    sample.stop(
-        Timer.builder("OperatorListQuery")
-            .tag("filtered", Boolean.toString(filtered))
-            .register(meterRegistry));
+    Page<Address> result =
+        repository.findByOrganisationIdAndStatus(organisationId, AddressStatus.ACTIVE, pageable);
+    sample.stop(meterRegistry.timer("OperatorListQuery"));
 
     List<OperatorResponse> items =
         result.getContent().stream().map(OperatorMapper::toResponse).toList();
