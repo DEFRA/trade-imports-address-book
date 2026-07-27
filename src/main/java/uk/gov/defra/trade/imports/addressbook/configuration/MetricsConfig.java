@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.configuration;
+package uk.gov.defra.trade.imports.addressbook.configuration;
 
 import io.micrometer.core.aop.CountedAspect;
 import io.micrometer.core.aop.TimedAspect;

@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.configuration;
+package uk.gov.defra.trade.imports.addressbook.configuration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import uk.gov.defra.trade.imports.operators.service.EmfMetricsPublisher;
+import uk.gov.defra.trade.imports.addressbook.service.EmfMetricsPublisher;
 
 import java.lang.reflect.Method;
 

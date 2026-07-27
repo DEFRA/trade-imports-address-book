@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.exceptions;
+package uk.gov.defra.trade.imports.addressbook.exceptions;
 
 /**
  * RFC 9457 problem details body — the <em>bad-request</em> / <em>not-found</em> / <em>internal-error</em>

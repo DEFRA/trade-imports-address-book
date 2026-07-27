@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.service;
+package uk.gov.defra.trade.imports.addressbook.service;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.composite.CompositeMeterRegistry;

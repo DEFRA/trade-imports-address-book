@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.configuration.tls;
+package uk.gov.defra.trade.imports.addressbook.configuration.tls;
 
 import java.util.Base64;
 import lombok.extern.slf4j.Slf4j;

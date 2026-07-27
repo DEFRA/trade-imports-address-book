@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.integration;
+package uk.gov.defra.trade.imports.addressbook.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
-import uk.gov.defra.trade.imports.operators.operator.OperatorRepository;
+import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 
 /**
  * Org-path scoping and the cv-040 path-vs-session authorisation (cv-010, cv-040). The address book

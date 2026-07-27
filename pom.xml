@@ -13,10 +13,10 @@
   </parent>
 
   <groupId>uk.gov.defra.cdp</groupId>
-  <artifactId>trade-imports-operators</artifactId>
+  <artifactId>trade-imports-address-book</artifactId>
   <version>0.1.0</version>
-  <name>Trade Imports Operators</name>
-  <description>Trade Imports Operators - Spring Boot 3.5 with Java 25</description>
+  <name>Trade Imports Address Book</name>
+  <description>Trade Imports Address Book - Spring Boot 3.5 with Java 25</description>
 
   <properties>
     <java.version>25</java.version>

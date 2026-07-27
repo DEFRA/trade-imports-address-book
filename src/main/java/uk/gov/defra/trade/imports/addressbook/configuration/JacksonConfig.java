@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.configuration;
+package uk.gov.defra.trade.imports.addressbook.configuration;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;

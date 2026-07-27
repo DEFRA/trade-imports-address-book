@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.configuration.tls;
+package uk.gov.defra.trade.imports.addressbook.configuration.tls;
 
 import static org.junit.jupiter.api.Assertions.*;
 

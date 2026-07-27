@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.integration;
+package uk.gov.defra.trade.imports.addressbook.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -6,9 +6,9 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import uk.gov.defra.trade.imports.operators.operator.Address;
-import uk.gov.defra.trade.imports.operators.operator.AddressStatus;
-import uk.gov.defra.trade.imports.operators.operator.OperatorRepository;
+import uk.gov.defra.trade.imports.addressbook.address.Address;
+import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
+import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 
 /**
  * Proves {@link OperatorRepository#findByIdAndOrganisationId} scopes reads by organisation, so one

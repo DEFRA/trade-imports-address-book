@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: trade-imports-operators
+  title: trade-imports-address-book
   version: 1.0.0
   description: |
     Address-book operators service for EUDPA-58.

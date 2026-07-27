@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.configuration;
+package uk.gov.defra.trade.imports.addressbook.configuration;
 
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;

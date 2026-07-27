@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.filter;
+package uk.gov.defra.trade.imports.addressbook.filter;
 
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;

@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.integration;
+package uk.gov.defra.trade.imports.addressbook.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -21,7 +21,7 @@ import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
-import uk.gov.defra.trade.imports.operators.operator.OperatorRepository;
+import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 
 /**
  * Executable contract lock for {@code /operators} (the M1 close). Two halves:

@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.configuration;
+package uk.gov.defra.trade.imports.addressbook.configuration;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.integration;
+package uk.gov.defra.trade.imports.addressbook.integration;
 
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasItem;
@@ -14,9 +14,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
-import uk.gov.defra.trade.imports.operators.operator.Address;
-import uk.gov.defra.trade.imports.operators.operator.AddressStatus;
-import uk.gov.defra.trade.imports.operators.operator.OperatorRepository;
+import uk.gov.defra.trade.imports.addressbook.address.Address;
+import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
+import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 
 /**
  * Full-stack list integration test for {@code GET /organisation/{orgId}/addresses}. Pins the

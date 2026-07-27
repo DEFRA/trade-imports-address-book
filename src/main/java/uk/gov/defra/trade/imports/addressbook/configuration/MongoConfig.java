@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.configuration;
+package uk.gov.defra.trade.imports.addressbook.configuration;
 
 import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
@@ -14,10 +14,10 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.mongodb.config.EnableMongoAuditing;
 import javax.net.ssl.SSLContext;
 import java.util.concurrent.TimeUnit;
-import uk.gov.defra.trade.imports.operators.configuration.tls.TrustStoreConfiguration;
+import uk.gov.defra.trade.imports.addressbook.configuration.tls.TrustStoreConfiguration;
 
 /**
- * MongoDB configuration for Trade Imports Operators.
+ * MongoDB configuration for Trade Imports Address Book.
  *
  * <p>Configures MongoDB connection with: - AWS IAM authentication (via connection string
  * authMechanism=MONGODB-AWS) - Custom SSL/TLS certificates from TRUSTSTORE_* environment variables

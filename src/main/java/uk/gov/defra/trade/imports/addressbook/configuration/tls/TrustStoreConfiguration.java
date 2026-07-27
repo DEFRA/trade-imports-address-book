@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.configuration.tls;
+package uk.gov.defra.trade.imports.addressbook.configuration.tls;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
@@ -17,7 +17,7 @@ import java.security.cert.X509Certificate;
 import java.util.Arrays;
 
 /**
- * Configures SSL/TLS for the Trade Imports Operators.
+ * Configures SSL/TLS for the Trade Imports Address Book.
  *
  * Creates a custom SSLContext that combines:
  * 1. Default JVM trust store certificates

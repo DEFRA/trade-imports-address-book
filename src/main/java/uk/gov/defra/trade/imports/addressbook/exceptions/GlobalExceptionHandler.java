@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.exceptions;
+package uk.gov.defra.trade.imports.addressbook.exceptions;
 
 import java.net.URI;
 import java.util.ArrayList;

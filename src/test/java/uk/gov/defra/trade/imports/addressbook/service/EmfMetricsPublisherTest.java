@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.service;
+package uk.gov.defra.trade.imports.addressbook.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;

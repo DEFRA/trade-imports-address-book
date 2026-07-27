@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.exceptions;
+package uk.gov.defra.trade.imports.addressbook.exceptions;
 
 /**
  * Thrown for a malformed request that never reaches body validation — a missing identity header or

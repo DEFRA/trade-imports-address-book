@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.filter;
+package uk.gov.defra.trade.imports.addressbook.filter;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,7 +18,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
-import uk.gov.defra.trade.imports.operators.exceptions.Problem;
+import uk.gov.defra.trade.imports.addressbook.exceptions.Problem;
 
 /**
  * Enforces the trusted-forwarded-header identity contract on every {@code /organisation/**} request

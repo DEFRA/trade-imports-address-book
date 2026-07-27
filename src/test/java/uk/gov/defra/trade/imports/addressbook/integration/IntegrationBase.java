@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.integration;
+package uk.gov.defra.trade.imports.addressbook.integration;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;

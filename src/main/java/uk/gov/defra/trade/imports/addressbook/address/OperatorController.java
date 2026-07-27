@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.operator;
+package uk.gov.defra.trade.imports.addressbook.address;
 
 import io.micrometer.core.annotation.Timed;
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,9 +22,9 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import uk.gov.defra.trade.imports.operators.exceptions.NotFoundException;
-import uk.gov.defra.trade.imports.operators.exceptions.Problem;
-import uk.gov.defra.trade.imports.operators.exceptions.ValidationProblem;
+import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
+import uk.gov.defra.trade.imports.addressbook.exceptions.Problem;
+import uk.gov.defra.trade.imports.addressbook.exceptions.ValidationProblem;
 
 /**
  * REST API for an organisation's address book. Every operation is path-scoped to an

@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.integration;
+package uk.gov.defra.trade.imports.addressbook.integration;
 
 import com.mongodb.ReadPreference;
 import com.mongodb.WriteConcern;
@@ -26,7 +26,7 @@ class MongoConfigIT extends IntegrationBase {
     void mongoTemplate_shouldBeConfigured() {
         assertThat(mongoTemplate).isNotNull();
         assertThat(mongoTemplate.getDb()).isNotNull();
-        assertThat(mongoTemplate.getDb().getName()).isEqualTo("trade-imports-operators");
+        assertThat(mongoTemplate.getDb().getName()).isEqualTo("trade-imports-address-book");
     }
 
     @Test

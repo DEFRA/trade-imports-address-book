@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.operator;
+package uk.gov.defra.trade.imports.addressbook.address;
 
 import java.time.Instant;
 import lombok.AccessLevel;
@@ -29,7 +29,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
  *
  * <p>The entity is never serialised onto the wire — the response records own the wire contract.
  */
-@Document(collection = "operators")
+@Document(collection = "addresses")
 @CompoundIndex(
     name = "org_status_created",
     def = "{'organisationId': 1, 'status': 1, 'createdAt': -1}")

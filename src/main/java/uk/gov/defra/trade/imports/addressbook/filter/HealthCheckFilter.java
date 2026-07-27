@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.filter;
+package uk.gov.defra.trade.imports.addressbook.filter;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.filter.Filter;

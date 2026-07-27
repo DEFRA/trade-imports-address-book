@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.operator;
+package uk.gov.defra.trade.imports.addressbook.address;
 
 import java.util.Optional;
 import org.springframework.data.domain.Page;

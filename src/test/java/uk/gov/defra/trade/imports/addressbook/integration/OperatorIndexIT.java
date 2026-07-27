@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.integration;
+package uk.gov.defra.trade.imports.addressbook.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -7,8 +7,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.index.IndexInfo;
-import uk.gov.defra.trade.imports.operators.operator.Address;
-import uk.gov.defra.trade.imports.operators.operator.OperatorRepository;
+import uk.gov.defra.trade.imports.addressbook.address.Address;
+import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 
 /**
  * Pins the single compound index on the addresses collection. A lost index is a silent production
@@ -29,7 +29,7 @@ class OperatorIndexIT extends IntegrationBase {
     operatorRepository.deleteAll();
     operatorRepository.save(Address.builder().build());
 
-    List<IndexInfo> indexes = mongoTemplate.indexOps("operators").getIndexInfo();
+    List<IndexInfo> indexes = mongoTemplate.indexOps("addresses").getIndexInfo();
     List<String> indexNames = indexes.stream().map(IndexInfo::getName).toList();
 
     assertThat(indexNames).contains("org_status_created");

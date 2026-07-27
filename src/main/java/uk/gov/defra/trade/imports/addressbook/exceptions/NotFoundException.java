@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.exceptions;
+package uk.gov.defra.trade.imports.addressbook.exceptions;
 
 /**
  * Exception thrown when a requested resource is not found.

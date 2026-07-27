@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.exceptions;
+package uk.gov.defra.trade.imports.addressbook.exceptions;
 
 import java.util.List;
 import java.util.Map;

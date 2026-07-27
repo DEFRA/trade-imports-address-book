@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.operator;
+package uk.gov.defra.trade.imports.addressbook.address;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
@@ -22,8 +22,8 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import uk.gov.defra.trade.imports.operators.exceptions.BadRequestException;
-import uk.gov.defra.trade.imports.operators.exceptions.NotFoundException;
+import uk.gov.defra.trade.imports.addressbook.exceptions.BadRequestException;
+import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
 
 @ExtendWith(MockitoExtension.class)
 class OperatorServiceTest {

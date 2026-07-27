@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for Trade Imports Operators
+# Multi-stage Dockerfile for Trade Imports Address Book
 # Uses Amazon Corretto 25 (matches project configuration)
 
 ################################################################################

@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.integration;
+package uk.gov.defra.trade.imports.addressbook.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -7,7 +7,7 @@ import java.util.Base64;
 import javax.net.ssl.SSLContext;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import uk.gov.defra.trade.imports.operators.configuration.tls.CertificateLoader;
+import uk.gov.defra.trade.imports.addressbook.configuration.tls.CertificateLoader;
 
 /**
  * Integration tests for TLS certificate handling and SSLContext configuration.

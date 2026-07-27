@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.interceptor;
+package uk.gov.defra.trade.imports.addressbook.interceptor;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;

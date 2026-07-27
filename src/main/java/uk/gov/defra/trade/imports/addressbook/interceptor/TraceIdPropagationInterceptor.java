@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.interceptor;
+package uk.gov.defra.trade.imports.addressbook.interceptor;
 
 import java.io.IOException;
 import org.slf4j.MDC;

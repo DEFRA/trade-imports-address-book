@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.operators.operator;
+package uk.gov.defra.trade.imports.addressbook.address;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -11,8 +11,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
-import uk.gov.defra.trade.imports.operators.exceptions.BadRequestException;
-import uk.gov.defra.trade.imports.operators.exceptions.NotFoundException;
+import uk.gov.defra.trade.imports.addressbook.exceptions.BadRequestException;
+import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
 
 /**
  * Application service for addresses. Owns the create/read/update/delete business rules; the wire
