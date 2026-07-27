@@ -71,12 +71,14 @@ public class OperatorController {
    * @param orgId the organisation scope from the path, authorised against the identity header
    * @param sessionOrg the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
    * @param page the 1-based page number (default 1)
+   * @param q optional case-insensitive partial-word search over name/townOrCity/postcode
+   * @param countryCode optional ISO alpha-2 country code (FE-resolved, cv-048)
    * @return 200 with one page of ACTIVE addresses
    */
   @GetMapping
   @Operation(
       operationId = "list-operators",
-      summary = "List the caller's ACTIVE addresses (paginated)")
+      summary = "List the caller's ACTIVE addresses (paginated, searchable)")
   @ApiResponses({
     @ApiResponse(responseCode = "200", description = "One page of the caller's ACTIVE addresses"),
     @ApiResponse(
@@ -91,10 +93,12 @@ public class OperatorController {
   public OperatorPageResponse list(
       @PathVariable String orgId,
       @RequestHeader(ORGANISATION_ID_HEADER) String sessionOrg,
-      @RequestParam(defaultValue = "1") int page) {
+      @RequestParam(defaultValue = "1") int page,
+      @RequestParam(required = false) String q,
+      @RequestParam(required = false) String countryCode) {
     authoriseOrg(orgId, sessionOrg);
-    log.info("GET addresses - page {}", page);
-    return operatorService.list(orgId, page);
+    log.info("GET addresses - page {}, q present {}, countryCode {}", page, q != null, countryCode);
+    return operatorService.list(orgId, page, q, countryCode);
   }
 
   /**

@@ -270,7 +270,7 @@ class OperatorServiceTest {
             eq(ORG), eq(AddressStatus.ACTIVE), any(Pageable.class)))
         .thenReturn(new PageImpl<>(activeAddresses(25), PageRequest.of(0, 25), 30));
 
-    OperatorPageResponse response = service.list(ORG, 1);
+    OperatorPageResponse response = service.list(ORG, 1, null, null);
 
     assertThat(response.items()).hasSize(25);
     assertThat(response.page()).isEqualTo(1);
@@ -285,7 +285,7 @@ class OperatorServiceTest {
             eq(ORG), eq(AddressStatus.ACTIVE), any(Pageable.class)))
         .thenReturn(new PageImpl<>(activeAddresses(5), PageRequest.of(1, 25), 30));
 
-    OperatorPageResponse response = service.list(ORG, 2);
+    OperatorPageResponse response = service.list(ORG, 2, null, null);
 
     assertThat(response.items()).hasSize(5);
     assertThat(response.page()).isEqualTo(2);
@@ -300,7 +300,7 @@ class OperatorServiceTest {
             eq(ORG), eq(AddressStatus.ACTIVE), pageableCaptor.capture()))
         .thenReturn(new PageImpl<>(List.of(), PageRequest.of(1, 25), 0));
 
-    service.list(ORG, 2);
+    service.list(ORG, 2, null, null);
 
     Pageable pageable = pageableCaptor.getValue();
     assertThat(pageable.getPageNumber()).isEqualTo(1);
@@ -317,7 +317,7 @@ class OperatorServiceTest {
             eq(ORG), eq(AddressStatus.ACTIVE), pageableCaptor.capture()))
         .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
 
-    OperatorPageResponse response = configured.list(ORG, 1);
+    OperatorPageResponse response = configured.list(ORG, 1, null, null);
 
     assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(10);
     assertThat(response.pageSize()).isEqualTo(10);
@@ -326,6 +326,40 @@ class OperatorServiceTest {
   @Test
   void listWithAPageBelow1IsABadRequest() {
     assertThatExceptionOfType(BadRequestException.class)
-        .isThrownBy(() -> service.list(ORG, 0));
+        .isThrownBy(() -> service.list(ORG, 0, null, null));
+  }
+
+  @Test
+  void listWithQueryUsesTheSearchRepository() {
+    when(repository.searchByQuery(eq(ORG), eq(".*farm.*"), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
+
+    service.list(ORG, 1, "farm", null);
+
+    org.mockito.Mockito.verify(repository).searchByQuery(eq(ORG), eq(".*farm.*"), any(Pageable.class));
+  }
+
+  @Test
+  void listWithCountryCodeUsesTheCountrySearchRepository() {
+    when(repository.searchByCountryCode(eq(ORG), eq("FR"), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
+
+    service.list(ORG, 1, null, "FR");
+
+    org.mockito.Mockito.verify(repository)
+        .searchByCountryCode(eq(ORG), eq("FR"), any(Pageable.class));
+  }
+
+  @Test
+  void listWithQueryAndCountryCodeUsesTheCombinedSearchRepository() {
+    when(repository.searchByQueryAndCountryCode(
+            eq(ORG), eq(".*France.*"), eq("FR"), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
+
+    service.list(ORG, 1, "France", "FR");
+
+    org.mockito.Mockito.verify(repository)
+        .searchByQueryAndCountryCode(
+            eq(ORG), eq(".*France.*"), eq("FR"), any(Pageable.class));
   }
 }

@@ -4,6 +4,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -50,10 +51,12 @@ public class OperatorService {
    *
    * @param organisationId the owning organisation id, from the identity header
    * @param page the 1-based page number
+   * @param q optional case-insensitive partial-word search over name/townOrCity/postcode
+   * @param countryCode optional ISO alpha-2 country code (FE-resolved, cv-048)
    * @return one page of ACTIVE addresses with pagination metadata
    * @throws BadRequestException if {@code page} is less than 1
    */
-  public OperatorPageResponse list(String organisationId, int page) {
+  public OperatorPageResponse list(String organisationId, int page, String q, String countryCode) {
     if (page < 1) {
       throw new BadRequestException("page must be 1 or greater");
     }
@@ -62,14 +65,39 @@ public class OperatorService {
         PageRequest.of(page - 1, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
 
     Timer.Sample sample = Timer.start(meterRegistry);
-    Page<Address> result =
-        repository.findByOrganisationIdAndStatus(organisationId, AddressStatus.ACTIVE, pageable);
+    Page<Address> result = queryPage(organisationId, q, countryCode, pageable);
     sample.stop(meterRegistry.timer("OperatorListQuery"));
 
     List<OperatorResponse> items =
         result.getContent().stream().map(OperatorMapper::toResponse).toList();
     return new OperatorPageResponse(
         items, page, pageSize, (int) result.getTotalElements(), result.getTotalPages());
+  }
+
+  private Page<Address> queryPage(
+      String organisationId, String q, String countryCode, Pageable pageable) {
+    boolean hasQuery = q != null && !q.isBlank();
+    boolean hasCountryCode = countryCode != null && !countryCode.isBlank();
+
+    if (!hasQuery && !hasCountryCode) {
+      return repository.findByOrganisationIdAndStatus(
+          organisationId, AddressStatus.ACTIVE, pageable);
+    }
+
+    if (hasQuery && hasCountryCode) {
+      return repository.searchByQueryAndCountryCode(
+          organisationId, toPartialMatchRegex(q), countryCode.trim(), pageable);
+    }
+
+    if (hasQuery) {
+      return repository.searchByQuery(organisationId, toPartialMatchRegex(q), pageable);
+    }
+
+    return repository.searchByCountryCode(organisationId, countryCode.trim(), pageable);
+  }
+
+  private static String toPartialMatchRegex(String q) {
+    return ".*" + Pattern.quote(q.trim()) + ".*";
   }
 
   /**

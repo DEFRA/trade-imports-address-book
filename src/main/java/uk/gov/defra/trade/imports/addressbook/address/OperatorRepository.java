@@ -4,6 +4,7 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
 
 /** Spring Data MongoDB repository for {@link Address}. */
@@ -34,4 +35,51 @@ public interface OperatorRepository extends MongoRepository<Address, String> {
    */
   Page<Address> findByOrganisationIdAndStatus(
       String organisationId, AddressStatus status, Pageable pageable);
+
+  /**
+   * Case-insensitive partial-word search over {@code name}, {@code townOrCity} and {@code postcode}
+   * for one organisation's ACTIVE addresses. Uses a quoted regex (ReDoS-safe), not {@code $text}.
+   *
+   * @param organisationId the owning organisation id
+   * @param regex the quoted partial-match regex (e.g. {@code .*gree.*})
+   * @param pageable the page number, size and sort (newest-first on {@code createdAt})
+   * @return one page of matching ACTIVE addresses plus the total count
+   */
+  @Query(
+      "{ 'organisationId': ?0, 'status': 'ACTIVE', '$or': [ "
+          + "{ 'name': { '$regex': ?1, '$options': 'i' } }, "
+          + "{ 'townOrCity': { '$regex': ?1, '$options': 'i' } }, "
+          + "{ 'postcode': { '$regex': ?1, '$options': 'i' } } ] }")
+  Page<Address> searchByQuery(String organisationId, String regex, Pageable pageable);
+
+  /**
+   * Search by a resolved ISO alpha-2 {@code countryCode} for one organisation's ACTIVE addresses.
+   *
+   * @param organisationId the owning organisation id
+   * @param countryCode the ISO alpha-2 country code to match
+   * @param pageable the page number, size and sort (newest-first on {@code createdAt})
+   * @return one page of matching ACTIVE addresses plus the total count
+   */
+  @Query("{ 'organisationId': ?0, 'status': 'ACTIVE', 'countryCode': ?1 }")
+  Page<Address> searchByCountryCode(
+      String organisationId, String countryCode, Pageable pageable);
+
+  /**
+   * Combined text search over {@code name}/{@code townOrCity}/{@code postcode} OR an exact
+   * {@code countryCode} match for one organisation's ACTIVE addresses.
+   *
+   * @param organisationId the owning organisation id
+   * @param regex the quoted partial-match regex for the text fields
+   * @param countryCode the ISO alpha-2 country code to match
+   * @param pageable the page number, size and sort (newest-first on {@code createdAt})
+   * @return one page of matching ACTIVE addresses plus the total count
+   */
+  @Query(
+      "{ 'organisationId': ?0, 'status': 'ACTIVE', '$or': [ "
+          + "{ 'name': { '$regex': ?1, '$options': 'i' } }, "
+          + "{ 'townOrCity': { '$regex': ?1, '$options': 'i' } }, "
+          + "{ 'postcode': { '$regex': ?1, '$options': 'i' } }, "
+          + "{ 'countryCode': ?2 } ] }")
+  Page<Address> searchByQueryAndCountryCode(
+      String organisationId, String regex, String countryCode, Pageable pageable);
 }
