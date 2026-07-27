@@ -36,7 +36,7 @@ import uk.gov.defra.trade.imports.addressbook.exceptions.ValidationProblem;
  */
 @RestController
 @RequestMapping("/organisation/{orgId}/addresses")
-@Tag(name = "operators", description = "Address book, scoped to the caller's organisation")
+@Tag(name = "addresses", description = "Address book, scoped to the caller's organisation")
 @Slf4j
 @RequiredArgsConstructor
 public class OperatorController {
@@ -145,7 +145,7 @@ public class OperatorController {
    * @return 200 with the address (deleted false or true)
    */
   @GetMapping("/{operator-id}")
-  @Operation(operationId = "get-operator", summary = "Fetch one address, including tombstones")
+  @Operation(operationId = "get-address", summary = "Fetch one address, including tombstones")
   @ApiResponses({
     @ApiResponse(responseCode = "200", description = "The address (deleted false or true)"),
     @ApiResponse(
@@ -183,7 +183,7 @@ public class OperatorController {
    * @return 200 with the updated address and its bumped {@code modifiedAt}
    */
   @PutMapping("/{operator-id}")
-  @Operation(operationId = "update-operator", summary = "Replace an address's mutable fields")
+  @Operation(operationId = "update-address", summary = "Replace an address's mutable fields")
   @ApiResponses({
     @ApiResponse(responseCode = "200", description = "Updated address with bumped modifiedAt"),
     @ApiResponse(
@@ -226,7 +226,7 @@ public class OperatorController {
    * @return 204 No Content (soft-deleted, or already deleted)
    */
   @DeleteMapping("/{operator-id}")
-  @Operation(operationId = "delete-operator", summary = "Soft-delete an address (tombstone)")
+  @Operation(operationId = "delete-address", summary = "Soft-delete an address (tombstone)")
   @ApiResponses({
     @ApiResponse(responseCode = "204", description = "Soft-deleted (or already deleted — idempotent)"),
     @ApiResponse(
