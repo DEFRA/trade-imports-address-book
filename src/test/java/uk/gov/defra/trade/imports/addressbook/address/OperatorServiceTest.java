@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -331,12 +332,14 @@ class OperatorServiceTest {
 
   @Test
   void listWithQueryUsesTheSearchRepository() {
-    when(repository.searchByQuery(eq(ORG), eq(".*farm.*"), any(Pageable.class)))
+    when(repository.searchByQuery(
+            eq(ORG), eq(partialMatchRegex("farm")), any(Pageable.class)))
         .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
 
     service.list(ORG, 1, "farm", null);
 
-    org.mockito.Mockito.verify(repository).searchByQuery(eq(ORG), eq(".*farm.*"), any(Pageable.class));
+    org.mockito.Mockito.verify(repository)
+        .searchByQuery(eq(ORG), eq(partialMatchRegex("farm")), any(Pageable.class));
   }
 
   @Test
@@ -353,13 +356,17 @@ class OperatorServiceTest {
   @Test
   void listWithQueryAndCountryCodeUsesTheCombinedSearchRepository() {
     when(repository.searchByQueryAndCountryCode(
-            eq(ORG), eq(".*France.*"), eq("FR"), any(Pageable.class)))
+            eq(ORG), eq(partialMatchRegex("France")), eq("FR"), any(Pageable.class)))
         .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
 
     service.list(ORG, 1, "France", "FR");
 
     org.mockito.Mockito.verify(repository)
         .searchByQueryAndCountryCode(
-            eq(ORG), eq(".*France.*"), eq("FR"), any(Pageable.class));
+            eq(ORG), eq(partialMatchRegex("France")), eq("FR"), any(Pageable.class));
+  }
+
+  private static String partialMatchRegex(String term) {
+    return ".*" + Pattern.quote(term.trim()) + ".*";
   }
 }
