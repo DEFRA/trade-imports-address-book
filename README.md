@@ -1,161 +1,221 @@
-CDP Java Spring Boot backend template.
+# trade-imports-address-book
 
-* [Install MongoDB](#install-mongodb)
-* [Inspect MongoDB](#inspect-mongodb)
+Org-scoped address book API for EUDP Live Animals (EUDPA-58). A Java 25 / Spring Boot 3.5
+service backed by MongoDB. Each organisation owns a flat list of addresses (the Standard Address
+Block); addresses are created, listed, searched, updated, and soft-deleted via REST.
+
+* [Prerequisites](#prerequisites)
+* [Running the local stack](#running-the-local-stack)
+* [Running natively](#running-natively)
+* [API overview](#api-overview)
+* [MongoDB](#mongodb)
 * [Testing](#testing)
-* [Running](#running)
-* [Dependabot](#dependabot)
+* [OpenAPI contract](#openapi-contract)
+* [Soft delete (tombstones)](#soft-delete-tombstones)
+* [Licence](#licence)
 
-### Docker Compose
+## Prerequisites
 
-A Docker Compose template is in [compose.yml](compose.yml).
+- **Java 25** (Corretto recommended — matches CI)
+- **Maven 3.9+**
+- **Docker** (for Testcontainers integration tests, repo `compose.yml`, or the workspace stack)
 
-A local environment with:
+## Running the local stack
 
-- Floci for AWS services (S3, SQS)
-- Redis
-- MongoDB
-- This service.
-- A commented out frontend example.
+### Workspace stack (recommended)
 
-```bash
-docker compose --profile services up --build -d
-```
-
-A more extensive setup is available
-in [github.com/DEFRA/cdp-local-environment](https://github.com/DEFRA/cdp-local-environment)
-
-### MongoDB
-
-#### MongoDB via Docker
-
-Run infrastructure services (MongoDB, Floci, Redis):
+The full EUDP stack — including this service, MongoDB, and the ins-frontend — lives in
+[DEFRA/trade-imports-animals-workspace](https://github.com/DEFRA/trade-imports-animals-workspace):
 
 ```bash
-docker compose --profile infra up -d
+# from the workspace root
+./scripts/stack/run-stack.sh                              # published images (:latest)
+./scripts/stack/run-stack.sh -b feat/EUDPA-58-address-book  # branch-tagged images where available
+./scripts/stack/run-stack.sh -d                           # build from local source under repos/
+./scripts/stack/run-stack.sh -e trade-imports-address-book  # run this service natively instead
+./scripts/stack/stop-stack.sh                             # tear down and wipe volumes
 ```
 
-#### MongoDB locally
+This service runs on **port 8089** in the stack. After editing Java source in `-d` mode, recreate
+the container if a dependency change is not picked up by DevTools:
 
-Alternatively install MongoDB locally:
+```bash
+./scripts/stack/bounce-backend.sh trade-imports-address-book
+```
 
-- Install [MongoDB](https://www.mongodb.com/docs/manual/tutorial/#installation) on your local
-  machine
-- Start MongoDB:
+To run only the infrastructure this service needs (MongoDB + Floci):
+
+```bash
+./scripts/stack/run-stack.sh --profile database --profile infrastructure
+```
+
+### Repo Docker Compose
+
+This repo includes a standalone [compose.yml](compose.yml) with Floci, MongoDB, and the service:
+
+```bash
+docker compose up --build -d
+```
+
+The service listens on **http://localhost:8089**. Health check: `GET /health`.
+
+Interactive Swagger UI is available at **http://localhost:8089/swagger-ui.html** when
+`SPRING_PROFILES_ACTIVE=local` (set by default in `compose.yml`).
+
+## Running natively
+
+Start MongoDB (see [MongoDB](#mongodb)), then:
+
+```bash
+export SPRING_PROFILES_ACTIVE=local
+export MONGO_URI=mongodb://localhost:27017
+export MONGO_DATABASE=trade-imports-address-book
+
+mvn spring-boot:run
+```
+
+Or use the dev Dockerfile stage for hot reload against a bind-mounted `src/` tree — see
+[docker/dev-run.sh](docker/dev-run.sh).
+
+## API overview
+
+All routes under `/organisation/{orgId}/addresses` require the trusted identity header
+`Trade-Imports-Organisation-Id`. The path `orgId` must match the header value; a mismatch
+returns **404** (no existence disclosure).
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/organisation/{orgId}/addresses` | Paginated list of ACTIVE addresses (newest first) |
+| `POST` | `/organisation/{orgId}/addresses` | Create an address |
+| `GET` | `/organisation/{orgId}/addresses/{id}` | Fetch one address (tombstones included) |
+| `PUT` | `/organisation/{orgId}/addresses/{id}` | Full replace of mutable fields |
+| `DELETE` | `/organisation/{orgId}/addresses/{id}` | Soft delete (idempotent 204) |
+
+**List query parameters**
+
+| Parameter | Description |
+| --- | --- |
+| `page` | 1-based page number (default `1`) |
+| `q` | Case-insensitive partial search over `name`, `townOrCity`, and `postcode` |
+| `countryCode` | Exact ISO 3166-1 alpha-2 filter (typically FE-resolved from the MDM country name) |
+
+**Wire conventions**
+
+- JSON properties are **camelCase** (e.g. `addressLine1`, `countryCode`, `pageSize`).
+- `countryCode` is stored and returned as a **2-character ISO code**; display names come from
+  reference-data / the frontend.
+- List responses are a top-level object (`items`, `page`, `pageSize`, `totalItems`, `totalPages`),
+  never a bare array.
+- Soft-deleted addresses expose `deleted: true` on read; the internal `status` enum is not on the wire.
+- Validation failures return **400** `application/problem+json` with a camelCase `errors` map.
+- Page size is server-configured (default **25** via `address-book.list.page-size`), not a request parameter.
+
+**Example — create an address**
+
+```bash
+curl -s -X POST "http://localhost:8089/organisation/{orgId}/addresses" \
+  -H "Content-Type: application/json" \
+  -H "Trade-Imports-Organisation-Id: {orgId}" \
+  -d '{
+    "name": "Highland Livestock Ltd",
+    "addressLine1": "14 Drover'\''s Way",
+    "townOrCity": "Inverness",
+    "postcode": "IV2 3JH",
+    "countryCode": "GB",
+    "phone": "+44 1463 234567",
+    "email": "exports@example.com"
+  }'
+```
+
+## MongoDB
+
+**Database:** `trade-imports-address-book` (override with `MONGO_DATABASE`)  
+**Collection:** `addresses`
+
+### Via Docker Compose or workspace stack
+
+MongoDB is provided by compose / the workspace `database` profile on port **27017**.
+
+### Locally installed MongoDB
+
+Install [MongoDB](https://www.mongodb.com/docs/manual/tutorial/installation/) and start it:
 
 ```bash
 sudo mongod --dbpath ~/mongodb-cdp
 ```
 
-#### MongoDB in CDP environments
+Set `MONGO_URI=mongodb://localhost:27017` when running the service.
 
-In CDP environments a MongoDB instance is already set up
-and the credentials exposed as enviromment variables.
+### CDP environments
+
+MongoDB credentials are supplied as environment variables by the CDP platform.
 
 ### Inspect MongoDB
 
-To inspect the Database and Collections locally:
-
 ```bash
 mongosh
+use trade-imports-address-book
+db.addresses.find().pretty()
 ```
 
-You can use the CDP Terminal to access the environments' MongoDB.
+## Testing
 
-### Testing
-
-Run the tests with:
+Unit tests:
 
 ```bash
 mvn test
 ```
 
-There are also application level ests run by running a full Spring Boot application backed
-by [Testcontainers](https://testcontainers.com/).
-These tests do not use mocking of any sort and read and write from the containerized database.
+Full build including integration tests (Testcontainers MongoDB — no mocks):
 
 ```bash
 mvn clean verify
 ```
 
-### Running
+Integration tests cover CRUD, org scoping, soft delete, search, pagination, RFC 9457 error
+shapes, and OpenAPI contract compliance (`OperatorComplianceIT`).
 
-Run the application:
+## OpenAPI contract
 
-```bash
-mvn spring-boot:run
-```
+The API surface is locked and tested on every `mvn verify`:
 
-### Soft delete (tombstones)
+| File | Role |
+| --- | --- |
+| [`docs/openapi/api-contract.locked.yaml`](docs/openapi/api-contract.locked.yaml) | Human-authored source of truth (paths, operationIds, 400 `anyOf` shapes) |
+| [`docs/openapi/operators.yml`](docs/openapi/operators.yml) | springdoc-generated spec, committed for downstream consumers |
 
-`DELETE /operators/{operator-id}` is a soft delete: the document is not removed, its
-`status` flips to `DELETED` and `modified_at` is bumped. The tombstone stays fetchable
-by id so a consumer can distinguish "the user deleted this" (200 + `DELETED`) from
-"unknown / not yours" (404) — the existence check other services rely on rests on that
-distinction. Tombstones are excluded from list results.
+`OperatorComplianceIT` fails the build if `operators.yml` is stale against live `/v3/api-docs`, or
+if paths/methods/operationIds diverge from the locked contract.
 
-Tombstones are retained indefinitely (~1KB each). Purge / TTL of old tombstones is
-deferred; there is no automatic expiry today.
-
-### OpenAPI contract
-
-The API contract is locked. [`docs/openapi/api-contract.locked.yaml`](docs/openapi/api-contract.locked.yaml)
-is the in-repo copy of the human-authored source of truth; build to it exactly.
-
-[`docs/openapi/operators.yml`](docs/openapi/operators.yml) is the springdoc-generated spec,
-committed so downstream (frontend, other services) build against a file, not a running
-service. `OperatorComplianceIT` gates it on every `mvn verify`: the build fails if the
-committed file is stale against the live `/v3/api-docs`, and if the generated surface
-diverges from the locked contract. Regenerate it after an intentional API change:
+Regenerate the committed artifact after an intentional API change:
 
 ```bash
 mvn verify -Dopenapi.generate=true -Dit.test=OperatorComplianceIT
 ```
 
-`/v3/api-docs` is served in every profile; the interactive swagger-ui page is enabled
-only under the `local` Spring profile.
+`/v3/api-docs` is served in every profile. Swagger UI is enabled only under the `local` profile
+(see [application-local.yml](src/main/resources/application-local.yml)).
 
-### Indexes
+## Soft delete (tombstones)
 
-The list read path is served by the `crn_status_type_created` and `org_status` indexes
-(`OperatorIndexIT` pins their presence). Datasets are one user's address book today, so a
-bounded scan is cheap. Any future index addition must be reassessed against real collection
-size — an index that helps at hundreds of rows can hurt writes at millions.
+`DELETE /organisation/{orgId}/addresses/{id}` is a **soft delete**: the document stays in MongoDB,
+its internal `status` flips to `DELETED`, and `modifiedAt` is bumped. The tombstone remains
+fetchable by id with `deleted: true` on the wire.
 
-### Declared REST deviations
+- A **404** means unknown id or an id outside the caller's organisation — it is **not** a deletion signal.
+- Only a **200** response with `deleted: true` means the user deleted this address.
+- Tombstones are excluded from list results.
+- Deleting an already-deleted address is idempotent (**204**, no state change).
 
-The contract declares four deliberate divergences from
-`docs/best-practices/rest-api/rest-api.md`. They are ruled decisions — do not "fix" them;
-full rationale is in the locked contract:
+Tombstones are retained indefinitely (~1 KB each). Automatic purge / TTL is deferred.
 
-- **D1** — `country` is an MDM display-name string (e.g. "United Kingdom"), not ISO 3166-1
-  alpha-2 (c-004). No code↔name conversion exists anywhere.
-- **D2** — pagination is `page` / `page_size`, not `offset`/`limit` or cursor
-  (EUDPA-185.AC4; matches the animals-backend list convention).
-- **D3** — `POST /operators` is not idempotent (no `Idempotency-Key`); an `Idempotency-Key`
-  header can be added additively later.
-- **D4** — no optimistic locking (no `etag` / `If-Match`); concurrent edits are
-  last-write-wins. ETag + If-Match can be added additively later.
+## Indexes
 
-Search is server-side only via `?q=` (c-012) — a ruled locus decision, not a deviation.
+The list read path is served by the `org_status_created` compound index on
+`{ organisationId, status, createdAt }` (`OperatorIndexIT` pins its presence). Datasets are one
+user's address book today (tens to hundreds of rows), so a bounded scan is acceptable. Reassess any
+future index against real collection size before adding it.
 
-### SonarCloud
+## Licence
 
-Example SonarCloud configuration are available in the GitHub Action workflows.
-
-### Dependabot
-
-We have added an example dependabot configuration file to the repository. You can enable it by
-renaming
-the [.github/example.dependabot.yml](.github/dependabot.yml) to `.github/dependabot.yml`
-
-### About the licence
-
-The Open Government Licence (OGL) was developed by the Controller of Her Majesty's Stationery
-Office (HMSO) to enable
-information providers in the public sector to license the use and re-use of their information under
-a common open
-licence.
-
-It is designed to encourage use and re-use of information freely and flexibly, with only a few
-conditions.
+This code is licensed under the [Open Government Licence v3.0](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/).
