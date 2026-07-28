@@ -1,49 +1,37 @@
 package uk.gov.defra.trade.imports.addressbook.address;
 
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.ReportingPolicy;
+
 /**
- * Static entity &harr; DTO mapping. No framework, no reflection — the wire contract is owned here,
- * decoupled from the {@code @Document} entity which is never serialised.
+ * Entity ↔ DTO mapping. The wire contract is owned here, decoupled from the {@code @Document}
+ * entity which is never serialised.
+ *
+ * <p>{@code unmappedTargetPolicy = ERROR} ensures a compile-time failure if a field is added to
+ * {@link OperatorResponse} or {@link Address} without a corresponding mapping being wired up here.
  */
-public final class OperatorMapper {
+@Mapper(unmappedTargetPolicy = ReportingPolicy.ERROR, unmappedSourcePolicy = ReportingPolicy.ERROR)
+public interface OperatorMapper {
 
-  private OperatorMapper() {}
-
-  /** Maps a persisted {@link Address} onto its wire response, deriving {@code deleted} from status. */
-  public static OperatorResponse toResponse(Address address) {
-    return OperatorResponse.builder()
-        .id(address.getId())
-        .name(address.getName())
-        .addressLine1(address.getAddressLine1())
-        .addressLine2(address.getAddressLine2())
-        .townOrCity(address.getTownOrCity())
-        .county(address.getCounty())
-        .postcode(address.getPostcode())
-        .countryCode(address.getCountryCode())
-        .phone(address.getPhone())
-        .email(address.getEmail())
-        .organisationId(address.getOrganisationId())
-        .deleted(address.getStatus() == AddressStatus.DELETED)
-        .createdAt(address.getCreatedAt())
-        .modifiedAt(address.getModifiedAt())
-        .build();
-  }
+  /**
+   * Maps a persisted {@link Address} onto its wire response, deriving {@code deleted} from status.
+   */
+  @BeanMapping(ignoreUnmappedSourceProperties = "status")
+  @Mapping(target = "deleted", expression = "java(address.getStatus() == AddressStatus.DELETED)")
+  OperatorResponse toResponse(Address address);
 
   /**
    * Maps a client request onto a new entity carrying only the client-supplied fields. Server-owned
    * fields ({@code id}, {@code organisationId}, {@code status}, timestamps) are set by the service
    * on create/update, not here.
    */
-  public static Address toEntity(AddressRequest request) {
-    return Address.builder()
-        .name(request.name())
-        .addressLine1(request.addressLine1())
-        .addressLine2(request.addressLine2())
-        .townOrCity(request.townOrCity())
-        .county(request.county())
-        .postcode(request.postcode())
-        .countryCode(request.countryCode())
-        .phone(request.phone())
-        .email(request.email())
-        .build();
-  }
+  @BeanMapping(ignoreUnmappedSourceProperties = {"type", "role"})
+  @Mapping(target = "id", ignore = true)
+  @Mapping(target = "organisationId", ignore = true)
+  @Mapping(target = "status", ignore = true)
+  @Mapping(target = "createdAt", ignore = true)
+  @Mapping(target = "modifiedAt", ignore = true)
+  Address toEntity(AddressRequest request);
 }

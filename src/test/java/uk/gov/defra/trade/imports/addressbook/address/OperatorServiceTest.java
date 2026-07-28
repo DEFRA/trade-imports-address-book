@@ -19,6 +19,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mapstruct.factory.Mappers;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -34,12 +35,13 @@ class OperatorServiceTest {
   @Mock private OperatorRepository repository;
 
   private final MeterRegistry meterRegistry = new SimpleMeterRegistry();
+  private final OperatorMapper operatorMapper = Mappers.getMapper(OperatorMapper.class);
 
   private OperatorService service;
 
   @BeforeEach
   void setUp() {
-    service = new OperatorService(repository, meterRegistry, 25);
+    service = new OperatorService(repository, operatorMapper, meterRegistry, 25);
   }
 
   private AddressRequest request() {

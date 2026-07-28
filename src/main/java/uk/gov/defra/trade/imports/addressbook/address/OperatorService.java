@@ -28,14 +28,17 @@ import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
 public class OperatorService {
 
   private final OperatorRepository repository;
+  private final OperatorMapper operatorMapper;
   private final MeterRegistry meterRegistry;
   private final int pageSize;
 
   public OperatorService(
       OperatorRepository repository,
+      OperatorMapper operatorMapper,
       MeterRegistry meterRegistry,
       @Value("${address-book.list.page-size:25}") int pageSize) {
     this.repository = repository;
+    this.operatorMapper = operatorMapper;
     this.meterRegistry = meterRegistry;
     this.pageSize = pageSize;
   }
@@ -69,7 +72,7 @@ public class OperatorService {
     sample.stop(meterRegistry.timer("OperatorListQuery"));
 
     List<OperatorResponse> items =
-        result.getContent().stream().map(OperatorMapper::toResponse).toList();
+        result.getContent().stream().map(operatorMapper::toResponse).toList();
     return new OperatorPageResponse(
         items, page, pageSize, (int) result.getTotalElements(), result.getTotalPages());
   }
@@ -108,7 +111,7 @@ public class OperatorService {
    * @return the persisted address, with its Mongo-assigned id and audited timestamps
    */
   public Address create(AddressRequest request, String organisationId) {
-    Address address = OperatorMapper.toEntity(request);
+    Address address = operatorMapper.toEntity(request);
     address.setOrganisationId(organisationId);
     address.setStatus(AddressStatus.ACTIVE);
 

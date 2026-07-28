@@ -44,6 +44,7 @@ public class OperatorController {
   private static final String ORGANISATION_ID_HEADER = "Trade-Imports-Organisation-Id";
 
   private final OperatorService operatorService;
+  private final OperatorMapper operatorMapper;
 
   /**
    * Authorises the caller's forwarded session organisation against the path {@code orgId}. A
@@ -134,7 +135,7 @@ public class OperatorController {
     log.info("POST addresses - creating address");
     Address created = operatorService.create(request, orgId);
     URI location = URI.create("/organisation/" + orgId + "/addresses/" + created.getId());
-    return ResponseEntity.created(location).body(OperatorMapper.toResponse(created));
+    return ResponseEntity.created(location).body(operatorMapper.toResponse(created));
   }
 
   /**
@@ -171,7 +172,7 @@ public class OperatorController {
         operatorService
             .get(operatorId, orgId)
             .orElseThrow(() -> new NotFoundException("Address not found"));
-    return OperatorMapper.toResponse(address);
+    return operatorMapper.toResponse(address);
   }
 
   /**
@@ -214,7 +215,7 @@ public class OperatorController {
     authoriseOrg(orgId, sessionOrg);
     log.info("PUT addresses/{}", operatorId);
     Address updated = operatorService.update(operatorId, request, orgId);
-    return OperatorMapper.toResponse(updated);
+    return operatorMapper.toResponse(updated);
   }
 
   /**

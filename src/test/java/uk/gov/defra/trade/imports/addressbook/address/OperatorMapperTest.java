@@ -8,8 +8,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
+import org.mapstruct.factory.Mappers;
 
 class OperatorMapperTest {
+
+  private final OperatorMapper operatorMapper = Mappers.getMapper(OperatorMapper.class);
 
   private final ObjectMapper mapper =
       new ObjectMapper()
@@ -38,7 +41,7 @@ class OperatorMapperTest {
 
   @Test
   void toResponse_copiesEveryFieldFromTheEntityAndDerivesDeletedFalseForAnActiveRow() {
-    OperatorResponse response = OperatorMapper.toResponse(sampleEntity(AddressStatus.ACTIVE));
+    OperatorResponse response = operatorMapper.toResponse(sampleEntity(AddressStatus.ACTIVE));
 
     assertThat(response.id()).isEqualTo("665f1c2ab3e4d51a2c9d0e77");
     assertThat(response.name()).isEqualTo("Acme Livestock");
@@ -58,7 +61,7 @@ class OperatorMapperTest {
 
   @Test
   void toResponse_derivesDeletedTrueForATombstone() {
-    OperatorResponse response = OperatorMapper.toResponse(sampleEntity(AddressStatus.DELETED));
+    OperatorResponse response = operatorMapper.toResponse(sampleEntity(AddressStatus.DELETED));
 
     assertThat(response.deleted()).isTrue();
   }
@@ -66,7 +69,7 @@ class OperatorMapperTest {
   @Test
   void response_serialisesEntirelyInCamelCaseWithADerivedDeletedBooleanAndNoStatusEnum()
       throws Exception {
-    OperatorResponse response = OperatorMapper.toResponse(sampleEntity(AddressStatus.ACTIVE));
+    OperatorResponse response = operatorMapper.toResponse(sampleEntity(AddressStatus.ACTIVE));
 
     JsonNode json = mapper.valueToTree(response);
 
@@ -115,7 +118,7 @@ class OperatorMapperTest {
         """;
 
     AddressRequest request = mapper.readValue(body, AddressRequest.class);
-    Address entity = OperatorMapper.toEntity(request);
+    Address entity = operatorMapper.toEntity(request);
 
     assertThat(entity.getName()).isEqualTo("Port Importers Ltd");
     assertThat(entity.getAddressLine1()).isEqualTo("7 Quay Road");
