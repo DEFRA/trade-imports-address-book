@@ -179,7 +179,8 @@ class AddressUpdateIT extends IntegrationBase {
         .get()
         .satisfies(
             address -> {
-              assertThat(address.getCreatedAt()).isEqualTo(createdAt);
+              // Mongo persists Instant with millisecond precision only
+              assertThat(address.getCreatedAt().toEpochMilli()).isEqualTo(createdAt.toEpochMilli());
               assertThat(address.getModifiedAt()).isAfter(baselineModifiedAt);
             });
   }

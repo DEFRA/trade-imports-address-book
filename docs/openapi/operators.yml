@@ -3,15 +3,15 @@ info:
   title: OpenAPI definition
   version: v0
 tags:
-- name: operators
+- name: addresses
   description: Address book, scoped to the caller's organisation
 paths:
   /organisation/{orgId}/addresses/{operator-id}:
     get:
       tags:
-      - operators
+      - addresses
       summary: Fetch one address, including tombstones
-      operationId: get-operator
+      operationId: get-address
       parameters:
       - name: orgId
         in: path
@@ -43,9 +43,9 @@ paths:
                 $ref: '#/components/schemas/Problem'
     put:
       tags:
-      - operators
+      - addresses
       summary: Replace an address's mutable fields
-      operationId: update-operator
+      operationId: update-address
       parameters:
       - name: orgId
         in: path
@@ -92,9 +92,9 @@ paths:
                 $ref: '#/components/schemas/Problem'
     delete:
       tags:
-      - operators
+      - addresses
       summary: Soft-delete an address (tombstone)
-      operationId: delete-operator
+      operationId: delete-address
       parameters:
       - name: orgId
         in: path
@@ -129,8 +129,8 @@ paths:
   /organisation/{orgId}/addresses:
     get:
       tags:
-      - operators
-      summary: List the caller's ACTIVE addresses (paginated)
+      - addresses
+      summary: List the caller's ACTIVE addresses (paginated, searchable)
       operationId: list-operators
       parameters:
       - name: orgId
@@ -150,6 +150,16 @@ paths:
           type: integer
           format: int32
           default: 1
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: countryCode
+        in: query
+        required: false
+        schema:
+          type: string
       responses:
         '200':
           description: One page of the caller's ACTIVE addresses
@@ -165,7 +175,7 @@ paths:
                 $ref: '#/components/schemas/Problem'
     post:
       tags:
-      - operators
+      - addresses
       summary: Create an address in the caller's address book
       operationId: create-operator
       parameters:

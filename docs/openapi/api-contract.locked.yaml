@@ -241,7 +241,7 @@ paths:
           example: 665f1c2ab3e4d51a2c9d0e77
     get:
       tags: [operators]
-      operationId: get-operator
+      operationId: get-address
       summary: Fetch one operator, including tombstones
       description: |
         Returns the operator **including `status`** so consumers detect
@@ -279,7 +279,7 @@ paths:
           $ref: '#/components/responses/InternalError'
     put:
       tags: [operators]
-      operationId: update-operator
+      operationId: update-address
       summary: Replace an operator's mutable fields
       description: |
         Full representation replace. `operator_type` is immutable after
@@ -347,7 +347,7 @@ paths:
           $ref: '#/components/responses/InternalError'
     delete:
       tags: [operators]
-      operationId: delete-operator
+      operationId: delete-address
       summary: Soft-delete an operator (tombstone)
       description: |
         Sets `status = DELETED` and bumps `modified_at` (c-003). The tombstone
