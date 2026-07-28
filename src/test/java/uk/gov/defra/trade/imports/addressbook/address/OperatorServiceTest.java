@@ -314,7 +314,7 @@ class OperatorServiceTest {
 
   @Test
   void listUsesTheConfiguredPageSizeNotAValuePassedByTheCaller() {
-    OperatorService configured = new OperatorService(repository, meterRegistry, 10);
+    OperatorService configured = new OperatorService(repository, operatorMapper, meterRegistry, 10);
     ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
     when(repository.findByOrganisationIdAndStatus(
             eq(ORG), eq(AddressStatus.ACTIVE), pageableCaptor.capture()))
