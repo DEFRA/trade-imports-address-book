@@ -3,11 +3,11 @@ info:
   title: trade-imports-address-book
   description: Org-scoped address book API for EUDP Live Animals (EUDPA-58)
   version: 1.0.0
+security:
+- Trade-Imports-Organisation-Id: []
 tags:
 - name: addresses
   description: Address book, scoped to the caller's organisation
-security:
-- Trade-Imports-Organisation-Id: []
 paths:
   /organisation/{orgId}/addresses/{operator-id}:
     get:

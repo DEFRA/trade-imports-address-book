@@ -5,7 +5,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Method;
-import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
@@ -15,7 +14,6 @@ import org.slf4j.MDC;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindingResult;
@@ -44,7 +42,7 @@ class GlobalExceptionHandlerTest {
     MDC.put("trace.id", "trace-abc");
 
     // When
-    ResponseEntity<ProblemDetail> response =
+    ResponseEntity<ValidationProblem> response =
         exceptionHandler.handleValidationException(
             validationException(
                 new FieldError("operatorRequest", "addressLine1", "Enter address line 1"),
@@ -55,19 +53,15 @@ class GlobalExceptionHandlerTest {
     assertThat(response.getHeaders().getContentType())
         .isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
 
-    ProblemDetail body = response.getBody();
+    ValidationProblem body = response.getBody();
     assertThat(body).isNotNull();
-    assertThat(body.getType())
-        .isEqualTo(URI.create("https://api.cdp.defra.cloud/problems/validation-error"));
-    assertThat(body.getTitle()).isEqualTo("Validation Error");
-    assertThat(body.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(body.type())
+        .isEqualTo("https://api.cdp.defra.cloud/problems/validation-error");
+    assertThat(body.title()).isEqualTo("Validation Error");
+    assertThat(body.status()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(body.traceId()).isEqualTo("trace-abc");
 
-    Map<String, Object> properties = body.getProperties();
-    assertThat(properties).containsEntry("traceId", "trace-abc");
-    assertThat(properties).doesNotContainKey("trace_id");
-
-    @SuppressWarnings("unchecked")
-    Map<String, List<String>> errors = (Map<String, List<String>>) properties.get("errors");
+    Map<String, List<String>> errors = body.errors();
     assertThat(errors).containsKey("addressLine1");
     assertThat(errors).doesNotContainKey("address_line_1");
     assertThat(errors).doesNotContainKey("address_line1");
@@ -78,17 +72,14 @@ class GlobalExceptionHandlerTest {
   @Test
   void handleValidationException_shouldCollapseMultipleMessagesForOneFieldIntoAList() {
     // When
-    ResponseEntity<ProblemDetail> response =
+    ResponseEntity<ValidationProblem> response =
         exceptionHandler.handleValidationException(
             validationException(
                 new FieldError("operatorRequest", "name", "must not be blank"),
                 new FieldError("operatorRequest", "name", "size must be at most 255")));
 
     // Then
-    @SuppressWarnings("unchecked")
-    Map<String, List<String>> errors =
-        (Map<String, List<String>>) response.getBody().getProperties().get("errors");
-    assertThat(errors.get("name"))
+    assertThat(response.getBody().errors().get("name"))
         .containsExactly("must not be blank", "size must be at most 255");
   }
 
@@ -98,7 +89,7 @@ class GlobalExceptionHandlerTest {
     MDC.put("trace.id", "trace-xyz");
 
     // When
-    ResponseEntity<ProblemDetail> response =
+    ResponseEntity<Problem> response =
         exceptionHandler.handleBadRequestException(
             new BadRequestException("Trade-Imports-Crn header is required"));
 
@@ -107,14 +98,13 @@ class GlobalExceptionHandlerTest {
     assertThat(response.getHeaders().getContentType())
         .isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
 
-    ProblemDetail body = response.getBody();
+    Problem body = response.getBody();
     assertThat(body).isNotNull();
-    assertThat(body.getType())
-        .isEqualTo(URI.create("https://api.cdp.defra.cloud/problems/bad-request"));
-    assertThat(body.getTitle()).isEqualTo("Bad Request");
-    assertThat(body.getDetail()).isEqualTo("Trade-Imports-Crn header is required");
-    assertThat(body.getProperties()).containsEntry("traceId", "trace-xyz");
-    assertThat(body.getProperties()).doesNotContainKey("errors");
+    assertThat(body.type())
+        .isEqualTo("https://api.cdp.defra.cloud/problems/bad-request");
+    assertThat(body.title()).isEqualTo("Bad Request");
+    assertThat(body.detail()).isEqualTo("Trade-Imports-Crn header is required");
+    assertThat(body.traceId()).isEqualTo("trace-xyz");
   }
 
   @Test
@@ -123,22 +113,21 @@ class GlobalExceptionHandlerTest {
     MDC.put("trace.id", "trace-shared");
 
     // When
-    ProblemDetail validation =
+    ValidationProblem validation =
         exceptionHandler
             .handleValidationException(
                 validationException(
                     new FieldError("operatorRequest", "postcode", "Enter a postcode")))
             .getBody();
-    ProblemDetail badRequest =
+    Problem badRequest =
         exceptionHandler
             .handleBadRequestException(new BadRequestException("missing header"))
             .getBody();
 
     // Then
-    assertThat(validation.getStatus()).isEqualTo(badRequest.getStatus());
-    assertThat(validation.getProperties()).containsKey("errors");
-    assertThat(badRequest.getProperties()).doesNotContainKey("errors");
-    assertThat(validation.getType()).isNotEqualTo(badRequest.getType());
+    assertThat(validation.status()).isEqualTo(badRequest.status());
+    assertThat(validation.errors()).isNotEmpty();
+    assertThat(badRequest.type()).isNotEqualTo(validation.type());
   }
 
   @Test
@@ -147,35 +136,34 @@ class GlobalExceptionHandlerTest {
     MDC.put("trace.id", "trace-404");
 
     // When
-    ResponseEntity<ProblemDetail> response =
+    ResponseEntity<Problem> response =
         exceptionHandler.handleNotFoundException(new NotFoundException("Operator not found"));
 
     // Then
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     assertThat(response.getHeaders().getContentType())
         .isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
-    ProblemDetail body = response.getBody();
-    assertThat(body.getType())
-        .isEqualTo(URI.create("https://api.cdp.defra.cloud/problems/not-found"));
-    assertThat(body.getTitle()).isEqualTo("Resource Not Found");
-    assertThat(body.getDetail()).isEqualTo("Operator not found");
-    assertThat(body.getProperties()).containsEntry("traceId", "trace-404");
-    assertThat(body.getProperties()).doesNotContainKey("errors");
+    Problem body = response.getBody();
+    assertThat(body.type())
+        .isEqualTo("https://api.cdp.defra.cloud/problems/not-found");
+    assertThat(body.title()).isEqualTo("Resource Not Found");
+    assertThat(body.detail()).isEqualTo("Operator not found");
+    assertThat(body.traceId()).isEqualTo("trace-404");
   }
 
   @Test
   void handleException_shouldReturn500InternalErrorProblem() {
     // When
-    ResponseEntity<ProblemDetail> response =
+    ResponseEntity<Problem> response =
         exceptionHandler.handleException(new RuntimeException("boom"));
 
     // Then
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
-    ProblemDetail body = response.getBody();
-    assertThat(body.getType())
-        .isEqualTo(URI.create("https://api.cdp.defra.cloud/problems/internal-error"));
-    assertThat(body.getTitle()).isEqualTo("Internal Server Error");
-    assertThat(body.getDetail())
+    Problem body = response.getBody();
+    assertThat(body.type())
+        .isEqualTo("https://api.cdp.defra.cloud/problems/internal-error");
+    assertThat(body.title()).isEqualTo("Internal Server Error");
+    assertThat(body.detail())
         .isEqualTo("An unexpected error occurred. Please try again later.");
   }
 
@@ -189,14 +177,14 @@ class GlobalExceptionHandlerTest {
         new MethodArgumentTypeMismatchException("abc", Integer.class, "page", parameter, null);
 
     // When
-    ResponseEntity<ProblemDetail> response = exceptionHandler.handleTypeMismatch(ex);
+    ResponseEntity<Problem> response = exceptionHandler.handleTypeMismatch(ex);
 
     // Then
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-    ProblemDetail body = response.getBody();
+    Problem body = response.getBody();
     assertThat(body).isNotNull();
-    assertThat(body.getDetail()).contains("page");
-    assertThat(body.getProperties()).isNull();
+    assertThat(body.detail()).contains("page");
+    assertThat(body.traceId()).isNull();
   }
 
   @Test
@@ -205,7 +193,7 @@ class GlobalExceptionHandlerTest {
     MDC.put("trace.id", "trace-malformed");
 
     // When
-    ResponseEntity<ProblemDetail> response =
+    ResponseEntity<Problem> response =
         exceptionHandler.handleMessageNotReadable(
             new HttpMessageNotReadableException("JSON parse error", (Throwable) null));
 
@@ -213,21 +201,20 @@ class GlobalExceptionHandlerTest {
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     assertThat(response.getHeaders().getContentType())
         .isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
-    ProblemDetail body = response.getBody();
-    assertThat(body.getType())
-        .isEqualTo(URI.create("https://api.cdp.defra.cloud/problems/bad-request"));
-    assertThat(body.getProperties()).containsEntry("traceId", "trace-malformed");
-    assertThat(body.getProperties()).doesNotContainKey("errors");
+    Problem body = response.getBody();
+    assertThat(body.type())
+        .isEqualTo("https://api.cdp.defra.cloud/problems/bad-request");
+    assertThat(body.traceId()).isEqualTo("trace-malformed");
   }
 
   @Test
   void handleNotFoundException_shouldOmitTraceIdWhenAbsentFromMdc() {
     // When
-    ResponseEntity<ProblemDetail> response =
+    ResponseEntity<Problem> response =
         exceptionHandler.handleNotFoundException(new NotFoundException("gone"));
 
     // Then
-    assertThat(response.getBody().getProperties()).isNull();
+    assertThat(response.getBody().traceId()).isNull();
   }
 
   @SuppressWarnings("unused")

@@ -334,10 +334,6 @@ components:
           type: string
           maxLength: 254
           minLength: 0
-        type:
-          type: object
-        role:
-          type: object
       required:
       - addressLine1
       - countryCode
