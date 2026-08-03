@@ -281,6 +281,38 @@ components:
       - phone
       - postcode
       - townOrCity
+    OperatorResponse:
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        addressLine1:
+          type: string
+        addressLine2:
+          type: string
+        townOrCity:
+          type: string
+        county:
+          type: string
+        postcode:
+          type: string
+        countryCode:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        organisationId:
+          type: string
+        deleted:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        modifiedAt:
+          type: string
+          format: date-time
     ValidationProblem:
       description: RFC 9457 validation problem with field errors
       properties:
@@ -324,38 +356,6 @@ components:
       - status
       - title
       - type
-    OperatorResponse:
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-        addressLine1:
-          type: string
-        addressLine2:
-          type: string
-        townOrCity:
-          type: string
-        county:
-          type: string
-        postcode:
-          type: string
-        countryCode:
-          type: string
-        phone:
-          type: string
-        email:
-          type: string
-        organisationId:
-          type: string
-        deleted:
-          type: boolean
-        createdAt:
-          type: string
-          format: date-time
-        modifiedAt:
-          type: string
-          format: date-time
     OperatorPageResponse:
       properties:
         items:
