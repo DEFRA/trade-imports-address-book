@@ -21,6 +21,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 class GlobalExceptionHandlerTest {
@@ -195,6 +196,26 @@ class GlobalExceptionHandlerTest {
     assertThat(body.getType())
         .isEqualTo(URI.create("https://api.cdp.defra.cloud/problems/bad-request"));
     assertThat(body.getProperties()).containsEntry("traceId", "trace-malformed");
+    assertThat(body.getProperties()).doesNotContainKey("errors");
+  }
+
+  @Test
+  void optimisticLockingFailure_returns409ConflictProblem() {
+    MDC.put("trace.id", "trace-409");
+
+    ResponseEntity<ProblemDetail> response =
+        exceptionHandler.handleOptimisticLocking(
+            new OptimisticLockingFailureException("version mismatch"));
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+    assertThat(response.getHeaders().getContentType())
+        .isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
+    ProblemDetail body = response.getBody();
+    assertThat(body.getType())
+        .isEqualTo(URI.create("https://api.cdp.defra.cloud/problems/conflict"));
+    assertThat(body.getTitle()).isEqualTo("Conflict");
+    assertThat(body.getDetail()).isEqualTo("The resource was modified by another request");
+    assertThat(body.getProperties()).containsEntry("traceId", "trace-409");
     assertThat(body.getProperties()).doesNotContainKey("errors");
   }
 

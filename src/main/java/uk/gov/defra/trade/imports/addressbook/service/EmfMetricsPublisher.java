@@ -3,6 +3,7 @@ package uk.gov.defra.trade.imports.addressbook.service;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Measurement;
+import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -17,17 +18,26 @@ public class EmfMetricsPublisher {
 
   private final String namespace;
   private final MeterRegistry meterRegistry;
+  private final Supplier<MetricsLogger> metricsLoggerSupplier;
 
   EmfMetricsPublisher(
       @Value("${aws.emf.namespace}") String namespace, MeterRegistry meterRegistry) {
+    this(namespace, meterRegistry, MetricsLogger::new);
+  }
+
+  EmfMetricsPublisher(
+      String namespace,
+      MeterRegistry meterRegistry,
+      Supplier<MetricsLogger> metricsLoggerSupplier) {
     this.namespace = namespace;
     this.meterRegistry = meterRegistry;
+    this.metricsLoggerSupplier = metricsLoggerSupplier;
   }
 
   @Scheduled(fixedRate = 60000)
   public void publishMetrics() {
     try {
-      MetricsLogger metricsLogger = new MetricsLogger();
+      MetricsLogger metricsLogger = metricsLoggerSupplier.get();
       metricsLogger.setNamespace(namespace);
       for (Meter meter : meterRegistry.getMeters()) {
         for (Measurement measurement : meter.measure()) {

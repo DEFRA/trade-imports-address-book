@@ -25,7 +25,7 @@ import org.springframework.dao.OptimisticLockingFailureException;
  *
  * <p>The two 400 shapes are deliberately distinct and must not be conflated: a field-validation
  * failure ({@link MethodArgumentNotValidException}) carries an {@code errors} map keyed by wire
- * field name; a {@link BadRequestException} (missing identity header, malformed query param)
+ * field name; a {@link BadRequestException} (e.g. out-of-range {@code page}) carries
  * carries <strong>no</strong> {@code errors} key at all. That is why the contract declares POST/PUT
  * 400 as {@code anyOf(ValidationProblem, Problem)} rather than {@code oneOf} (design §1.6).
  *

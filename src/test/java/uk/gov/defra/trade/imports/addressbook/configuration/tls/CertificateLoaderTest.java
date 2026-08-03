@@ -57,11 +57,12 @@ fA==
         assertNotNull(certificateLoader.loadCustomCertificate());
     }
     
-    @Test
-    void testHandlesInvalidCertificate() {
-        certificateLoader = new CertificateLoader("invalid");
-        certificateLoader.loadCustomCertificate();
-        assertNull(certificateLoader.loadCustomCertificate(), "Expected a null certificate");
-        
-    }
+  @Test
+  void testHandlesInvalidCertificate() {
+    certificateLoader = new CertificateLoader("invalid");
+    assertThrows(
+        IllegalStateException.class,
+        () -> certificateLoader.loadCustomCertificate(),
+        "Expected failure when configured certificate is invalid");
+  }
 }

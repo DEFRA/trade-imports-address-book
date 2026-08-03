@@ -23,12 +23,39 @@ import uk.gov.defra.trade.imports.addressbook.exceptions.Problem;
  * Enforces the trusted-forwarded-header identity contract on every {@code /organisation/**} request
  * (cv-010).
  *
- * <p>{@code Trade-Imports-Organisation-Id} is required on every operation — missing, blank or
- * malformed values fail fast with a 400 bad-request problem. When the path carries an {@code orgId}
- * segment it must equal the header value; mismatch returns 404 (no existence disclosure).
+ * <p>{@code Trade-Imports-Organisation-Id} is the sole tenant key for org-scoped reads and writes.
+ * Missing, blank or malformed values fail fast with a 400 bad-request problem. When the path carries
+ * an {@code orgId} segment it must equal the header value; mismatch returns 404 (no existence
+ * disclosure).
  *
- * <p>The header is trusted only when set or overwritten by the CDP ingress or calling BFF — see
- * README "Identity and trust boundary".
+ * <h2>Trust boundary (ADR — no in-service authentication)</h2>
+ *
+ * <p>This service does <strong>not</strong> implement Spring Security or validate JWTs. It reads
+ * {@code Trade-Imports-Organisation-Id} directly from the inbound HTTP request and treats it as the
+ * authenticated organisation id. That is safe only when an upstream component has already
+ * established caller identity and either stripped any client-supplied copy of the header or
+ * overwritten it with the value from the authenticated session.
+ *
+ * <p><strong>Required upstream behaviour (production):</strong>
+ *
+ * <ul>
+ *   <li>The CDP API gateway / ingress, or the calling BFF (e.g. ins-frontend), MUST authenticate
+ *       the caller (Defra ID / OIDC).
+ *   <li>That hop MUST remove inbound {@code Trade-Imports-Organisation-Id} values from untrusted
+ *       clients and set the header from the verified session's organisation id before forwarding to
+ *       this service.
+ *   <li>Network policy MUST prevent direct, unauthenticated access to this service's port in
+ *       deployed environments — callers that can reach the pod without passing through the gateway
+ *       can assert any organisation id.
+ * </ul>
+ *
+ * <p>Filter-layer rejections write {@code application/problem+json} directly because {@link
+ * org.springframework.web.bind.annotation.RestControllerAdvice} does not handle exceptions thrown
+ * from servlet filters. Do not throw {@link uk.gov.defra.trade.imports.addressbook.exceptions.BadRequestException}
+ * here expecting {@link uk.gov.defra.trade.imports.addressbook.exceptions.GlobalExceptionHandler} to
+ * map it.
+ *
+ * <p>See README "Security and trust boundary" for the operational contract and ownership.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 1)

@@ -7,6 +7,7 @@ Block); addresses are created, listed, searched, updated, and soft-deleted via R
 * [Prerequisites](#prerequisites)
 * [Running the local stack](#running-the-local-stack)
 * [Running natively](#running-natively)
+* [Security and trust boundary](#security-and-trust-boundary)
 * [API overview](#api-overview)
 * [MongoDB](#mongodb)
 * [Testing](#testing)
@@ -80,15 +81,33 @@ mvn spring-boot:run
 Or use the dev Dockerfile stage for hot reload against a bind-mounted `src/` tree — see
 [docker/dev-run.sh](docker/dev-run.sh).
 
-## Identity and trust boundary
+## Security and trust boundary
 
-`Trade-Imports-Organisation-Id` is the tenant key for every operation. The service expects the
-**CDP ingress or calling BFF** to strip any client-supplied copy and set this header from the
-authenticated session. Direct callers that can reach the service without that protection must not
-be exposed in production.
+This service has **no Spring Security layer** and does not validate JWTs or API keys. Tenant
+isolation relies entirely on a trusted-forwarded-header contract:
 
-The filter rejects missing, blank or malformed header values with **400**, and returns **404** when
-the header value does not match the path `{orgId}` (no cross-org existence disclosure).
+| Responsibility | Owner |
+| --- | --- |
+| Authenticate the caller (Defra ID / OIDC) | CDP ingress or calling BFF (e.g. ins-frontend) |
+| Strip client-supplied `Trade-Imports-Organisation-Id` | Same upstream hop |
+| Set `Trade-Imports-Organisation-Id` from the verified session | Same upstream hop |
+| Block direct pod/port access without passing through the gateway | CDP network policy |
+
+`Trade-Imports-Organisation-Id` is the tenant key for every operation. The
+[`IdentityHeaderFilter`](src/main/java/uk/gov/defra/trade/imports/addressbook/filter/IdentityHeaderFilter.java)
+reads this header on every `/organisation/**` request and scopes all reads and writes to that
+organisation id.
+
+**Filter behaviour**
+
+- Missing, blank or malformed header → **400** bad-request
+- Header value does not match path `{orgId}` → **404** (no cross-org existence disclosure)
+
+**Production requirement:** callers must not reach this service without the upstream hop above.
+Any direct HTTP client that can hit the service port can read, create, update or delete any
+organisation's address data by setting one header. Document this boundary in runbooks and enforce
+it with ingress/network policy — the service cannot defend itself against a trusted-network
+violation without adding a resource server (deferred for this ticket).
 
 ## API overview
 
