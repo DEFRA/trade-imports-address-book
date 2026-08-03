@@ -111,11 +111,15 @@ class AddressRequestValidationTest {
   }
 
   @Test
-  void countryCodeIsPresenceOnlyAndAcceptsAnyNonBlankValueRegardlessOfLength() {
-    // cv-011: countryCode is stored as-given with no @Size/list check — a long value is accepted.
-    AddressRequest request = validRequest().countryCode(repeat(300)).build();
+  void countryCodeRejectsValuesLongerThanTwoCharacters() {
+    AddressRequest request = validRequest().countryCode(repeat(3)).build();
 
-    assertThat(validator.validate(request)).isEmpty();
+    Set<String> violatedProperties =
+        validator.validate(request).stream()
+            .map(v -> v.getPropertyPath().toString())
+            .collect(Collectors.toSet());
+
+    assertThat(violatedProperties).contains("countryCode");
   }
 
   @Test

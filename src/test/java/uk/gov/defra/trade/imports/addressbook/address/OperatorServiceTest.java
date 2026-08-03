@@ -179,6 +179,7 @@ class OperatorServiceTest {
     assertThat(updated.getAddressLine1()).isEqualTo("2 Market Street");
     assertThat(updated.getTownOrCity()).isEqualTo("Perth");
     assertThat(updated.getPostcode()).isEqualTo("PH1 5AA");
+    assertThat(updated.getPhone()).isEqualTo("+44 1738 111222");
     assertThat(updated.getEmail()).isEqualTo("ops@lowlandcattle.example.com");
     assertThat(updated.getModifiedAt()).isEqualTo(bumped);
     // server-owned fields are untouched by the wire

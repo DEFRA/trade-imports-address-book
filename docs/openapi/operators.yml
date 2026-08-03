@@ -32,7 +32,7 @@ paths:
         '200':
           description: The address (deleted false or true)
           content:
-            '*/*':
+            application/json:
               schema:
                 $ref: '#/components/schemas/OperatorResponse'
         '404':
@@ -72,7 +72,7 @@ paths:
         '200':
           description: Updated address with bumped modifiedAt
           content:
-            '*/*':
+            application/json:
               schema:
                 $ref: '#/components/schemas/OperatorResponse'
         '400':
@@ -80,7 +80,7 @@ paths:
           content:
             application/problem+json:
               schema:
-                type: string
+                type: object
                 anyOf:
                 - $ref: '#/components/schemas/ValidationProblem'
                 - $ref: '#/components/schemas/Problem'
@@ -164,11 +164,17 @@ paths:
         '200':
           description: One page of the caller's ACTIVE addresses
           content:
-            '*/*':
+            application/json:
               schema:
                 $ref: '#/components/schemas/OperatorPageResponse'
         '400':
           description: An out-of-range or non-numeric page, or a missing org header
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: Path orgId does not match the caller's organisation header
           content:
             application/problem+json:
               schema:
@@ -198,8 +204,13 @@ paths:
       responses:
         '201':
           description: Created
+          headers:
+            Location:
+              description: Relative URI of the created address
+              schema:
+                type: string
           content:
-            '*/*':
+            application/json:
               schema:
                 $ref: '#/components/schemas/OperatorResponse'
         '400':
@@ -207,10 +218,16 @@ paths:
           content:
             application/problem+json:
               schema:
-                type: string
+                type: object
                 anyOf:
                 - $ref: '#/components/schemas/ValidationProblem'
                 - $ref: '#/components/schemas/Problem'
+        '404':
+          description: Path orgId does not match the caller's organisation header
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
 components:
   schemas:
     AddressRequest:
@@ -241,6 +258,7 @@ components:
           minLength: 0
         countryCode:
           type: string
+          maxLength: 2
           minLength: 1
         phone:
           type: string

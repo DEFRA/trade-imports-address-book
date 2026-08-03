@@ -1,9 +1,11 @@
 package uk.gov.defra.trade.imports.addressbook.integration;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -17,11 +19,17 @@ import org.testcontainers.utility.DockerImageName;
 @ActiveProfiles("integration-test")
 abstract class IntegrationBase {
 
+  protected static final String ORG_HEADER = "Trade-Imports-Organisation-Id";
+  protected static final String ORGANISATION_ID = "5a8d2b19-6f4e-4d21-9c1b-7e3f0a2d5c88";
+
   @LocalServerPort
   int port;
 
   @Autowired
   protected MockMvc mockMvc;
+
+  @Autowired
+  private MongoTemplate mongoTemplate;
 
   static MongoDBContainer MONGO_CONTAINER = new MongoDBContainer(
       DockerImageName.parse("mongo:7.0")).withExposedPorts(27017).withReplicaSet();
@@ -34,5 +42,10 @@ abstract class IntegrationBase {
   static void setProperties(DynamicPropertyRegistry registry) {
     registry.add("spring.data.mongodb.uri", MONGO_CONTAINER::getReplicaSetUrl);
     registry.add("spring.data.mongodb.ssl.enabled", () -> "false");
+  }
+
+  @BeforeEach
+  void cleanDatabase() {
+    mongoTemplate.getDb().listCollectionNames().forEach(mongoTemplate::dropCollection);
   }
 }

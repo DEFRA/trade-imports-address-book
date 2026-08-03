@@ -211,7 +211,6 @@ class OperatorComplianceIT extends IntegrationBase {
     String rendered = yaml().dump(live);
 
     if (Boolean.getBoolean("openapi.generate")) {
-      Files.writeString(GENERATED_DOC, rendered);
       return;
     }
 
@@ -223,7 +222,7 @@ class OperatorComplianceIT extends IntegrationBase {
         .as("committed docs/openapi/operators.yml is stale against /v3/api-docs")
         .isEqualTo(rendered);
 
-    // divergence gate: the generated surface must match the in-repo locked contract
+    // divergence gate: paths, methods, operationIds and schema property names
     Map<String, Object> locked = yaml().load(Files.readString(LOCKED_CONTRACT));
     Map<String, Object> livePaths = (Map<String, Object>) live.get("paths");
     Map<String, Object> lockedPaths = (Map<String, Object>) locked.get("paths");
@@ -250,9 +249,47 @@ class OperatorComplianceIT extends IntegrationBase {
                   });
         });
 
+    assertSchemaPropertyNamesMatch(live, locked);
+
     // the locked contract itself declares the anyOf 400 — the pin the whole design leans on
     assertAnyOfProblem(locked, "/organisation/{orgId}/addresses", "post");
     assertAnyOfProblem(locked, "/organisation/{orgId}/addresses/{operator-id}", "put");
+  }
+
+  @Test
+  @org.junit.jupiter.api.condition.EnabledIfSystemProperty(
+      named = "openapi.generate",
+      matches = "true")
+  void regenerateCommittedOpenApiArtifact() throws IOException {
+    Map<String, Object> live = fetchApiDocs();
+    live.remove("servers");
+    Files.writeString(GENERATED_DOC, yaml().dump(live));
+  }
+
+  @SuppressWarnings("unchecked")
+  private static void assertSchemaPropertyNamesMatch(
+      Map<String, Object> live, Map<String, Object> locked) {
+    Map<String, Object> liveSchemas = (Map<String, Object>) live.get("components");
+    Map<String, Object> lockedSchemas = (Map<String, Object>) locked.get("components");
+    if (liveSchemas == null || lockedSchemas == null) {
+      return;
+    }
+    Map<String, Object> liveSchemaMap = (Map<String, Object>) liveSchemas.get("schemas");
+    Map<String, Object> lockedSchemaMap = (Map<String, Object>) lockedSchemas.get("schemas");
+    assertThat(liveSchemaMap.keySet())
+        .as("component schema names must match the locked contract")
+        .isEqualTo(lockedSchemaMap.keySet());
+    liveSchemaMap.forEach(
+        (name, liveSchema) -> {
+          Object liveProps = ((Map<String, Object>) liveSchema).get("properties");
+          Object lockedProps = ((Map<String, Object>) lockedSchemaMap.get(name)).get("properties");
+          if (liveProps instanceof Map<?, ?> livePropertyMap
+              && lockedProps instanceof Map<?, ?> lockedPropertyMap) {
+            assertThat(livePropertyMap.keySet())
+                .as("property names on schema %s must match the locked contract", name)
+                .isEqualTo(lockedPropertyMap.keySet());
+          }
+        });
   }
 
   // ---- helpers ----------------------------------------------------------------------------

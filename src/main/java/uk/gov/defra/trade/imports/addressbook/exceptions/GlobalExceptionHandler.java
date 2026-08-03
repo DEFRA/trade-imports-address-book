@@ -11,11 +11,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.dao.OptimisticLockingFailureException;
 
 /**
  * Global exception handler producing RFC 9457 {@code application/problem+json} responses, CDP
@@ -83,6 +85,40 @@ public class GlobalExceptionHandler {
             traceId);
 
     return problemResponse(HttpStatus.BAD_REQUEST, problem);
+  }
+
+  /** Malformed JSON request body — 400 bad-request, NO errors map. */
+  @ExceptionHandler(HttpMessageNotReadableException.class)
+  public ResponseEntity<ProblemDetail> handleMessageNotReadable(HttpMessageNotReadableException ex) {
+    String traceId = MDC.get(MDC_TRACE_ID);
+    log.warn("Malformed request body (trace: {}): {}", traceId, ex.getMessage());
+
+    ProblemDetail problem =
+        problemDetail(
+            HttpStatus.BAD_REQUEST,
+            "bad-request",
+            "Bad Request",
+            "Malformed JSON request body",
+            traceId);
+
+    return problemResponse(HttpStatus.BAD_REQUEST, problem);
+  }
+
+  /** Concurrent update conflict — 409 conflict. */
+  @ExceptionHandler(OptimisticLockingFailureException.class)
+  public ResponseEntity<ProblemDetail> handleOptimisticLocking(OptimisticLockingFailureException ex) {
+    String traceId = MDC.get(MDC_TRACE_ID);
+    log.warn("Optimistic locking failure (trace: {}): {}", traceId, ex.getMessage());
+
+    ProblemDetail problem =
+        problemDetail(
+            HttpStatus.CONFLICT,
+            "conflict",
+            "Conflict",
+            "The resource was modified by another request",
+            traceId);
+
+    return problemResponse(HttpStatus.CONFLICT, problem);
   }
 
   /** Malformed request that never reached body validation — 400 bad-request, NO errors map. */

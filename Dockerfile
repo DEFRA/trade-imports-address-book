@@ -50,7 +50,7 @@ EXPOSE 8089
 
 # Health check (for local docker run)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:8089/health || exit 1
+  CMD curl -f http://localhost:${PORT:-8089}/health || exit 1
 
 # Start application
 ENTRYPOINT ["java", "-jar", "app.jar"]
@@ -84,7 +84,7 @@ RUN chmod +x /usr/local/bin/dev-run.sh
 EXPOSE 8089
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
-  CMD curl -f http://localhost:8089/health || exit 1
+  CMD curl -f http://localhost:${PORT:-8089}/health || exit 1
 
 CMD ["dev-run.sh"]
 
@@ -115,7 +115,7 @@ EXPOSE 8089
 # Note: ECS configures this at platform level, but including for local testing
 # ECS uses: ["CMD-SHELL", "curl -f http://localhost:8089/health || exit 1"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:8089/health || exit 1
+  CMD curl -f http://localhost:${PORT:-8089}/health || exit 1
 
 # ENTRYPOINT with no parameters (CDP requirement)
 # ECS doesn't support runtime arguments

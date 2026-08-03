@@ -12,6 +12,7 @@ Block); addresses are created, listed, searched, updated, and soft-deleted via R
 * [Testing](#testing)
 * [OpenAPI contract](#openapi-contract)
 * [Soft delete (tombstones)](#soft-delete-tombstones)
+* [Indexes](#indexes)
 * [Licence](#licence)
 
 ## Prerequisites
@@ -40,8 +41,10 @@ This service runs on **port 8089** in the stack. After editing Java source in `-
 the container if a dependency change is not picked up by DevTools:
 
 ```bash
-./scripts/stack/bounce-backend.sh trade-imports-address-book
+docker compose -f docker/stack/dev.compose.yml up -d --force-recreate trade-imports-address-book
 ```
+
+(From the workspace root; adjust the compose file path if you use a different stack overlay.)
 
 To run only the infrastructure this service needs (MongoDB + Floci):
 
@@ -87,9 +90,9 @@ returns **404** (no existence disclosure).
 | --- | --- | --- |
 | `GET` | `/organisation/{orgId}/addresses` | Paginated list of ACTIVE addresses (newest first) |
 | `POST` | `/organisation/{orgId}/addresses` | Create an address |
-| `GET` | `/organisation/{orgId}/addresses/{id}` | Fetch one address (tombstones included) |
-| `PUT` | `/organisation/{orgId}/addresses/{id}` | Full replace of mutable fields |
-| `DELETE` | `/organisation/{orgId}/addresses/{id}` | Soft delete (idempotent 204) |
+| `GET` | `/organisation/{orgId}/addresses/{operator-id}` | Fetch one address (tombstones included) |
+| `PUT` | `/organisation/{orgId}/addresses/{operator-id}` | Full replace of mutable fields |
+| `DELETE` | `/organisation/{orgId}/addresses/{operator-id}` | Soft delete (idempotent 204) |
 
 **List query parameters**
 
@@ -97,7 +100,7 @@ returns **404** (no existence disclosure).
 | --- | --- |
 | `page` | 1-based page number (default `1`) |
 | `q` | Case-insensitive partial search over `name`, `townOrCity`, and `postcode` |
-| `countryCode` | Exact ISO 3166-1 alpha-2 filter (typically FE-resolved from the MDM country name) |
+| `countryCode` | When combined with `q`, matches addresses where **either** the search term appears in `name`/`townOrCity`/`postcode` **or** the stored `countryCode` equals this value (OR semantics, not AND) |
 
 **Wire conventions**
 
@@ -185,7 +188,7 @@ The API surface is locked and tested on every `mvn verify`:
 | [`docs/openapi/operators.yml`](docs/openapi/operators.yml) | springdoc-generated spec, committed for downstream consumers |
 
 `OperatorComplianceIT` fails the build if `operators.yml` is stale against live `/v3/api-docs`, or
-if paths/methods/operationIds diverge from the locked contract.
+if paths, HTTP methods, operationIds, or component schema property names diverge from the locked contract.
 
 Regenerate the committed artifact after an intentional API change:
 
@@ -198,7 +201,7 @@ mvn verify -Dopenapi.generate=true -Dit.test=OperatorComplianceIT
 
 ## Soft delete (tombstones)
 
-`DELETE /organisation/{orgId}/addresses/{id}` is a **soft delete**: the document stays in MongoDB,
+`DELETE /organisation/{orgId}/addresses/{operator-id}` is a **soft delete**: the document stays in MongoDB,
 its internal `status` flips to `DELETED`, and `modifiedAt` is bumped. The tombstone remains
 fetchable by id with `deleted: true` on the wire.
 

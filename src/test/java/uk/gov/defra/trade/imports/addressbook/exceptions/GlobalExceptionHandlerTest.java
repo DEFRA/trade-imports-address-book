@@ -17,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -163,14 +164,29 @@ class GlobalExceptionHandlerTest {
   }
 
   @Test
+  void malformedJsonBody_returns400BadRequestProblem() {
+    MDC.put("trace.id", "trace-malformed");
+
+    ResponseEntity<ProblemDetail> response =
+        exceptionHandler.handleMessageNotReadable(
+            new HttpMessageNotReadableException("JSON parse error", (Throwable) null));
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    assertThat(response.getHeaders().getContentType())
+        .isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
+    ProblemDetail body = response.getBody();
+    assertThat(body.getType())
+        .isEqualTo(URI.create("https://api.cdp.defra.cloud/problems/bad-request"));
+    assertThat(body.getProperties()).containsEntry("traceId", "trace-malformed");
+    assertThat(body.getProperties()).doesNotContainKey("errors");
+  }
+
+  @Test
   void traceId_isOmittedWhenAbsentFromMdc() {
     ResponseEntity<ProblemDetail> response =
         exceptionHandler.handleNotFoundException(new NotFoundException("gone"));
 
-    Map<String, Object> properties = response.getBody().getProperties();
-    if (properties != null) {
-      assertThat(properties).doesNotContainKey("traceId");
-    }
+    assertThat(response.getBody().getProperties()).isNull();
   }
 
   private MethodArgumentNotValidException validationException(FieldError... fieldErrors) {

@@ -32,8 +32,10 @@ watch_and_compile() {
       touch "$marker"
       # A compile failure (mid-edit syntax error) must not kill the loop, so
       # guard it in the condition — set -e does not fire on if-conditions.
-      if mvn -o -q compile process-classes; then
+      if mvn -q compile process-classes; then
         touch "$trigger"
+      else
+        echo "dev-run: recompile failed" >&2
       fi
     fi
     sleep 2
@@ -42,4 +44,4 @@ watch_and_compile() {
 
 watch_and_compile &
 
-exec mvn spring-boot:run -Dspring-boot.run.profiles=local
+exec mvn spring-boot:run -Dspring-boot.run.profiles="${SPRING_PROFILES_ACTIVE:-local}"

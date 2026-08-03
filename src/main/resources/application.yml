@@ -50,7 +50,7 @@ aws:
 logging:
   level:
     root: ${LOG_LEVEL:info}
-    uk.gov.defra.trade.imports.addressbook: ${LOG_LEVEL:DEBUG}
+    uk.gov.defra.trade.imports.addressbook: ${LOG_LEVEL:INFO}
     org.springframework: ${LOGGING_LEVEL_ORG_SPRINGFRAMEWORK:INFO}
     org.springframework.web: ${LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_WEB:INFO}
     org.mongodb: ${LOGGING_LEVEL_ORG_MONGODB_DRIVER:WARN}
@@ -105,5 +105,7 @@ info:
 # compliance IT read it); the interactive swagger-ui HTML is enabled only under the `local`
 # profile (design §1.6), so it is never exposed in a deployed environment.
 springdoc:
+  api-docs:
+    enabled: false
   swagger-ui:
     enabled: false

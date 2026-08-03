@@ -3,801 +3,384 @@ info:
   title: trade-imports-address-book
   version: 1.0.0
   description: |
-    Address-book operators service for EUDPA-58.
+    Locked address-book API contract for EUDPA-58 (M0–M2).
 
-    **LOCKED AT THE DESIGN GATE.** Every operation, field name, length, enum
-    value and status code below is copied from the Sam-ruled spec
-    (`spec/address-book-spec.json` `apiOperations` + `entities.operator`).
-    Nothing in M1/M2/M3 may change this file except via a new Sam ruling.
+    **Wire conventions:** camelCase JSON properties and query params; RFC 9457
+    `application/problem+json` errors with camelCase `traceId` and (on validation
+    failures) an `errors` map keyed by wire field name.
 
-    This file lives under `workareas/`, which is **gitignored and absent from a
-    clean CI checkout**, so it cannot be the thing CI diffs against. The scaffold
-    increment therefore **copies it verbatim into the operators repo** as
-    `docs/openapi/api-contract.locked.yaml`; the springdoc-generated
-    `docs/openapi/operators.yml` must stay equivalent to that **in-repo** copy,
-    and `OperatorComplianceIT` plus a CI diff check keep it honest. This file
-    stays the human-authored source of truth: change it here, re-copy, re-verify.
+    **Identity:** every operation requires `Trade-Imports-Organisation-Id`. The path
+    `{orgId}` must match the header value; mismatch returns **404** (no existence disclosure).
 
-    Conventions: verb-free plural path, snake_case JSON properties and query
-    params, UPPER_SNAKE_CASE enums, top-level object list responses (never a
-    bare array), RFC 9457 `application/problem+json` errors with `trace_id`
-    and (on validation failures) an `errors` map of
-    `snake_case field name -> [messages]`.
+    **Soft delete:** DELETE sets internal status DELETED; the wire exposes `deleted: true`.
+    Tombstones remain readable by id. A **404** is not a deletion signal.
 
-    Identity: trusted forwarded headers only (c-001). `Trade-Imports-Crn` is
-    required on every request (missing/blank -> 400 bad-request problem —
-    a scoping bug must never degrade into "all users see all operators").
-    `Trade-Imports-Organisation-Id` is required on POST (stored per c-001;
-    not used for read filtering today); missing/blank on POST -> the same
-    400 bad-request problem, because `organisation_id` is mandatory on the
-    response schema and cannot be synthesised. Cross-crn access to an
-    existing operator is indistinguishable from absence: 404 (c-001).
+    **Search:** `q` and `countryCode` combine with OR semantics when both are supplied.
 
-    Deleted operators are soft-deleted tombstones, still readable by id with
-    `status: DELETED`. **A 404 is NOT a deletion signal** — it means unknown
-    id or an id outside the caller's crn. Consumers doing the EUDPA-293.AC2
-    existence check (c-018) MUST treat `200 + status DELETED` and `404` as
-    two different states: only the tombstone means "the user deleted this
-    operator".
+    **Pagination:** page size is server-configured (default 25), not a request parameter.
 
-    ## Declared deviations from docs/best-practices/rest-api/rest-api.md
-
-    Everything below is a KNOWN, deliberate divergence. Linters, reviewers and
-    future design passes must not silently "fix" any of them.
-
-    - **D1 — `country` is an MDM display-name string** (e.g. "United Kingdom"),
-      NOT ISO 3166-1 alpha-2. Sam-ruled (c-004): it matches the existing
-      notification payloads and the MDM name list end-to-end, so no code<->name
-      conversion exists anywhere in the epic.
-    - **D2 — pagination is `page` / `page_size`**, not rest-api.md's
-      `offset`/`limit` or `cursor`. Sam-ruled via the spec (EUDPA-185.AC4 "first
-      25 then paginate") and it matches the existing animals-backend list
-      convention (`page`), so the frontend's pagination helper is reused rather
-      than forked. Datasets are one user's address book (tens–hundreds of rows),
-      so cursor pagination buys nothing.
-    - **D3 — `POST /operators` is NOT idempotent.** No `Idempotency-Key` header,
-      no secondary unique key. rest-api.md lists "Make POST/PATCH idempotent"
-      under Do; this contract declines it. Rationale: the data is one user's own
-      address book, the damage from a double-submit is one duplicate row that the
-      user can delete, and the practical exposure is already narrowed by
-      POST->redirect->GET (no refresh-resubmit) plus GOV.UK's
-      `data-prevent-double-click` on the submit button. If duplicates show up in
-      the wild, an `Idempotency-Key` header can be added additively without
-      breaking any consumer.
-    - **D4 — no optimistic locking.** No `etag` field, no `If-Match` on PUT;
-      concurrent edits are last-write-wins. rest-api.md lists `etag` under Common
-      Fields. Rationale: the only writer of an operator is its owning user, so a
-      lost update requires that user to edit the same operator in two tabs at
-      once; the cost (ETag emission on every GET, a hidden round-tripped version
-      on the edit form, a new 412 status outside the ruled set) is not repaid.
-      ETag + If-Match can be added additively later.
-    - **Search is server-side only** via `?q=` (c-012) — a ruled locus decision,
-      not a deviation from the query-param table.
+    OperatorComplianceIT compares paths, HTTP methods, operationIds and component schema
+    property names against this file.
 servers:
   - url: http://localhost:8089
-    description: Local dev (native run or `-e operators`)
-  - url: http://host.docker.internal:8089
-    description: Workspace stack (containers reach the service on one hostname)
-
+    description: Local dev
 tags:
-  - name: operators
-    description: CRUD + search over a caller's address-book operators
-
+- name: addresses
+  description: Address book, scoped to the caller's organisation
 paths:
-  /organisation/{orgId}/addresses:
+  /organisation/{orgId}/addresses/{operator-id}:
     get:
-      tags: [operators]
-      operationId: list-operators
-      summary: List the caller's ACTIVE operators (paginated, searchable)
-      description: |
-        Always scoped to the caller's `Trade-Imports-Crn`. DELETED operators
-        are excluded. `q` is a case-insensitive free-text match over `name`,
-        `address_line_1`, `address_line_2`, `town`, `county`, `postcode` and
-        `country` (display-name matching, c-004). Regex metacharacters in `q`
-        are treated as literals (server applies `Pattern.quote`). Sort is
-        `created_at` descending (newest first). Server-side search is the
-        ONLY search mechanism (c-012).
+      tags:
+      - addresses
+      summary: Fetch one address, including tombstones
+      operationId: get-address
       parameters:
-        - $ref: '#/components/parameters/CrnHeader'
-        - $ref: '#/components/parameters/TracingHeader'
-        - name: q
-          in: query
-          required: false
-          description: Free-text search over name, address fields and country display name (EUDPA-186.AC1)
-          schema:
-            type: string
-            maxLength: 255
-        - name: operator_type
-          in: query
-          required: false
-          description: Exact operator-type filter (EUDPA-186.AC2, EUDPA-294.AC1)
-          schema:
-            $ref: '#/components/schemas/OperatorType'
-        - name: page
-          in: query
-          required: false
-          description: 1-based page number
-          schema:
-            type: integer
-            minimum: 1
-            default: 1
-        - name: page_size
-          in: query
-          required: false
-          description: Page size (default 25 per EUDPA-185.AC4)
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 25
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Trade-Imports-Organisation-Id
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: operator-id
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
-          description: One page of the caller's ACTIVE operators — top-level object, never a bare array
+          description: The address (deleted false or true)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OperatorPage'
-              examples:
-                firstPage:
-                  $ref: '#/components/examples/OperatorPageExample'
-        '400':
-          description: Invalid parameters (bad enum value, page < 1, page_size out of range) or missing identity header
+                $ref: '#/components/schemas/OperatorResponse'
+        '404':
+          description: Unknown id, or an id outside the caller's organisation scope
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
-              examples:
-                badParam:
-                  $ref: '#/components/examples/BadRequestProblemExample'
-        '500':
-          $ref: '#/components/responses/InternalError'
-    post:
-      tags: [operators]
-      operationId: create-operator
-      summary: Create an operator in the caller's address book
-      description: |
-        `crn` and `organisation_id` are captured from the identity headers
-        (c-001), never from the body. `id`, `status`, `created_at` and
-        `modified_at` are server-assigned; if a client sends them they are
-        ignored (Zalando default — not rejected). New operators are ACTIVE.
+    put:
+      tags:
+      - addresses
+      summary: Replace an address's mutable fields
+      operationId: update-address
       parameters:
-        - $ref: '#/components/parameters/CrnHeader'
-        - $ref: '#/components/parameters/OrganisationIdHeader'
-        - $ref: '#/components/parameters/TracingHeader'
-      requestBody:
+      - name: orgId
+        in: path
         required: true
+        schema:
+          type: string
+      - name: Trade-Imports-Organisation-Id
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: operator-id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/OperatorRequest'
-            examples:
-              consignor:
-                $ref: '#/components/examples/OperatorRequestExample'
+              $ref: '#/components/schemas/AddressRequest'
+        required: true
+      responses:
+        '200':
+          description: Updated address with bumped modifiedAt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperatorResponse'
+        '400':
+          description: Validation error, or a missing org header
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                anyOf:
+                - $ref: '#/components/schemas/ValidationProblem'
+                - $ref: '#/components/schemas/Problem'
+        '404':
+          description: Unknown id, an id outside the caller's organisation scope, or a tombstone
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    delete:
+      tags:
+      - addresses
+      summary: Soft-delete an address (tombstone)
+      operationId: delete-address
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Trade-Imports-Organisation-Id
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: operator-id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Soft-deleted (or already deleted — idempotent)
+        '400':
+          description: Missing org header
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: Unknown id, or an id outside the caller's organisation scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /organisation/{orgId}/addresses:
+    get:
+      tags:
+      - addresses
+      summary: List the caller's ACTIVE addresses (paginated, searchable)
+      operationId: list-operators
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Trade-Imports-Organisation-Id
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 1
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: countryCode
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: One page of the caller's ACTIVE addresses
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperatorPageResponse'
+        '400':
+          description: An out-of-range or non-numeric page, or a missing org header
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: Path orgId does not match the caller's organisation header
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    post:
+      tags:
+      - addresses
+      summary: Create an address in the caller's address book
+      operationId: create-operator
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Trade-Imports-Organisation-Id
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressRequest'
+        required: true
       responses:
         '201':
           description: Created
           headers:
             Location:
-              description: '`/operators/{operator-id}` of the created operator'
+              description: Relative URI of the created address
               schema:
                 type: string
-                example: /operators/665f1c2ab3e4d51a2c9d0e77
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Operator'
-              examples:
-                created:
-                  $ref: '#/components/examples/OperatorExample'
+                $ref: '#/components/schemas/OperatorResponse'
         '400':
-          description: |
-            TWO distinct problem shapes, hence the `anyOf`:
-
-            - **validation-error** (`ValidationProblem`, carries `errors`):
-              missing mandatory field, max-length breach, invalid email/enum,
-              or transporter-only extras on a non-TRANSPORTER type — per-field
-              `errors` map keyed by snake_case field name.
-            - **bad-request** (`Problem`, NO `errors` map): a missing or blank
-              identity header — `Trade-Imports-Crn` or, on this operation,
-              `Trade-Imports-Organisation-Id`. The request never reaches body
-              validation, so there is no per-field map to return.
-
-            An earlier draft declared only `ValidationProblem` here, whose
-            required `errors` map the identity-header case cannot satisfy.
-
-            **`anyOf`, NOT `oneOf` — do not "tidy" this back.** `ValidationProblem`
-            is `allOf: [Problem, {required: [errors]}]`, `Problem` sets no
-            `additionalProperties: false` and there is no discriminator, so a
-            validation body (which carries `errors`) validates against BOTH
-            branches. `oneOf` demands exactly one match, so a strict response
-            validator would REJECT the commonest 400 this service returns —
-            while springdoc still happily emits the `oneOf` and the compliance
-            IT (which only diffs `/v3/api-docs` against this file) stays green.
-            `anyOf` = "either shape", which is the intended semantics.
+          description: Validation error, or a missing identity header
           content:
             application/problem+json:
               schema:
+                type: object
                 anyOf:
-                  - $ref: '#/components/schemas/ValidationProblem'
-                  - $ref: '#/components/schemas/Problem'
-              examples:
-                validation:
-                  $ref: '#/components/examples/ValidationProblemExample'
-                missingCrn:
-                  $ref: '#/components/examples/BadRequestProblemExample'
-                missingOrganisationId:
-                  $ref: '#/components/examples/MissingOrganisationIdProblemExample'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  /organisation/{orgId}/addresses/{operator-id}:
-    parameters:
-      - name: operator-id
-        in: path
-        required: true
-        description: Opaque operator id (Mongo ObjectId hex; treat as opaque)
-        schema:
-          type: string
-          example: 665f1c2ab3e4d51a2c9d0e77
-    get:
-      tags: [operators]
-      operationId: get-address
-      summary: Fetch one operator, including tombstones
-      description: |
-        Returns the operator **including `status`** so consumers detect
-        DELETED tombstones (c-003 / EUDPA-293.AC2) — the animals-backend's
-        review-render existence check (c-018) and submit guard depend on this.
-        Values are NEVER refreshed into a notification from here (c-017: copy +
-        reference, no re-sync); this endpoint answers "does it still exist"
-        and nothing more.
-
-        404 when the id is unknown OR belongs to another crn (c-001 — existence
-        is not leaked). **404 and `200 + status: DELETED` are different states**
-        and consumers must not conflate them: only the tombstone means "the user
-        deleted this operator". A 404 means "not yours / never existed", which
-        for a notification is an unverifiable reference, not a deletion.
-      parameters:
-        - $ref: '#/components/parameters/CrnHeader'
-        - $ref: '#/components/parameters/TracingHeader'
-      responses:
-        '200':
-          description: The operator (status ACTIVE or DELETED)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Operator'
-              examples:
-                active:
-                  $ref: '#/components/examples/OperatorExample'
-                tombstone:
-                  $ref: '#/components/examples/DeletedOperatorExample'
-        '400':
-          $ref: '#/components/responses/MissingIdentity'
+                - $ref: '#/components/schemas/ValidationProblem'
+                - $ref: '#/components/schemas/Problem'
         '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-    put:
-      tags: [operators]
-      operationId: update-address
-      summary: Replace an operator's mutable fields
-      description: |
-        Full representation replace. `operator_type` is immutable after
-        create: a body whose `operator_type` differs from the stored value
-        -> 400 validation problem
-        (`{"errors": {"operator_type": ["Operator type cannot be changed"]}}`)
-        — explicit rejection, not silent ignore (silent ignores are
-        undiagnosable from logs; the spec permits either, this contract locks
-        reject). `modified_at` is bumped on success (audit only — nothing
-        re-syncs off it; c-017).
-
-        Editing an operator does NOT propagate into notifications that
-        reference it: their embedded copy goes stale and that is accepted
-        (c-017). EUDPA-293.AC1 is knowingly not met — see the design's
-        open items.
-
-        PUT on a DELETED tombstone -> **404** (tombstones are immutable and
-        excluded from the caller's live set; 404 keeps this contract strictly
-        inside the ruled status-code set). 404 also for unknown/cross-crn ids.
-      parameters:
-        - $ref: '#/components/parameters/CrnHeader'
-        - $ref: '#/components/parameters/TracingHeader'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/OperatorRequest'
-      responses:
-        '200':
-          description: Updated operator with bumped `modified_at`
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Operator'
-        '400':
-          description: |
-            TWO distinct problem shapes, hence the `anyOf`:
-
-            - **validation-error** (`ValidationProblem`, carries `errors`):
-              field validation failure, or an `operator_type` change attempt.
-            - **bad-request** (`Problem`, NO `errors` map): missing/blank
-              `Trade-Imports-Crn`.
-
-            **`anyOf`, NOT `oneOf`** — a validation body matches both branches
-            (`ValidationProblem` is `allOf: [Problem, …]`, `Problem` is open),
-            so `oneOf` would make a strict validator reject the commonest 400.
-            See the create-operator 400 for the full reasoning.
+          description: Path orgId does not match the caller's organisation header
           content:
             application/problem+json:
               schema:
-                anyOf:
-                  - $ref: '#/components/schemas/ValidationProblem'
-                  - $ref: '#/components/schemas/Problem'
-              examples:
-                typeChange:
-                  $ref: '#/components/examples/TypeChangeProblemExample'
-                validation:
-                  $ref: '#/components/examples/ValidationProblemExample'
-                missingCrn:
-                  $ref: '#/components/examples/BadRequestProblemExample'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-    delete:
-      tags: [operators]
-      operationId: delete-address
-      summary: Soft-delete an operator (tombstone)
-      description: |
-        Sets `status = DELETED` and bumps `modified_at` (c-003). The tombstone
-        remains readable via GET-by-id — that is the ONLY way a consumer can
-        tell "the user deleted this" (200 + DELETED) from "not yours / never
-        existed" (404), and the whole EUDPA-293.AC2 existence check (c-018)
-        rests on the distinction. Tombstones are excluded from list-operators.
-        Idempotent: DELETE on a tombstone -> 204 with no state change. The UI
-        reaches this only via the delete-confirmation page (c-010).
-      parameters:
-        - $ref: '#/components/parameters/CrnHeader'
-        - $ref: '#/components/parameters/TracingHeader'
-      responses:
-        '204':
-          description: Soft-deleted (or already deleted — idempotent)
-        '400':
-          $ref: '#/components/responses/MissingIdentity'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
+                $ref: '#/components/schemas/Problem'
 components:
-  parameters:
-    CrnHeader:
-      name: Trade-Imports-Crn
-      in: header
-      required: true
-      description: |
-        Caller's CRN — trusted forwarded identity header (c-001 mechanism;
-        namespaced like the existing Trade-Imports-Animals-Admin-Secret, no
-        deprecated X- prefix per RFC 6648). Missing/blank -> 400.
-      schema:
-        type: string
-        example: '1100014934'
-    OrganisationIdHeader:
-      name: Trade-Imports-Organisation-Id
-      in: header
-      required: true
-      description: |
-        Caller's organisation id — stored on create alongside crn (c-001) so
-        the future org-sharing flip is a query change, not a data migration.
-        NOT used for read filtering today. Required on POST only.
-
-        Missing or blank on POST -> **400 bad-request problem** (the same
-        problem type as a missing `Trade-Imports-Crn`, and NOT a
-        validation-error: there is no request-body field to key an `errors`
-        map on). It cannot be defaulted or omitted — `organisation_id` is
-        mandatory on the Operator response schema, so a create without it
-        would persist an operator that cannot be serialised to the contract.
-      schema:
-        type: string
-        example: 5a8d2b19-6f4e-4d21-9c1b-7e3f0a2d5c88
-    TracingHeader:
-      name: x-cdp-request-id
-      in: header
-      required: false
-      description: CDP tracing header; echoed into ECS logs and problem `trace_id`
-      schema:
-        type: string
-
-  responses:
-    NotFound:
-      description: Unknown id, or an id outside the caller's crn scope (c-001 — indistinguishable), or (PUT only) a DELETED tombstone
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/Problem'
-          examples:
-            notFound:
-              $ref: '#/components/examples/NotFoundProblemExample'
-    MissingIdentity:
-      description: |
-        Missing/blank `Trade-Imports-Crn`. A bad-request problem with NO
-        `errors` map (nothing reached body validation).
-
-        **CRN only.** This shared response is `$ref`'d from the operations
-        whose ONLY identity header is `Trade-Imports-Crn` (GET-by-id, DELETE).
-        `Trade-Imports-Organisation-Id` is not a parameter of those operations,
-        so it can never cause their 400. POST — the one operation where the
-        org-id case is reachable — inlines its own 400 schema and carries the
-        `missingOrganisationId` example there.
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/Problem'
-          examples:
-            missingCrn:
-              $ref: '#/components/examples/BadRequestProblemExample'
-    InternalError:
-      description: Unexpected server error (operational, not a contract behaviour)
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/Problem'
-
   schemas:
-    OperatorType:
-      type: string
-      description: |
-        Operator type. Order (for UI radio/select rendering) is the Jira
-        EUDPA-186.AC2 / EUDPA-287.AC1 order as listed; the UI renders a
-        visual 'or' divider before BRANCH_ADDRESS.
-      enum:
-        - PLACE_OF_ORIGIN
-        - CONSIGNOR
-        - CONSIGNEE
-        - IMPORTER
-        - PLACE_OF_DESTINATION
-        - TRANSPORTER
-        - BRANCH_ADDRESS
-
-    TransporterCategory:
-      type: string
-      description: TRANSPORTER-only optional extra (c-007; 'type' in the legacy frontend mocks / backend Transporter class)
-      enum:
-        - PRIVATE
-        - COMMERCIAL
-
-    OperatorStatus:
-      type: string
-      description: Soft-delete tombstone status (c-003). DELETED operators are excluded from lists but readable by id.
-      enum:
-        - ACTIVE
-        - DELETED
-
-    OperatorRequest:
-      type: object
-      description: |
-        Create/update body. `id`, `status`, `crn`, `organisation_id`,
-        `created_at`, `modified_at` are server-assigned (from path/headers/
-        clock) and ignored if supplied. `approval_number` and
-        `transporter_category` are only accepted when
-        `operator_type = TRANSPORTER` (c-007) — otherwise 400 with a
-        per-field error.
-      required:
-        - operator_type
-        - name
-        - address_line_1
-        - town
-        - postcode
-        - country
-        - telephone
-        - email
+    AddressRequest:
       properties:
-        operator_type:
-          $ref: '#/components/schemas/OperatorType'
         name:
           type: string
-          minLength: 1
           maxLength: 255
-          description: Jira label 'Name or Organisation name'
-        address_line_1:
-          type: string
-          minLength: 1
-          maxLength: 255
-        address_line_2:
+          minLength: 0
+        addressLine1:
           type: string
           maxLength: 255
-          description: Optional
-        town:
+          minLength: 0
+        addressLine2:
           type: string
-          minLength: 1
+          maxLength: 255
+          minLength: 0
+        townOrCity:
+          type: string
           maxLength: 100
-          description: Jira label 'Town or city' (backend notification Address calls this 'city' — mapped by the frontend operators-client, c-002)
+          minLength: 0
         county:
           type: string
           maxLength: 100
-          description: Optional (County label carries '(optional)' marker in the UI, c-009)
+          minLength: 0
         postcode:
           type: string
-          minLength: 1
           maxLength: 12
-          description: Jira label 'Postal or Zip code'
-        country:
+          minLength: 0
+        countryCode:
           type: string
+          maxLength: 2
           minLength: 1
-          maxLength: 255
-          description: |
-            MDM country DISPLAY NAME string, e.g. "United Kingdom" (c-004
-            ruled — NOT ISO 3166-1 alpha-2; do not "fix"). The service does
-            NOT validate MDM-list membership (frontend Joi owns that; the
-            service stays zero-dependency).
-        telephone:
+        phone:
           type: string
-          minLength: 1
           maxLength: 20
-          description: Jira label 'Telephone number' (UI shows UX 'Phone number' phrasing + international-code hint, c-009)
+          minLength: 0
         email:
           type: string
-          format: email
-          minLength: 1
           maxLength: 254
-        approval_number:
-          type: string
-          maxLength: 255
-          description: TRANSPORTER only, optional (c-007). 400 if supplied for any other operator_type.
-        transporter_category:
-          $ref: '#/components/schemas/TransporterCategory'
-
-    Operator:
-      allOf:
-        - $ref: '#/components/schemas/OperatorRequest'
-        - type: object
-          required:
-            - id
-            - crn
-            - organisation_id
-            - status
-            - created_at
-            - modified_at
-          properties:
-            id:
-              type: string
-              readOnly: true
-              description: Opaque stable identifier (c-005 — select pages submit this)
-              example: 665f1c2ab3e4d51a2c9d0e77
-            crn:
-              type: string
-              readOnly: true
-              description: Owning CRN, captured from Trade-Imports-Crn on create (c-001)
-            organisation_id:
-              type: string
-              readOnly: true
-              description: Captured on create; NOT used for read filtering today (c-001)
-            status:
-              $ref: '#/components/schemas/OperatorStatus'
-            created_at:
-              type: string
-              format: date-time
-              readOnly: true
-              description: RFC 3339; drives newest-first list ordering
-            modified_at:
-              type: string
-              format: date-time
-              readOnly: true
-              description: RFC 3339; bumped on PUT and soft delete. Audit/debug only — no consumer re-syncs off it (c-017 removed re-sync entirely).
-
-    OperatorPage:
-      type: object
-      description: Top-level object list response (rest-api.md — never a bare array)
+          minLength: 0
+        type:
+          type: object
+        role:
+          type: object
       required:
-        - items
-        - page
-        - page_size
-        - total_items
-        - total_pages
+      - addressLine1
+      - countryCode
+      - email
+      - name
+      - phone
+      - postcode
+      - townOrCity
+    ValidationProblem:
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string
+        traceId:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+    Problem:
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string
+        traceId:
+          type: string
+    OperatorResponse:
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        addressLine1:
+          type: string
+        addressLine2:
+          type: string
+        townOrCity:
+          type: string
+        county:
+          type: string
+        postcode:
+          type: string
+        countryCode:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        organisationId:
+          type: string
+        deleted:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        modifiedAt:
+          type: string
+          format: date-time
+    OperatorPageResponse:
       properties:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/Operator'
+            $ref: '#/components/schemas/OperatorResponse'
         page:
           type: integer
-          minimum: 1
-        page_size:
+          format: int32
+        pageSize:
           type: integer
-          minimum: 1
-        total_items:
+          format: int32
+        totalItems:
           type: integer
-          minimum: 0
-        total_pages:
+          format: int32
+        totalPages:
           type: integer
-          minimum: 0
-
-    Problem:
-      type: object
-      description: |
-        RFC 9457 problem details. `trace_id` (snake_case, per rest-api.md —
-        a deliberate divergence from the animals-backend's camelCase
-        `traceId`; this is a new API surface) carries the x-cdp-request-id
-        MDC value for log correlation.
-      required:
-        - type
-        - title
-        - status
-      properties:
-        type:
-          type: string
-          format: uri
-          description: |
-            One of the CDP problem family:
-            https://api.cdp.defra.cloud/problems/validation-error (400 field validation),
-            .../bad-request (400 malformed params / missing identity header),
-            .../not-found (404),
-            .../internal-error (500)
-          example: https://api.cdp.defra.cloud/problems/not-found
-        title:
-          type: string
-          example: Resource Not Found
-        status:
-          type: integer
-          example: 404
-        detail:
-          type: string
-          example: Operator not found
-        trace_id:
-          type: string
-          example: 8f4a2c1e9b7d3f60
-
-    ValidationProblem:
-      allOf:
-        - $ref: '#/components/schemas/Problem'
-        - type: object
-          required:
-            - errors
-          properties:
-            errors:
-              type: object
-              description: |
-                Map of snake_case wire field name -> list of messages
-                (same Map<field, List<message>> shape as the animals-backend
-                handler). Keys are ALWAYS the wire names (`address_line_1`,
-                never `addressLine1`) — the frontend error mapping depends
-                on this.
-              additionalProperties:
-                type: array
-                items:
-                  type: string
-              example:
-                address_line_1: ["Enter address line 1"]
-                email: ["Enter an email address in the correct format"]
-
-  examples:
-    OperatorRequestExample:
-      summary: Create a CONSIGNOR operator
-      value:
-        operator_type: CONSIGNOR
-        name: Highland Livestock Ltd
-        address_line_1: 14 Drover's Way
-        address_line_2: Unit 3
-        town: Inverness
-        county: Highland
-        postcode: IV2 3JH
-        country: United Kingdom
-        telephone: '+44 1463 234567'
-        email: exports@highlandlivestock.example.com
-
-    OperatorExample:
-      summary: An ACTIVE operator as returned by the API
-      value:
-        id: 665f1c2ab3e4d51a2c9d0e77
-        operator_type: CONSIGNOR
-        name: Highland Livestock Ltd
-        address_line_1: 14 Drover's Way
-        address_line_2: Unit 3
-        town: Inverness
-        county: Highland
-        postcode: IV2 3JH
-        country: United Kingdom
-        telephone: '+44 1463 234567'
-        email: exports@highlandlivestock.example.com
-        crn: '1100014934'
-        organisation_id: 5a8d2b19-6f4e-4d21-9c1b-7e3f0a2d5c88
-        status: ACTIVE
-        created_at: '2026-07-14T09:15:27Z'
-        modified_at: '2026-07-14T09:15:27Z'
-
-    DeletedOperatorExample:
-      summary: A DELETED tombstone (EUDPA-293.AC2 detection surface)
-      value:
-        id: 665f1c2ab3e4d51a2c9d0e77
-        operator_type: CONSIGNOR
-        name: Highland Livestock Ltd
-        address_line_1: 14 Drover's Way
-        address_line_2: Unit 3
-        town: Inverness
-        county: Highland
-        postcode: IV2 3JH
-        country: United Kingdom
-        telephone: '+44 1463 234567'
-        email: exports@highlandlivestock.example.com
-        crn: '1100014934'
-        organisation_id: 5a8d2b19-6f4e-4d21-9c1b-7e3f0a2d5c88
-        status: DELETED
-        created_at: '2026-07-14T09:15:27Z'
-        modified_at: '2026-07-15T16:02:11Z'
-
-    OperatorPageExample:
-      summary: First page of 25 (EUDPA-185.AC4)
-      value:
-        items:
-          - id: 665f1c2ab3e4d51a2c9d0e77
-            operator_type: CONSIGNOR
-            name: Highland Livestock Ltd
-            address_line_1: 14 Drover's Way
-            address_line_2: Unit 3
-            town: Inverness
-            county: Highland
-            postcode: IV2 3JH
-            country: United Kingdom
-            telephone: '+44 1463 234567'
-            email: exports@highlandlivestock.example.com
-            crn: '1100014934'
-            organisation_id: 5a8d2b19-6f4e-4d21-9c1b-7e3f0a2d5c88
-            status: ACTIVE
-            created_at: '2026-07-14T09:15:27Z'
-            modified_at: '2026-07-14T09:15:27Z'
-        page: 1
-        page_size: 25
-        total_items: 30
-        total_pages: 2
-
-    ValidationProblemExample:
-      summary: 400 with per-field snake_case errors map
-      value:
-        type: https://api.cdp.defra.cloud/problems/validation-error
-        title: Validation Error
-        status: 400
-        detail: Validation failed for one or more fields
-        trace_id: 8f4a2c1e9b7d3f60
-        errors:
-          address_line_1: ["Enter address line 1"]
-          email: ["Enter an email address in the correct format"]
-          approval_number: ["Only allowed for transporter operators"]
-
-    TypeChangeProblemExample:
-      summary: PUT attempting to change operator_type
-      value:
-        type: https://api.cdp.defra.cloud/problems/validation-error
-        title: Validation Error
-        status: 400
-        detail: Validation failed for one or more fields
-        trace_id: 8f4a2c1e9b7d3f60
-        errors:
-          operator_type: ["Operator type cannot be changed"]
-
-    NotFoundProblemExample:
-      summary: Unknown or out-of-scope id
-      value:
-        type: https://api.cdp.defra.cloud/problems/not-found
-        title: Resource Not Found
-        status: 404
-        detail: Operator not found
-        trace_id: 8f4a2c1e9b7d3f60
-
-    BadRequestProblemExample:
-      summary: Missing Trade-Imports-Crn header / malformed param — note there is NO errors map
-      value:
-        type: https://api.cdp.defra.cloud/problems/bad-request
-        title: Bad Request
-        status: 400
-        detail: Missing required header Trade-Imports-Crn
-        trace_id: 8f4a2c1e9b7d3f60
-
-    MissingOrganisationIdProblemExample:
-      summary: POST without Trade-Imports-Organisation-Id — bad-request, NOT a validation-error (no errors map)
-      value:
-        type: https://api.cdp.defra.cloud/problems/bad-request
-        title: Bad Request
-        status: 400
-        detail: Missing required header Trade-Imports-Organisation-Id
-        trace_id: 8f4a2c1e9b7d3f60
+          format: int32

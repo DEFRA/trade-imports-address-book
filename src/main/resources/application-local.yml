@@ -23,8 +23,13 @@ spring:
     mongodb:
       ssl:
         enabled: false
+  devtools:
+    restart:
+      trigger-file: .reloadtrigger
 
 # Interactive API explorer, local development only (design §1.6).
 springdoc:
+  api-docs:
+    enabled: true
   swagger-ui:
     enabled: true

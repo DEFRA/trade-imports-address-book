@@ -68,13 +68,15 @@ public class OperatorService {
         PageRequest.of(page - 1, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
 
     Timer.Sample sample = Timer.start(meterRegistry);
-    Page<Address> result = queryPage(organisationId, q, countryCode, pageable);
-    sample.stop(meterRegistry.timer("OperatorListQuery"));
-
-    List<OperatorResponse> items =
-        result.getContent().stream().map(operatorMapper::toResponse).toList();
-    return new OperatorPageResponse(
-        items, page, pageSize, (int) result.getTotalElements(), result.getTotalPages());
+    try {
+      Page<Address> result = queryPage(organisationId, q, countryCode, pageable);
+      List<OperatorResponse> items =
+          result.getContent().stream().map(operatorMapper::toResponse).toList();
+      return new OperatorPageResponse(
+          items, page, pageSize, (int) result.getTotalElements(), result.getTotalPages());
+    } finally {
+      sample.stop(meterRegistry.timer("controller.listOperators.query.time"));
+    }
   }
 
   private Page<Address> queryPage(
@@ -155,15 +157,7 @@ public class OperatorService {
             .filter(address -> address.getStatus() != AddressStatus.DELETED)
             .orElseThrow(() -> new NotFoundException("Address not found"));
 
-    existing.setName(request.name());
-    existing.setAddressLine1(request.addressLine1());
-    existing.setAddressLine2(request.addressLine2());
-    existing.setTownOrCity(request.townOrCity());
-    existing.setCounty(request.county());
-    existing.setPostcode(request.postcode());
-    existing.setCountryCode(request.countryCode());
-    existing.setPhone(request.phone());
-    existing.setEmail(request.email());
+    operatorMapper.updateEntity(request, existing);
 
     Address saved = repository.save(existing);
     log.info("Updated address {}", saved.getId());

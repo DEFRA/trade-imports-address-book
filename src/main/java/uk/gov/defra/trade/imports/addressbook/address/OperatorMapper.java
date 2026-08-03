@@ -3,6 +3,7 @@ package uk.gov.defra.trade.imports.addressbook.address;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 import org.mapstruct.ReportingPolicy;
 
 /**
@@ -33,5 +34,19 @@ public interface OperatorMapper {
   @Mapping(target = "status", ignore = true)
   @Mapping(target = "createdAt", ignore = true)
   @Mapping(target = "modifiedAt", ignore = true)
+  @Mapping(target = "version", ignore = true)
   Address toEntity(AddressRequest request);
+
+  /**
+   * Applies a full replace of client-supplied fields onto an existing entity. Server-owned fields
+   * are preserved by the caller after this mapping runs.
+   */
+  @BeanMapping(ignoreUnmappedSourceProperties = {"type", "role"})
+  @Mapping(target = "id", ignore = true)
+  @Mapping(target = "organisationId", ignore = true)
+  @Mapping(target = "status", ignore = true)
+  @Mapping(target = "createdAt", ignore = true)
+  @Mapping(target = "modifiedAt", ignore = true)
+  @Mapping(target = "version", ignore = true)
+  void updateEntity(AddressRequest request, @MappingTarget Address address);
 }

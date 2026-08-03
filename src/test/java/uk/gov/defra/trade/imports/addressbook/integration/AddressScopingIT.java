@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
+import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
 import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 
 /**
@@ -135,6 +136,14 @@ class AddressScopingIT extends IntegrationBase {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(CREATE_BODY))
         .andExpect(status().isNotFound());
+    mockMvc
+        .perform(
+            delete("/organisation/{orgId}/addresses/{operator-id}", ORG_A, id).header(ORG_HEADER, ORG_B))
+        .andExpect(status().isNotFound());
+    assertThat(repository.findById(id))
+        .get()
+        .extracting("status")
+        .isEqualTo(AddressStatus.ACTIVE);
 
     // a create against another org's path is rejected and persists nothing new
     mockMvc

@@ -45,7 +45,9 @@ public record AddressRequest(
     @NotBlank(message = "Enter a postcode")
         @Size(max = 12, message = "Postcode must be 12 characters or less")
         String postcode,
-    @NotBlank(message = "Enter a country") String countryCode,
+    @NotBlank(message = "Enter a country")
+        @Size(max = 2, message = "Country code must be 2 characters or less")
+        String countryCode,
     @NotBlank(message = "Enter a telephone number")
         @Size(max = 20, message = "Telephone number must be 20 characters or less")
         String phone,

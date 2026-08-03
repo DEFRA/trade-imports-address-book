@@ -2,6 +2,7 @@ package uk.gov.defra.trade.imports.addressbook.address;
 
 import io.micrometer.core.annotation.Timed;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -11,8 +12,10 @@ import jakarta.validation.Valid;
 import java.net.URI;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -81,13 +84,26 @@ public class OperatorController {
       operationId = "list-operators",
       summary = "List the caller's ACTIVE addresses (paginated, searchable)")
   @ApiResponses({
-    @ApiResponse(responseCode = "200", description = "One page of the caller's ACTIVE addresses"),
+    @ApiResponse(
+        responseCode = "200",
+        description = "One page of the caller's ACTIVE addresses",
+        content =
+            @Content(
+                mediaType = MediaType.APPLICATION_JSON_VALUE,
+                schema = @Schema(implementation = OperatorPageResponse.class))),
     @ApiResponse(
         responseCode = "400",
         description = "An out-of-range or non-numeric page, or a missing org header",
         content =
             @Content(
-                mediaType = "application/problem+json",
+                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                schema = @Schema(implementation = Problem.class))),
+    @ApiResponse(
+        responseCode = "404",
+        description = "Path orgId does not match the caller's organisation header",
+        content =
+            @Content(
+                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                 schema = @Schema(implementation = Problem.class)))
   })
   @Timed("controller.listOperators.time")
@@ -117,14 +133,35 @@ public class OperatorController {
       operationId = "create-operator",
       summary = "Create an address in the caller's address book")
   @ApiResponses({
-    @ApiResponse(responseCode = "201", description = "Created"),
+    @ApiResponse(
+        responseCode = "201",
+        description = "Created",
+        headers =
+            @Header(
+                name = "Location",
+                description = "Relative URI of the created address",
+                schema = @Schema(type = "string")),
+        content =
+            @Content(
+                mediaType = MediaType.APPLICATION_JSON_VALUE,
+                schema = @Schema(implementation = OperatorResponse.class))),
     @ApiResponse(
         responseCode = "400",
         description = "Validation error, or a missing identity header",
         content =
             @Content(
-                mediaType = "application/problem+json",
-                schema = @Schema(anyOf = {ValidationProblem.class, Problem.class})))
+                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                schema =
+                    @Schema(
+                        type = "object",
+                        anyOf = {ValidationProblem.class, Problem.class}))),
+    @ApiResponse(
+        responseCode = "404",
+        description = "Path orgId does not match the caller's organisation header",
+        content =
+            @Content(
+                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                schema = @Schema(implementation = Problem.class)))
   })
   @Timed("controller.createOperator.time")
   public ResponseEntity<OperatorResponse> create(
@@ -134,7 +171,11 @@ public class OperatorController {
     authoriseOrg(orgId, sessionOrg);
     log.info("POST addresses - creating address");
     Address created = operatorService.create(request, orgId);
-    URI location = URI.create("/organisation/" + orgId + "/addresses/" + created.getId());
+    URI location =
+        ServletUriComponentsBuilder.fromCurrentRequest()
+            .path("/{id}")
+            .buildAndExpand(created.getId())
+            .toUri();
     return ResponseEntity.created(location).body(operatorMapper.toResponse(created));
   }
 
@@ -152,13 +193,19 @@ public class OperatorController {
   @GetMapping("/{operator-id}")
   @Operation(operationId = "get-address", summary = "Fetch one address, including tombstones")
   @ApiResponses({
-    @ApiResponse(responseCode = "200", description = "The address (deleted false or true)"),
+    @ApiResponse(
+        responseCode = "200",
+        description = "The address (deleted false or true)",
+        content =
+            @Content(
+                mediaType = MediaType.APPLICATION_JSON_VALUE,
+                schema = @Schema(implementation = OperatorResponse.class))),
     @ApiResponse(
         responseCode = "404",
         description = "Unknown id, or an id outside the caller's organisation scope",
         content =
             @Content(
-                mediaType = "application/problem+json",
+                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                 schema = @Schema(implementation = Problem.class)))
   })
   @Timed("controller.getOperator.time")
@@ -190,20 +237,29 @@ public class OperatorController {
   @PutMapping("/{operator-id}")
   @Operation(operationId = "update-address", summary = "Replace an address's mutable fields")
   @ApiResponses({
-    @ApiResponse(responseCode = "200", description = "Updated address with bumped modifiedAt"),
+    @ApiResponse(
+        responseCode = "200",
+        description = "Updated address with bumped modifiedAt",
+        content =
+            @Content(
+                mediaType = MediaType.APPLICATION_JSON_VALUE,
+                schema = @Schema(implementation = OperatorResponse.class))),
     @ApiResponse(
         responseCode = "400",
         description = "Validation error, or a missing org header",
         content =
             @Content(
-                mediaType = "application/problem+json",
-                schema = @Schema(anyOf = {ValidationProblem.class, Problem.class}))),
+                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                schema =
+                    @Schema(
+                        type = "object",
+                        anyOf = {ValidationProblem.class, Problem.class}))),
     @ApiResponse(
         responseCode = "404",
         description = "Unknown id, an id outside the caller's organisation scope, or a tombstone",
         content =
             @Content(
-                mediaType = "application/problem+json",
+                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                 schema = @Schema(implementation = Problem.class)))
   })
   @Timed("controller.updateOperator.time")
@@ -239,14 +295,14 @@ public class OperatorController {
         description = "Missing org header",
         content =
             @Content(
-                mediaType = "application/problem+json",
+                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                 schema = @Schema(implementation = Problem.class))),
     @ApiResponse(
         responseCode = "404",
         description = "Unknown id, or an id outside the caller's organisation scope",
         content =
             @Content(
-                mediaType = "application/problem+json",
+                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                 schema = @Schema(implementation = Problem.class)))
   })
   @Timed("controller.deleteOperator.time")
