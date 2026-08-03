@@ -174,8 +174,10 @@ class GlobalExceptionHandlerTest {
     ResponseEntity<ProblemDetail> response = exceptionHandler.handleTypeMismatch(ex);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-    assertThat(response.getBody().getDetail()).contains("page");
-    assertThat(response.getBody().getProperties()).doesNotContainKey("errors");
+    ProblemDetail body = response.getBody();
+    assertThat(body).isNotNull();
+    assertThat(body.getDetail()).contains("page");
+    assertThat(body.getProperties()).isNull();
   }
 
   @Test
