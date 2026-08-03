@@ -19,6 +19,12 @@ info:
 
     **Pagination:** page size is server-configured (default 25), not a request parameter.
 
+    **Deviations from earlier design drafts:**
+    - **D1 — `countryCode` is ISO 3166-1 alpha-2** (e.g. "GB"), NOT an MDM display-name
+      string. Supersedes the earlier D1 ruling (display name such as "United Kingdom").
+      Stored as-given with presence-only validation (cv-011); consumers resolve alpha-2 to a
+      display name in the frontend.
+
     OperatorComplianceIT compares paths, HTTP methods, operationIds and component schema
     property names against this file.
 servers:
@@ -27,6 +33,8 @@ servers:
 tags:
 - name: addresses
   description: Address book, scoped to the caller's organisation
+security:
+- Trade-Imports-Organisation-Id: []
 paths:
   /organisation/{orgId}/addresses/{operator-id}:
     get:
@@ -59,6 +67,12 @@ paths:
                 $ref: '#/components/schemas/OperatorResponse'
         '404':
           description: Unknown id, or an id outside the caller's organisation scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: Unexpected server error
           content:
             application/problem+json:
               schema:
@@ -112,6 +126,12 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+        '500':
+          description: Unexpected server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
     delete:
       tags:
       - addresses
@@ -148,12 +168,18 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+        '500':
+          description: Unexpected server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
   /organisation/{orgId}/addresses:
     get:
       tags:
       - addresses
       summary: List the caller's ACTIVE addresses (paginated, searchable)
-      operationId: list-operators
+      operationId: list-addresses
       parameters:
       - name: orgId
         in: path
@@ -201,11 +227,17 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+        '500':
+          description: Unexpected server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
     post:
       tags:
       - addresses
       summary: Create an address in the caller's address book
-      operationId: create-operator
+      operationId: create-address
       parameters:
       - name: orgId
         in: path
@@ -250,7 +282,19 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+        '500':
+          description: Unexpected server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
 components:
+  securitySchemes:
+    Trade-Imports-Organisation-Id:
+      type: apiKey
+      in: header
+      name: Trade-Imports-Organisation-Id
+      description: Caller organisation id from the trusted forwarded header; must match path orgId (cv-010)
   schemas:
     AddressRequest:
       properties:

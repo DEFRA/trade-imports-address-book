@@ -2,11 +2,13 @@ package uk.gov.defra.trade.imports.addressbook.address;
 
 import io.micrometer.core.annotation.Timed;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
@@ -24,6 +26,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
 import uk.gov.defra.trade.imports.addressbook.exceptions.Problem;
 import uk.gov.defra.trade.imports.addressbook.exceptions.ValidationProblem;
@@ -40,6 +43,7 @@ import uk.gov.defra.trade.imports.addressbook.filter.IdentityHeaderFilter;
 @RestController
 @RequestMapping("/organisation/{orgId}/addresses")
 @Tag(name = "addresses", description = "Address book, scoped to the caller's organisation")
+@SecurityRequirement(name = "Trade-Imports-Organisation-Id")
 @Slf4j
 @RequiredArgsConstructor
 public class OperatorController {
@@ -79,7 +83,7 @@ public class OperatorController {
    */
   @GetMapping
   @Operation(
-      operationId = "list-operators",
+      operationId = "list-addresses",
       summary = "List the caller's ACTIVE addresses (paginated, searchable)")
   @ApiResponses({
     @ApiResponse(
@@ -102,13 +106,24 @@ public class OperatorController {
         content =
             @Content(
                 mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                schema = @Schema(implementation = Problem.class))),
+    @ApiResponse(
+        responseCode = "500",
+        description = "Unexpected server error",
+        content =
+            @Content(
+                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                 schema = @Schema(implementation = Problem.class)))
   })
   @Timed("controller.listOperators.time")
   public OperatorPageResponse list(
       @PathVariable String orgId,
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String sessionOrg,
-      @RequestParam(defaultValue = "1") int page,
+      @Parameter(
+              description = "1-based page number",
+              schema = @Schema(minimum = "1", defaultValue = "1"))
+          @RequestParam(defaultValue = "1")
+          int page,
       @RequestParam(required = false) String q,
       @RequestParam(required = false) String countryCode) {
     authoriseOrg(orgId, sessionOrg);
@@ -128,7 +143,7 @@ public class OperatorController {
    */
   @PostMapping
   @Operation(
-      operationId = "create-operator",
+      operationId = "create-address",
       summary = "Create an address in the caller's address book")
   @ApiResponses({
     @ApiResponse(
@@ -159,6 +174,13 @@ public class OperatorController {
         content =
             @Content(
                 mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                schema = @Schema(implementation = Problem.class))),
+    @ApiResponse(
+        responseCode = "500",
+        description = "Unexpected server error",
+        content =
+            @Content(
+                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                 schema = @Schema(implementation = Problem.class)))
   })
   @Timed("controller.createOperator.time")
@@ -169,7 +191,12 @@ public class OperatorController {
     authoriseOrg(orgId, sessionOrg);
     log.info("POST addresses - creating address");
     Address created = operatorService.create(request, sessionOrg);
-    URI location = URI.create("/organisation/" + orgId + "/addresses/" + created.getId());
+    URI location =
+        ServletUriComponentsBuilder.fromCurrentRequest()
+            .path("/{operator-id}")
+            .buildAndExpand(created.getId())
+            .encode()
+            .toUri();
     return ResponseEntity.created(location).body(operatorMapper.toResponse(created));
   }
 
@@ -197,6 +224,13 @@ public class OperatorController {
     @ApiResponse(
         responseCode = "404",
         description = "Unknown id, or an id outside the caller's organisation scope",
+        content =
+            @Content(
+                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                schema = @Schema(implementation = Problem.class))),
+    @ApiResponse(
+        responseCode = "500",
+        description = "Unexpected server error",
         content =
             @Content(
                 mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
@@ -254,6 +288,13 @@ public class OperatorController {
         content =
             @Content(
                 mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                schema = @Schema(implementation = Problem.class))),
+    @ApiResponse(
+        responseCode = "500",
+        description = "Unexpected server error",
+        content =
+            @Content(
+                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                 schema = @Schema(implementation = Problem.class)))
   })
   @Timed("controller.updateOperator.time")
@@ -294,6 +335,13 @@ public class OperatorController {
     @ApiResponse(
         responseCode = "404",
         description = "Unknown id, or an id outside the caller's organisation scope",
+        content =
+            @Content(
+                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                schema = @Schema(implementation = Problem.class))),
+    @ApiResponse(
+        responseCode = "500",
+        description = "Unexpected server error",
         content =
             @Content(
                 mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,

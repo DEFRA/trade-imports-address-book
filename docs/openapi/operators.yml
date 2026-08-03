@@ -6,6 +6,8 @@ info:
 tags:
 - name: addresses
   description: Address book, scoped to the caller's organisation
+security:
+- Trade-Imports-Organisation-Id: []
 paths:
   /organisation/{orgId}/addresses/{operator-id}:
     get:
@@ -38,6 +40,12 @@ paths:
                 $ref: '#/components/schemas/OperatorResponse'
         '404':
           description: Unknown id, or an id outside the caller's organisation scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: Unexpected server error
           content:
             application/problem+json:
               schema:
@@ -91,6 +99,12 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+        '500':
+          description: Unexpected server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
     delete:
       tags:
       - addresses
@@ -127,12 +141,18 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+        '500':
+          description: Unexpected server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
   /organisation/{orgId}/addresses:
     get:
       tags:
       - addresses
       summary: List the caller's ACTIVE addresses (paginated, searchable)
-      operationId: list-operators
+      operationId: list-addresses
       parameters:
       - name: orgId
         in: path
@@ -146,11 +166,13 @@ paths:
           type: string
       - name: page
         in: query
+        description: 1-based page number
         required: false
         schema:
           type: integer
           format: int32
           default: 1
+          minimum: 1
       - name: q
         in: query
         required: false
@@ -180,11 +202,17 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+        '500':
+          description: Unexpected server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
     post:
       tags:
       - addresses
       summary: Create an address in the caller's address book
-      operationId: create-operator
+      operationId: create-address
       parameters:
       - name: orgId
         in: path
@@ -208,7 +236,6 @@ paths:
           headers:
             Location:
               description: Relative URI of the created address
-              style: simple
               schema:
                 type: string
           content:
@@ -230,50 +257,73 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+        '500':
+          description: Unexpected server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
 components:
+  securitySchemes:
+    Trade-Imports-Organisation-Id:
+      type: apiKey
+      description: Caller organisation id from the trusted forwarded header; must match path orgId (cv-010)
+      name: Trade-Imports-Organisation-Id
+      in: header
   schemas:
     AddressRequest:
+      description: Create or replace an address in the caller's address book
       properties:
         name:
           type: string
+          description: Display name for the address
           maxLength: 255
-          minLength: 0
+          minLength: 1
+          example: Highland Livestock Ltd
         addressLine1:
           type: string
+          description: First line of the postal address
           maxLength: 255
-          minLength: 0
+          minLength: 1
+          example: 14 Drover's Way
         addressLine2:
           type: string
+          description: Second line of the postal address
           maxLength: 255
-          minLength: 0
         townOrCity:
           type: string
+          description: Town or city
           maxLength: 100
-          minLength: 0
+          minLength: 1
+          example: Inverness
         county:
           type: string
+          description: County or region
           maxLength: 100
-          minLength: 0
         postcode:
           type: string
+          description: Postal or ZIP code
           maxLength: 12
-          minLength: 0
+          minLength: 1
+          example: IV2 3JH
         countryCode:
           type: string
+          description: ISO 3166-1 alpha-2 country code (stored as-given, cv-011)
           maxLength: 2
-          minLength: 0
+          minLength: 1
+          example: GB
         phone:
           type: string
+          description: Contact telephone number
           maxLength: 20
-          minLength: 0
+          minLength: 1
+          example: +44 1463 234567
         email:
           type: string
+          description: Contact email address
           maxLength: 254
-          minLength: 0
-        type:
-          type: object
-        role:
-          type: object
+          minLength: 1
+          example: exports@highlandlivestock.example.com
       required:
       - addressLine1
       - countryCode
@@ -283,37 +333,67 @@ components:
       - postcode
       - townOrCity
     OperatorResponse:
+      description: An address in the caller's organisation-scoped address book
       properties:
         id:
           type: string
+          description: Opaque address identifier
+          example: 665f1c2ab3e4d51a2c9d0e77
         name:
           type: string
+          description: Display name
         addressLine1:
           type: string
+          description: First line of the postal address
         addressLine2:
           type: string
+          description: Second line of the postal address
         townOrCity:
           type: string
+          description: Town or city
         county:
           type: string
+          description: County or region
         postcode:
           type: string
+          description: Postal or ZIP code
         countryCode:
           type: string
+          description: ISO 3166-1 alpha-2 country code (cv-011)
+          example: GB
         phone:
           type: string
+          description: Contact telephone number
         email:
           type: string
+          description: Contact email address
         organisationId:
           type: string
+          description: Organisation that owns this address
         deleted:
           type: boolean
+          description: True when the address has been soft-deleted (cv-016)
         createdAt:
           type: string
           format: date-time
+          description: Creation timestamp (UTC)
         modifiedAt:
           type: string
           format: date-time
+          description: Last modification timestamp (UTC)
+      required:
+      - addressLine1
+      - countryCode
+      - createdAt
+      - deleted
+      - email
+      - id
+      - modifiedAt
+      - name
+      - organisationId
+      - phone
+      - postcode
+      - townOrCity
     ValidationProblem:
       description: RFC 9457 validation problem with field errors
       properties:
@@ -358,20 +438,36 @@ components:
       - title
       - type
     OperatorPageResponse:
+      description: Paginated list of ACTIVE addresses (never a bare array)
       properties:
         items:
           type: array
+          description: Addresses on this page
           items:
             $ref: '#/components/schemas/OperatorResponse'
         page:
           type: integer
           format: int32
+          description: Current 1-based page number
+          minimum: 1
         pageSize:
           type: integer
           format: int32
+          description: Server-configured page size (cv-025)
+          minimum: 1
         totalItems:
           type: integer
           format: int32
+          description: Total number of matching addresses
+          minimum: 0
         totalPages:
           type: integer
           format: int32
+          description: Total number of pages
+          minimum: 0
+      required:
+      - items
+      - page
+      - pageSize
+      - totalItems
+      - totalPages

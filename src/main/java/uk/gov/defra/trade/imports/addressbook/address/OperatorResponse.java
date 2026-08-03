@@ -1,5 +1,6 @@
 package uk.gov.defra.trade.imports.addressbook.address;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.util.Objects;
 import lombok.Builder;
@@ -17,21 +18,50 @@ import lombok.Builder;
  * {@code addressLine2} and {@code county} are genuinely optional and left unguarded.
  */
 @Builder
+@Schema(description = "An address in the caller's organisation-scoped address book")
 public record OperatorResponse(
-    String id,
-    String name,
-    String addressLine1,
-    String addressLine2,
-    String townOrCity,
-    String county,
-    String postcode,
-    String countryCode,
-    String phone,
-    String email,
-    String organisationId,
-    boolean deleted,
-    Instant createdAt,
-    Instant modifiedAt) {
+    @Schema(
+            description = "Opaque address identifier",
+            requiredMode = Schema.RequiredMode.REQUIRED,
+            example = "665f1c2ab3e4d51a2c9d0e77")
+        String id,
+    @Schema(description = "Display name", requiredMode = Schema.RequiredMode.REQUIRED)
+        String name,
+    @Schema(description = "First line of the postal address", requiredMode = Schema.RequiredMode.REQUIRED)
+        String addressLine1,
+    @Schema(description = "Second line of the postal address") String addressLine2,
+    @Schema(description = "Town or city", requiredMode = Schema.RequiredMode.REQUIRED)
+        String townOrCity,
+    @Schema(description = "County or region") String county,
+    @Schema(description = "Postal or ZIP code", requiredMode = Schema.RequiredMode.REQUIRED)
+        String postcode,
+    @Schema(
+            description = "ISO 3166-1 alpha-2 country code (cv-011)",
+            requiredMode = Schema.RequiredMode.REQUIRED,
+            example = "GB")
+        String countryCode,
+    @Schema(description = "Contact telephone number", requiredMode = Schema.RequiredMode.REQUIRED)
+        String phone,
+    @Schema(description = "Contact email address", requiredMode = Schema.RequiredMode.REQUIRED)
+        String email,
+    @Schema(
+            description = "Organisation that owns this address",
+            requiredMode = Schema.RequiredMode.REQUIRED)
+        String organisationId,
+    @Schema(
+            description = "True when the address has been soft-deleted (cv-016)",
+            requiredMode = Schema.RequiredMode.REQUIRED)
+        boolean deleted,
+    @Schema(
+            description = "Creation timestamp (UTC)",
+            requiredMode = Schema.RequiredMode.REQUIRED,
+            format = "date-time")
+        Instant createdAt,
+    @Schema(
+            description = "Last modification timestamp (UTC)",
+            requiredMode = Schema.RequiredMode.REQUIRED,
+            format = "date-time")
+        Instant modifiedAt) {
 
   public OperatorResponse {
     Objects.requireNonNull(id, "id");
