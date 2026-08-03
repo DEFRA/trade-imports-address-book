@@ -11,7 +11,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -37,10 +36,8 @@ import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
  */
 class AddressScopingIT extends IntegrationBase {
 
-  private static final String ORG_HEADER = "Trade-Imports-Organisation-Id";
-  private static final String ORG_A = "5a8d2b19-6f4e-4d21-9c1b-7e3f0a2d5c88";
-  private static final String ORG_B = "9c1b7e3f-0a2d-5c88-5a8d-2b196f4e4d21";
-  private static final String UNKNOWN_ID = "665f1c2ab3e4d51a2c9d0e77";
+  private static final String ORG_A = ORGANISATION_ID;
+  private static final String ORG_B = OTHER_ORG;
 
   private static final String CREATE_BODY =
       """
@@ -57,11 +54,6 @@ class AddressScopingIT extends IntegrationBase {
 
   @Autowired private OperatorRepository repository;
   @Autowired private ObjectMapper objectMapper;
-
-  @BeforeEach
-  void setUp() {
-    repository.deleteAll();
-  }
 
   private String createAsOrgA() throws Exception {
     String location =
@@ -235,17 +227,16 @@ class AddressScopingIT extends IntegrationBase {
             .andExpect(status().isNotFound())
             .andReturn();
 
-    // Identical problem — a 404 carries no existence and no deletion information. The RFC 9457
-    // `instance` echoes the caller's own request URI (the id it already put in the URL), so it is
-    // excluded: it reveals nothing about whether the resource exists elsewhere or was deleted.
-    assertThat(problemWithoutInstance(crossOrg)).isEqualTo(problemWithoutInstance(unknown));
+    // Identical problem — a 404 carries no existence and no deletion information.
+    assertThat(problemBody(crossOrg)).isEqualTo(problemBody(unknown));
+    assertThat(problemBody(crossOrg)).doesNotContainKey("instance");
+    assertThat(problemBody(unknown)).doesNotContainKey("instance");
   }
 
-  private Map<String, Object> problemWithoutInstance(MvcResult result) throws Exception {
+  private Map<String, Object> problemBody(MvcResult result) throws Exception {
     @SuppressWarnings("unchecked")
     Map<String, Object> body =
         objectMapper.readValue(result.getResponse().getContentAsString(), Map.class);
-    body.remove("instance");
     return body;
   }
 }

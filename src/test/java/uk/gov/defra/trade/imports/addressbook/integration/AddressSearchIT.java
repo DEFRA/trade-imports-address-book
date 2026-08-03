@@ -19,8 +19,6 @@ import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 
 class AddressSearchIT extends IntegrationBase {
 
-  private static final String OTHER_ORG = "9c1b7e3f-0a2d-5c88-5a8d-2b196f4e4d21";
-
   @Autowired private OperatorRepository repository;
   @Autowired private ObjectMapper objectMapper;
 

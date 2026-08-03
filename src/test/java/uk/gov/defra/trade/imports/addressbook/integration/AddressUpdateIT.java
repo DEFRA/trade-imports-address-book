@@ -1,15 +1,17 @@
 package uk.gov.defra.trade.imports.addressbook.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.MediaType;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
@@ -21,10 +23,6 @@ import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
  * return 404.
  */
 class AddressUpdateIT extends IntegrationBase {
-
-  private static final String ORG_HEADER = "Trade-Imports-Organisation-Id";
-  private static final String ORG = "5a8d2b19-6f4e-4d21-9c1b-7e3f0a2d5c88";
-  private static final String UNKNOWN_ID = "665f1c2ab3e4d51a2c9d0e77";
 
   private static final String VALID_REPLACE_BODY =
       """
@@ -41,11 +39,6 @@ class AddressUpdateIT extends IntegrationBase {
 
   @Autowired private OperatorRepository repository;
 
-  @BeforeEach
-  void setUp() {
-    repository.deleteAll();
-  }
-
   private Address saveActiveWithOptionals() {
     Address address =
         Address.builder()
@@ -58,22 +51,22 @@ class AddressUpdateIT extends IntegrationBase {
             .countryCode("GB")
             .phone("+44 1463 234567")
             .email("exports@highlandlivestock.example.com")
-            .organisationId(ORG)
+            .organisationId(ORGANISATION_ID)
             .status(AddressStatus.ACTIVE)
-            .createdAt(Instant.parse("2026-07-14T09:15:27Z"))
-            .modifiedAt(Instant.parse("2026-07-14T09:15:27Z"))
             .build();
     return repository.save(address);
   }
 
   @Test
-  void putReplacesAllFieldsAndClearsOmittedOptionals() throws Exception {
+  void put_shouldReplaceAllFieldsAndClearOmittedOptionals_whenBodyIsValid() throws Exception {
+    // Given
     Address saved = saveActiveWithOptionals();
 
+    // When / Then
     mockMvc
         .perform(
-            put("/organisation/{orgId}/addresses/{operator-id}", ORG, saved.getId())
-                .header(ORG_HEADER, ORG)
+            put("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, saved.getId())
+                .header(ORG_HEADER, ORGANISATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(VALID_REPLACE_BODY))
         .andExpect(status().isOk())
@@ -86,7 +79,7 @@ class AddressUpdateIT extends IntegrationBase {
         .andExpect(jsonPath("$.email").value("ops@lowlandcattle.example.com"))
         .andExpect(jsonPath("$.deleted").value(false));
 
-    assertThat(repository.findByIdAndOrganisationId(saved.getId(), ORG))
+    assertThat(repository.findByIdAndOrganisationId(saved.getId(), ORGANISATION_ID))
         .get()
         .satisfies(
             address -> {
@@ -100,7 +93,8 @@ class AddressUpdateIT extends IntegrationBase {
   }
 
   @Test
-  void putWithInvalidFieldsReturns400PerFieldErrorsMap() throws Exception {
+  void put_shouldReturn400PerFieldErrorsAndLeaveRowUntouched_whenBodyIsInvalid() throws Exception {
+    // Given
     Address saved = saveActiveWithOptionals();
     String body =
         """
@@ -115,10 +109,11 @@ class AddressUpdateIT extends IntegrationBase {
         }
         """;
 
+    // When / Then
     mockMvc
         .perform(
-            put("/organisation/{orgId}/addresses/{operator-id}", ORG, saved.getId())
-                .header(ORG_HEADER, ORG)
+            put("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, saved.getId())
+                .header(ORG_HEADER, ORGANISATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
         .andExpect(status().isBadRequest())
@@ -126,14 +121,24 @@ class AddressUpdateIT extends IntegrationBase {
         .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/validation-error"))
         .andExpect(jsonPath("$.errors.addressLine1").exists())
         .andExpect(jsonPath("$.errors.email").exists());
+
+    assertThat(repository.findByIdAndOrganisationId(saved.getId(), ORGANISATION_ID))
+        .get()
+        .satisfies(
+            address -> {
+              assertThat(address.getName()).isEqualTo("Highland Livestock Ltd");
+              assertThat(address.getAddressLine1()).isEqualTo("14 Drover's Way");
+              assertThat(address.getEmail()).isEqualTo("exports@highlandlivestock.example.com");
+            });
   }
 
   @Test
-  void putUnknownIdReturns404() throws Exception {
+  void put_shouldReturn404_whenIdIsUnknown() throws Exception {
+    // When / Then
     mockMvc
         .perform(
-            put("/organisation/{orgId}/addresses/{operator-id}", ORG, UNKNOWN_ID)
-                .header(ORG_HEADER, ORG)
+            put("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, UNKNOWN_ID)
+                .header(ORG_HEADER, ORGANISATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(VALID_REPLACE_BODY))
         .andExpect(status().isNotFound())
@@ -141,7 +146,8 @@ class AddressUpdateIT extends IntegrationBase {
   }
 
   @Test
-  void putOnSoftDeletedTombstoneReturns404() throws Exception {
+  void put_shouldReturn404_whenTargetIsTombstone() throws Exception {
+    // Given
     Address tombstone =
         Address.builder()
             .name("Highland Livestock Ltd")
@@ -151,43 +157,74 @@ class AddressUpdateIT extends IntegrationBase {
             .countryCode("GB")
             .phone("+44 1463 234567")
             .email("exports@highlandlivestock.example.com")
-            .organisationId(ORG)
+            .organisationId(ORGANISATION_ID)
             .status(AddressStatus.DELETED)
-            .createdAt(Instant.parse("2026-07-14T09:15:27Z"))
-            .modifiedAt(Instant.parse("2026-07-14T09:15:27Z"))
             .build();
     tombstone = repository.save(tombstone);
 
+    // When / Then
     mockMvc
         .perform(
-            put("/organisation/{orgId}/addresses/{operator-id}", ORG, tombstone.getId())
-                .header(ORG_HEADER, ORG)
+            put("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, tombstone.getId())
+                .header(ORG_HEADER, ORGANISATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(VALID_REPLACE_BODY))
-        .andExpect(status().isNotFound());
+        .andExpect(status().isNotFound())
+        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/not-found"))
+        .andExpect(jsonPath("$.status").value(404))
+        .andExpect(jsonPath("$.errors").doesNotExist());
   }
 
   @Test
-  void putBumpsModifiedAtAndPreservesCreatedAt() throws Exception {
+  void put_shouldBumpModifiedAtAndPreserveCreatedAt_whenReplaceSucceeds() throws Exception {
+    // Given
     Address saved = saveActiveWithOptionals();
     Instant createdAt = saved.getCreatedAt();
     Instant baselineModifiedAt = saved.getModifiedAt();
 
+    // When
     mockMvc
         .perform(
-            put("/organisation/{orgId}/addresses/{operator-id}", ORG, saved.getId())
-                .header(ORG_HEADER, ORG)
+            put("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, saved.getId())
+                .header(ORG_HEADER, ORGANISATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(VALID_REPLACE_BODY))
         .andExpect(status().isOk());
 
-    assertThat(repository.findByIdAndOrganisationId(saved.getId(), ORG))
+    // Then
+    assertThat(repository.findByIdAndOrganisationId(saved.getId(), ORGANISATION_ID))
         .get()
         .satisfies(
             address -> {
-              // Mongo persists Instant with millisecond precision only
               assertThat(address.getCreatedAt().toEpochMilli()).isEqualTo(createdAt.toEpochMilli());
               assertThat(address.getModifiedAt()).isAfter(baselineModifiedAt);
             });
+  }
+
+  @Test
+  void put_shouldPreventTombstoneResurrection_whenStaleSaveFollowsDelete() throws Exception {
+    // Given
+    Address saved = saveActiveWithOptionals();
+    Address stale =
+        repository.findByIdAndOrganisationId(saved.getId(), ORGANISATION_ID).orElseThrow();
+
+    // When
+    mockMvc
+        .perform(
+            delete("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, saved.getId())
+                .header(ORG_HEADER, ORGANISATION_ID))
+        .andExpect(status().isNoContent());
+
+    stale.setName("Resurrected");
+    stale.setStatus(AddressStatus.ACTIVE);
+
+    // Then
+    assertThatThrownBy(() -> repository.save(stale))
+        .isInstanceOf(OptimisticLockingFailureException.class);
+    assertThat(repository.findByIdAndOrganisationId(saved.getId(), ORGANISATION_ID))
+        .get()
+        .extracting(Address::getStatus)
+        .isEqualTo(AddressStatus.DELETED);
   }
 }

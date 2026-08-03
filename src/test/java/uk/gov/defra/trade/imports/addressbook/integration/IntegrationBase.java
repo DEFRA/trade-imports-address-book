@@ -27,6 +27,8 @@ abstract class IntegrationBase {
 
   protected static final String ORG_HEADER = "Trade-Imports-Organisation-Id";
   protected static final String ORGANISATION_ID = "5a8d2b19-6f4e-4d21-9c1b-7e3f0a2d5c88";
+  protected static final String OTHER_ORG = "9c1b7e3f-0a2d-5c88-5a8d-2b196f4e4d21";
+  protected static final String UNKNOWN_ID = "665f1c2ab3e4d51a2c9d0e77";
 
   @LocalServerPort
   int port;

@@ -14,7 +14,6 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -24,28 +23,25 @@ import org.yaml.snakeyaml.Yaml;
 import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 
 /**
- * Executable contract lock for {@code /operators} (the M1 close). Two halves:
+ * Executable contract lock for {@code /organisation/{orgId}/addresses} (the M1 close). Two halves:
  *
  * <ol>
- *   <li><b>Runtime wire behaviour</b> — real requests prove the boundary is camelCase, the tombstone
- *       is a derived {@code deleted} boolean (never an internal status enum), the list response is a
- *       top-level object (never a bare array), and 400/404 problems are
+ *   <li><b>Runtime wire behaviour</b> — MockMvc requests prove the boundary is camelCase, the
+ *       tombstone is a derived {@code deleted} boolean (never an internal status enum), the list
+ *       response is a top-level object (never a bare array), and 400/404 problems are
  *       {@code application/problem+json} carrying {@code traceId}.
  *   <li><b>Generated document lock</b> — the live {@code /v3/api-docs} is parsed and asserted to
  *       carry the whole contract surface, including the POST/PUT 400 {@code anyOf} (NOT
  *       {@code oneOf}) with both {@code ValidationProblem} and {@code Problem} registered; it is
  *       byte-equivalent to the committed {@code docs/openapi/operators.yml} (staleness gate) and
- *       surface-equivalent to the in-repo {@code docs/openapi/api-contract.locked.yaml} (the lock —
- *       the IT reads an in-repo path because {@code workareas/} is not present in a CI checkout).
+ *       compared against the in-repo {@code docs/openapi/api-contract.locked.yaml} for paths,
+ *       HTTP methods, operationIds, query/path parameter names and component schema property names.
  * </ol>
  *
  * <p>Regenerate the committed artifact with {@code mvn verify -Dopenapi.generate=true} after an
  * intentional API change; a plain build then fails until it is committed.
  */
 class OperatorComplianceIT extends IntegrationBase {
-
-  private static final String ORG_HEADER = "Trade-Imports-Organisation-Id";
-  private static final String ORGANISATION_ID = "5a8d2b19-6f4e-4d21-9c1b-7e3f0a2d5c88";
 
   private static final Path GENERATED_DOC = Path.of("docs/openapi/operators.yml");
   private static final Path LOCKED_CONTRACT = Path.of("docs/openapi/api-contract.locked.yaml");
@@ -64,11 +60,6 @@ class OperatorComplianceIT extends IntegrationBase {
       """;
 
   @Autowired private OperatorRepository repository;
-
-  @BeforeEach
-  void setUp() {
-    repository.deleteAll();
-  }
 
   // ---- runtime wire behaviour -------------------------------------------------------------
 
@@ -157,28 +148,21 @@ class OperatorComplianceIT extends IntegrationBase {
 
   @Test
   @SuppressWarnings("unchecked")
-  void apiDocsCarryTheWholeCamelCaseAndAnyOfContractSurface() {
+  void apiDocsCarryTheWholeCamelCaseAndAnyOfContractSurface() throws IOException {
     Map<String, Object> doc = fetchApiDocs();
+    Map<String, Object> locked = yaml().load(Files.readString(LOCKED_CONTRACT));
     Map<String, Object> schemas = (Map<String, Object>) nested(doc, "components", "schemas");
+    Map<String, Object> lockedSchemas =
+        (Map<String, Object>) nested(locked, "components", "schemas");
 
-    // every wire property across every schema is camelCase (no snake_case leak)
-    schemas.forEach(
-        (schemaName, schema) -> {
-          Object properties = ((Map<String, Object>) schema).get("properties");
-          if (properties instanceof Map<?, ?> props) {
-            props
-                .keySet()
-                .forEach(
-                    key ->
-                        assertThat((String) key)
-                            .as("wire property %s.%s must be camelCase", schemaName, key)
-                            .matches("[a-z][a-zA-Z0-9]*"));
-          }
-        });
+    assertSchemaPropertyNamesMatch(doc, locked);
 
     // the untyped model carries no operatorType/transporterCategory/status enum on the wire
     Map<String, Object> requestProps =
         (Map<String, Object>) nested(schemas, "AddressRequest", "properties");
+    Map<String, Object> lockedRequestProps =
+        (Map<String, Object>) nested(lockedSchemas, "AddressRequest", "properties");
+    assertThat(requestProps.keySet()).isEqualTo(lockedRequestProps.keySet());
     assertThat(requestProps).doesNotContainKeys("operatorType", "transporterCategory");
     Map<String, Object> responseProps =
         (Map<String, Object>) nested(schemas, "OperatorResponse", "properties");
@@ -199,8 +183,8 @@ class OperatorComplianceIT extends IntegrationBase {
     assertThat(schemas).containsKeys("Problem", "ValidationProblem");
 
     // POST and PUT 400 are anyOf(ValidationProblem, Problem) — NOT oneOf
-    assertAnyOfProblem(doc, "/organisation/{orgId}/addresses", "post");
-    assertAnyOfProblem(doc, "/organisation/{orgId}/addresses/{operator-id}", "put");
+    assertAnyOfProblem(doc, locked, "/organisation/{orgId}/addresses", "post");
+    assertAnyOfProblem(doc, locked, "/organisation/{orgId}/addresses/{operator-id}", "put");
   }
 
   @Test
@@ -250,10 +234,10 @@ class OperatorComplianceIT extends IntegrationBase {
         });
 
     assertSchemaPropertyNamesMatch(live, locked);
+    assertOperationParametersMatch(live, locked);
 
-    // the locked contract itself declares the anyOf 400 — the pin the whole design leans on
-    assertAnyOfProblem(locked, "/organisation/{orgId}/addresses", "post");
-    assertAnyOfProblem(locked, "/organisation/{orgId}/addresses/{operator-id}", "put");
+    assertAnyOfProblem(live, locked, "/organisation/{orgId}/addresses", "post");
+    assertAnyOfProblem(live, locked, "/organisation/{orgId}/addresses/{operator-id}", "put");
   }
 
   @Test
@@ -351,7 +335,63 @@ class OperatorComplianceIT extends IntegrationBase {
   }
 
   @SuppressWarnings("unchecked")
-  private static void assertAnyOfProblem(Map<String, Object> doc, String path, String method) {
+  private static void assertOperationParametersMatch(
+      Map<String, Object> live, Map<String, Object> locked) {
+    Map<String, Object> livePaths = (Map<String, Object>) live.get("paths");
+    Map<String, Object> lockedPaths = (Map<String, Object>) locked.get("paths");
+    lockedPaths.forEach(
+        (path, lockedOps) -> {
+          Map<String, Object> liveOps = (Map<String, Object>) livePaths.get(path);
+          Map<String, Object> lockedOpMap = (Map<String, Object>) lockedOps;
+          httpMethods(lockedOpMap)
+              .forEach(
+                  method -> {
+                    List<Map<String, Object>> liveParams =
+                        parameterNames(liveOps.get(method));
+                    List<Map<String, Object>> lockedParams =
+                        parameterNames(lockedOpMap.get(method));
+                    assertThat(liveParams)
+                        .as("parameters for %s %s must match the locked contract", method, path)
+                        .isEqualTo(lockedParams);
+                  });
+        });
+  }
+
+  @SuppressWarnings("unchecked")
+  private static List<Map<String, Object>> parameterNames(Object operation) {
+    if (!(operation instanceof Map<?, ?> operationMap)) {
+      return List.of();
+    }
+    Object parameters = operationMap.get("parameters");
+    if (!(parameters instanceof List<?> parameterList)) {
+      return List.of();
+    }
+    return parameterList.stream()
+        .map(
+            parameter -> {
+              Map<String, Object> map = (Map<String, Object>) parameter;
+              return Map.<String, Object>of("name", map.get("name"), "in", map.get("in"));
+            })
+        .toList();
+  }
+
+  @SuppressWarnings("unchecked")
+  private static void assertAnyOfProblem(
+      Map<String, Object> live, Map<String, Object> locked, String path, String method) {
+    List<String> liveRefs = anyOfBranchRefs(live, path, method);
+    List<String> lockedRefs = anyOfBranchRefs(locked, path, method);
+    assertThat(liveRefs)
+        .as("%s %s 400 anyOf branch refs must match the locked contract", method, path)
+        .isEqualTo(lockedRefs);
+    assertThat(liveRefs)
+        .as("%s %s 400 anyOf must reference ValidationProblem and Problem", method, path)
+        .anyMatch(ref -> ref.endsWith("/ValidationProblem"))
+        .anyMatch(ref -> ref.endsWith("/Problem"));
+  }
+
+  @SuppressWarnings("unchecked")
+  private static List<String> anyOfBranchRefs(
+      Map<String, Object> doc, String path, String method) {
     Map<String, Object> schema =
         (Map<String, Object>)
             nested(
@@ -370,10 +410,7 @@ class OperatorComplianceIT extends IntegrationBase {
         .doesNotContainKey("oneOf");
     List<Map<String, Object>> branches = (List<Map<String, Object>>) schema.get("anyOf");
     assertThat(branches).hasSize(2);
-    assertThat(branches.stream().map(b -> (String) b.get("$ref")).toList())
-        .as("%s %s 400 anyOf must reference ValidationProblem and Problem", method, path)
-        .anyMatch(ref -> ref != null && ref.endsWith("/ValidationProblem"))
-        .anyMatch(ref -> ref != null && ref.endsWith("/Problem"));
+    return branches.stream().map(b -> (String) b.get("$ref")).sorted().toList();
   }
 
   @SuppressWarnings("unchecked")
