@@ -19,7 +19,7 @@ public interface OperatorMapper {
   /**
    * Maps a persisted {@link Address} onto its wire response, deriving {@code deleted} from status.
    */
-  @BeanMapping(ignoreUnmappedSourceProperties = "status")
+  @BeanMapping(ignoreUnmappedSourceProperties = {"status", "version"})
   @Mapping(target = "deleted", expression = "java(address.getStatus() == AddressStatus.DELETED)")
   OperatorResponse toResponse(Address address);
 
