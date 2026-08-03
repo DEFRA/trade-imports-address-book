@@ -66,8 +66,9 @@ class OperatorListIT extends IntegrationBase {
   private void seedActiveWithDistinctCreatedAt(int count) {
     Instant base = Instant.parse("2026-01-01T00:00:00Z");
     for (int i = 0; i < count; i++) {
+      // Higher suffix ⇒ newer createdAt so list (createdAt DESC) returns Address {count-1} first.
       saveWithCreatedAt(
-          ORGANISATION_ID, AddressStatus.ACTIVE, "Address " + i, base.plusSeconds(count - i));
+          ORGANISATION_ID, AddressStatus.ACTIVE, "Address " + i, base.plusSeconds(i + 1L));
     }
   }
 
