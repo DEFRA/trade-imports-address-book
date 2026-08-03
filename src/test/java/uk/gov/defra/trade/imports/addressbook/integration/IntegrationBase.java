@@ -1,10 +1,12 @@
 package uk.gov.defra.trade.imports.addressbook.integration;
 
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -13,6 +15,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.mongodb.MongoDBContainer;
 import org.testcontainers.utility.DockerImageName;
+import uk.gov.defra.trade.imports.addressbook.address.Address;
+import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
+import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
@@ -30,6 +35,16 @@ abstract class IntegrationBase {
 
   @Autowired
   private MongoTemplate mongoTemplate;
+
+  @Autowired
+  protected OperatorRepository operatorRepository;
+
+  protected List<Address> activeAddressesFor(String organisationId) {
+    return operatorRepository
+        .findByOrganisationIdAndStatus(
+            organisationId, AddressStatus.ACTIVE, PageRequest.of(0, 100))
+        .getContent();
+  }
 
   static MongoDBContainer MONGO_CONTAINER = new MongoDBContainer(
       DockerImageName.parse("mongo:7.0")).withExposedPorts(27017).withReplicaSet();

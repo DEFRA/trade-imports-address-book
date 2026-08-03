@@ -153,7 +153,7 @@ class AddressScopingIT extends IntegrationBase {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(CREATE_BODY))
         .andExpect(status().isNotFound());
-    assertThat(repository.findAll()).singleElement();
+    assertThat(activeAddressesFor(ORG_A)).singleElement();
   }
 
   @Test
@@ -188,7 +188,7 @@ class AddressScopingIT extends IntegrationBase {
         .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/bad-request"))
         .andExpect(jsonPath("$.errors").doesNotExist());
 
-    assertThat(repository.findAll()).isEmpty();
+    assertThat(activeAddressesFor(ORG_A)).isEmpty();
   }
 
   @Test

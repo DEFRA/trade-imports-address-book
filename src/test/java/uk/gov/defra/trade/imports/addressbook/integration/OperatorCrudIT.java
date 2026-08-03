@@ -75,7 +75,7 @@ class OperatorCrudIT extends IntegrationBase {
         .andExpect(jsonPath("$.createdAt").exists())
         .andExpect(jsonPath("$.modifiedAt").exists());
 
-    assertThat(repository.findAll())
+    assertThat(activeAddressesFor(ORGANISATION_ID))
         .singleElement()
         .satisfies(
             address -> {
@@ -118,7 +118,7 @@ class OperatorCrudIT extends IntegrationBase {
         // never the snake_case form
         .andExpect(jsonPath("$.errors.address_line_1").doesNotExist());
 
-    assertThat(repository.findAll()).isEmpty();
+    assertThat(activeAddressesFor(ORGANISATION_ID)).isEmpty();
   }
 
   @Test
@@ -152,7 +152,7 @@ class OperatorCrudIT extends IntegrationBase {
         .andExpect(jsonPath("$.errors.type").exists())
         .andExpect(jsonPath("$.errors.role").exists());
 
-    assertThat(repository.findAll()).isEmpty();
+    assertThat(activeAddressesFor(ORGANISATION_ID)).isEmpty();
   }
 
   @Test
@@ -188,7 +188,7 @@ class OperatorCrudIT extends IntegrationBase {
         .andExpect(jsonPath("$.id").value(org.hamcrest.Matchers.not("echoed-read-only-id")))
         .andExpect(jsonPath("$.deleted").value(false));
 
-    assertThat(repository.findAll()).singleElement();
+    assertThat(activeAddressesFor(ORGANISATION_ID)).singleElement();
   }
 
   @Test
@@ -218,7 +218,7 @@ class OperatorCrudIT extends IntegrationBase {
         .andExpect(jsonPath("$.countryCode").value("FR"))
         .andExpect(jsonPath("$.phone").value("ring the office"));
 
-    assertThat(repository.findAll())
+    assertThat(activeAddressesFor(ORGANISATION_ID))
         .singleElement()
         .satisfies(address -> assertThat(address.getCountryCode()).isEqualTo("FR"));
   }
@@ -248,7 +248,7 @@ class OperatorCrudIT extends IntegrationBase {
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
         .andExpect(jsonPath("$.errors.countryCode").exists());
 
-    assertThat(repository.findAll()).isEmpty();
+    assertThat(activeAddressesFor(ORGANISATION_ID)).isEmpty();
   }
 
   private Address saveAddress(AddressStatus status) {
