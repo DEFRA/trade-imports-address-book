@@ -1,20 +1,17 @@
 package uk.gov.defra.trade.imports.addressbook.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.micrometer.core.instrument.Measurement;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Meter.Id;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Statistic;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.Arrays;
 import java.util.Collections;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -23,70 +20,43 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class EmfMetricsPublisherTest {
 
-    private static final String TEST_NAMESPACE = "test-namespace";
+  private static final String TEST_NAMESPACE = "test-namespace";
 
-    @Mock
-    private MeterRegistry meterRegistry;
+  @Mock private MeterRegistry meterRegistry;
 
-    private EmfMetricsPublisher emfMetricsPublisher;
+  @Test
+  void publishMetrics_shouldHandleEmptyMeterRegistry() {
+    when(meterRegistry.getMeters()).thenReturn(Collections.emptyList());
 
-    @BeforeEach
-    void setUp() {
-        emfMetricsPublisher = new EmfMetricsPublisher(TEST_NAMESPACE, meterRegistry);
-    }
+    new EmfMetricsPublisher(TEST_NAMESPACE, meterRegistry).publishMetrics();
 
-    @Test
-    void constructor_shouldInitializeWithNamespaceAndRegistry() {
-        // Then
-        assertThat(emfMetricsPublisher).isNotNull();
-    }
+    org.mockito.Mockito.verify(meterRegistry).getMeters();
+  }
 
-    @Test
-    void publishMetrics_shouldHandleEmptyMeterRegistry() {
-        // Given
-        when(meterRegistry.getMeters()).thenReturn(Collections.emptyList());
+  @Test
+  void publishMetrics_shouldSkipNonFiniteValues() {
+    Meter mockMeter = mock(Meter.class);
+    Id meterId = mock(Id.class);
+    Measurement finite = new Measurement(() -> 42.0, Statistic.COUNT);
+    Measurement nonFinite = new Measurement(() -> Double.NaN, Statistic.MAX);
 
-        // When
-        emfMetricsPublisher.publishMetrics();
+    when(meterId.getName()).thenReturn("test.metric");
+    when(mockMeter.getId()).thenReturn(meterId);
+    when(mockMeter.measure()).thenReturn(Arrays.asList(finite, nonFinite));
+    when(meterRegistry.getMeters()).thenReturn(Arrays.asList(mockMeter));
 
-        // Then
-        verify(meterRegistry, times(2)).getMeters();
-    }
+    new EmfMetricsPublisher(TEST_NAMESPACE, meterRegistry).publishMetrics();
 
-    @Test
-    void publishMetrics_shouldIterateOverAllMeters() {
-        // Given
-        SimpleMeterRegistry realRegistry = new SimpleMeterRegistry();
-        realRegistry.counter("test.counter").increment();
-        realRegistry.timer("test.timer").record(() -> {});
+    org.mockito.Mockito.verify(mockMeter).measure();
+  }
 
-        EmfMetricsPublisher publisher = new EmfMetricsPublisher(TEST_NAMESPACE, realRegistry);
+  @Test
+  void publishMetrics_shouldNotRemoveMetersFromRegistry() {
+    SimpleMeterRegistry realRegistry = new SimpleMeterRegistry();
+    realRegistry.counter("controller.test").increment();
 
-        // When
-        publisher.publishMetrics();
+    new EmfMetricsPublisher(TEST_NAMESPACE, realRegistry).publishMetrics();
 
-        // Then
-        assertThat(realRegistry.getMeters()).isNotEmpty();
-        assertThat(realRegistry.getMeters()).hasSize(2);
-    }
-
-    @Test
-    void publishMetrics_shouldCollectMetricsFromMeter() {
-        // Given
-        Meter mockMeter = mock(Meter.class);
-        Id meterId = mock(Id.class);
-        Measurement measurement = new Measurement(() -> 42.0, null);
-
-        when(meterId.getName()).thenReturn("test.metric");
-        when(mockMeter.getId()).thenReturn(meterId);
-        when(mockMeter.measure()).thenReturn(Arrays.asList(measurement));
-        when(meterRegistry.getMeters()).thenReturn(Arrays.asList(mockMeter));
-
-        // When
-        emfMetricsPublisher.publishMetrics();
-
-        // Then
-        verify(meterRegistry, times(2)).getMeters();
-        verify(mockMeter, times(1)).measure();
-    }
+    assertThat(realRegistry.getMeters()).hasSize(1);
+  }
 }

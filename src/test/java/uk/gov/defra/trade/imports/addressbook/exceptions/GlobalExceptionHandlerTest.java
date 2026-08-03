@@ -21,6 +21,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 class GlobalExceptionHandlerTest {
 
@@ -161,6 +162,20 @@ class GlobalExceptionHandlerTest {
     assertThat(body.getTitle()).isEqualTo("Internal Server Error");
     assertThat(body.getDetail())
         .isEqualTo("An unexpected error occurred. Please try again later.");
+  }
+
+  @Test
+  void typeMismatch_returns400BadRequestProblemNamingTheParameter() throws NoSuchMethodException {
+    Method method = GlobalExceptionHandlerTest.class.getDeclaredMethod("setUp");
+    MethodParameter parameter = new MethodParameter(method, -1);
+    MethodArgumentTypeMismatchException ex =
+        new MethodArgumentTypeMismatchException("abc", Integer.class, "page", parameter, null);
+
+    ResponseEntity<ProblemDetail> response = exceptionHandler.handleTypeMismatch(ex);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    assertThat(response.getBody().getDetail()).contains("page");
+    assertThat(response.getBody().getProperties()).doesNotContainKey("errors");
   }
 
   @Test

@@ -1,7 +1,6 @@
 package uk.gov.defra.trade.imports.addressbook.address;
 
 import java.util.List;
-import java.util.Objects;
 
 /**
  * Top-level list response (rest-api.md — never a bare array). Wire fields are {@code items},
@@ -16,6 +15,6 @@ public record OperatorPageResponse(
     List<OperatorResponse> items, int page, int pageSize, int totalItems, int totalPages) {
 
   public OperatorPageResponse {
-    Objects.requireNonNull(items, "items");
+    items = List.copyOf(items);
   }
 }

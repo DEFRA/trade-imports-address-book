@@ -1,5 +1,7 @@
 package uk.gov.defra.trade.imports.addressbook.configuration;
 
+import io.swagger.v3.oas.annotations.info.Info;
+import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.core.jackson.ModelResolver;
 import org.springframework.context.annotation.Bean;
@@ -14,6 +16,12 @@ import org.springframework.context.annotation.Configuration;
  * too.
  */
 @Configuration
+@OpenAPIDefinition(
+    info =
+        @Info(
+            title = "trade-imports-address-book",
+            version = "1.0.0",
+            description = "Org-scoped address book API for EUDP Live Animals (EUDPA-58)"))
 public class OpenApiConfig {
 
   @Bean

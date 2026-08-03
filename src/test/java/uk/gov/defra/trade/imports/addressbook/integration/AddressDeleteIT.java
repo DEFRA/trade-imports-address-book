@@ -63,9 +63,10 @@ class AddressDeleteIT extends IntegrationBase {
                 .header(ORG_HEADER, ORG))
         .andExpect(status().isNoContent());
 
-    assertThat(repository.findById(saved.getId()))
+    assertThat(repository.findByIdAndOrganisationId(saved.getId(), ORG))
         .get()
-        .satisfies(address -> assertThat(address.getStatus()).isEqualTo(AddressStatus.DELETED));
+        .extracting(Address::getStatus)
+        .isEqualTo(AddressStatus.DELETED);
   }
 
   @Test
@@ -100,14 +101,15 @@ class AddressDeleteIT extends IntegrationBase {
         .perform(
             delete("/organisation/{orgId}/addresses/{operator-id}", ORG, id).header(ORG_HEADER, ORG))
         .andExpect(status().isNoContent());
-    Instant modifiedAtAfterFirstDelete = repository.findById(id).orElseThrow().getModifiedAt();
+    Instant modifiedAtAfterFirstDelete =
+        repository.findByIdAndOrganisationId(id, ORG).orElseThrow().getModifiedAt();
 
     mockMvc
         .perform(
             delete("/organisation/{orgId}/addresses/{operator-id}", ORG, id).header(ORG_HEADER, ORG))
         .andExpect(status().isNoContent());
 
-    assertThat(repository.findById(id))
+    assertThat(repository.findByIdAndOrganisationId(id, ORG))
         .get()
         .satisfies(
             address -> {
@@ -129,7 +131,7 @@ class AddressDeleteIT extends IntegrationBase {
   }
 
   @Test
-  void deleteCrossOrgIdReturns404AndLeavesAddressUntouched() throws Exception {
+  void deleteCrossOrgPathWithMatchingHeaderReturns404AndLeavesAddressUntouched() throws Exception {
     Address saved = saveActive();
 
     mockMvc
@@ -138,8 +140,25 @@ class AddressDeleteIT extends IntegrationBase {
                 .header(ORG_HEADER, OTHER_ORG))
         .andExpect(status().isNotFound());
 
-    assertThat(repository.findById(saved.getId()))
+    assertThat(repository.findByIdAndOrganisationId(saved.getId(), ORG))
         .get()
-        .satisfies(address -> assertThat(address.getStatus()).isEqualTo(AddressStatus.ACTIVE));
+        .extracting(Address::getStatus)
+        .isEqualTo(AddressStatus.ACTIVE);
+  }
+
+  @Test
+  void deleteWithHeaderOrgMismatchingPathReturns404() throws Exception {
+    Address saved = saveActive();
+
+    mockMvc
+        .perform(
+            delete("/organisation/{orgId}/addresses/{operator-id}", ORG, saved.getId())
+                .header(ORG_HEADER, OTHER_ORG))
+        .andExpect(status().isNotFound());
+
+    assertThat(repository.findByIdAndOrganisationId(saved.getId(), ORG))
+        .get()
+        .extracting(Address::getStatus)
+        .isEqualTo(AddressStatus.ACTIVE);
   }
 }

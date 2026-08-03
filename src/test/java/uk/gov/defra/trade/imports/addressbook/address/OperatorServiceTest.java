@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.micrometer.core.instrument.MeterRegistry;
@@ -12,7 +14,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -247,6 +248,7 @@ class OperatorServiceTest {
 
     service.delete("665f1c2ab3e4d51a2c9d0e77", ORG);
 
+    verify(repository, never()).save(any());
     assertThat(tombstone.getStatus()).isEqualTo(AddressStatus.DELETED);
     assertThat(tombstone.getModifiedAt()).isEqualTo(originalModifiedAt);
   }
@@ -336,40 +338,37 @@ class OperatorServiceTest {
   @Test
   void listWithQueryUsesTheSearchRepository() {
     when(repository.searchByQuery(
-            eq(ORG), eq(partialMatchRegex("farm")), any(Pageable.class)))
+            eq(ORG), eq(AddressStatus.ACTIVE), eq(".*\\Qfarm\\E.*"), any(Pageable.class)))
         .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
 
     service.list(ORG, 1, "farm", null);
 
     org.mockito.Mockito.verify(repository)
-        .searchByQuery(eq(ORG), eq(partialMatchRegex("farm")), any(Pageable.class));
+        .searchByQuery(eq(ORG), eq(AddressStatus.ACTIVE), eq(".*\\Qfarm\\E.*"), any(Pageable.class));
   }
 
   @Test
   void listWithCountryCodeUsesTheCountrySearchRepository() {
-    when(repository.searchByCountryCode(eq(ORG), eq("FR"), any(Pageable.class)))
+    when(repository.searchByCountryCode(
+            eq(ORG), eq(AddressStatus.ACTIVE), eq("FR"), any(Pageable.class)))
         .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
 
     service.list(ORG, 1, null, "FR");
 
     org.mockito.Mockito.verify(repository)
-        .searchByCountryCode(eq(ORG), eq("FR"), any(Pageable.class));
+        .searchByCountryCode(eq(ORG), eq(AddressStatus.ACTIVE), eq("FR"), any(Pageable.class));
   }
 
   @Test
   void listWithQueryAndCountryCodeUsesTheCombinedSearchRepository() {
     when(repository.searchByQueryAndCountryCode(
-            eq(ORG), eq(partialMatchRegex("France")), eq("FR"), any(Pageable.class)))
+            eq(ORG), eq(AddressStatus.ACTIVE), eq(".*\\QFrance\\E.*"), eq("FR"), any(Pageable.class)))
         .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
 
     service.list(ORG, 1, "France", "FR");
 
     org.mockito.Mockito.verify(repository)
         .searchByQueryAndCountryCode(
-            eq(ORG), eq(partialMatchRegex("France")), eq("FR"), any(Pageable.class));
-  }
-
-  private static String partialMatchRegex(String term) {
-    return ".*" + Pattern.quote(term.trim()) + ".*";
+            eq(ORG), eq(AddressStatus.ACTIVE), eq(".*\\QFrance\\E.*"), eq("FR"), any(Pageable.class));
   }
 }

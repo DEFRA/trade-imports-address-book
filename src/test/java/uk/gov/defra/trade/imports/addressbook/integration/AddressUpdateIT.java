@@ -81,14 +81,20 @@ class AddressUpdateIT extends IntegrationBase {
         .andExpect(jsonPath("$.addressLine1").value("2 Market Street"))
         .andExpect(jsonPath("$.townOrCity").value("Perth"))
         .andExpect(jsonPath("$.countryCode").value("IE"))
+        .andExpect(jsonPath("$.postcode").value("PH1 5AA"))
+        .andExpect(jsonPath("$.phone").value("+44 1738 111222"))
+        .andExpect(jsonPath("$.email").value("ops@lowlandcattle.example.com"))
         .andExpect(jsonPath("$.deleted").value(false));
 
-    assertThat(repository.findById(saved.getId()))
+    assertThat(repository.findByIdAndOrganisationId(saved.getId(), ORG))
         .get()
         .satisfies(
             address -> {
               assertThat(address.getAddressLine2()).isNull();
               assertThat(address.getCounty()).isNull();
+              assertThat(address.getPostcode()).isEqualTo("PH1 5AA");
+              assertThat(address.getPhone()).isEqualTo("+44 1738 111222");
+              assertThat(address.getEmail()).isEqualTo("ops@lowlandcattle.example.com");
               assertThat(address.getName()).isEqualTo("Lowland Cattle Co");
             });
   }
@@ -175,7 +181,7 @@ class AddressUpdateIT extends IntegrationBase {
                 .content(VALID_REPLACE_BODY))
         .andExpect(status().isOk());
 
-    assertThat(repository.findById(saved.getId()))
+    assertThat(repository.findByIdAndOrganisationId(saved.getId(), ORG))
         .get()
         .satisfies(
             address -> {

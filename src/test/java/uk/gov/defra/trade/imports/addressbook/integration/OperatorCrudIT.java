@@ -343,7 +343,7 @@ class OperatorCrudIT extends IntegrationBase {
         .andExpect(jsonPath("$.organisationId").value(ORGANISATION_ID))
         .andExpect(jsonPath("$.deleted").value(false));
 
-    assertThat(repository.findById(saved.getId()))
+    assertThat(repository.findByIdAndOrganisationId(saved.getId(), ORGANISATION_ID))
         .get()
         .satisfies(
             address -> {
@@ -368,7 +368,7 @@ class OperatorCrudIT extends IntegrationBase {
                 .content(UPDATE_BODY))
         .andExpect(status().isOk());
 
-    assertThat(repository.findById(saved.getId()))
+    assertThat(repository.findByIdAndOrganisationId(saved.getId(), ORGANISATION_ID))
         .get()
         .satisfies(address -> assertThat(address.getCounty()).isNull());
   }
@@ -437,8 +437,9 @@ class OperatorCrudIT extends IntegrationBase {
     mockMvc
         .perform(delete("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, id).header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isNoContent());
-    assertThat(repository.findById(id)).isPresent();
-    Instant modifiedAtAfterDelete = repository.findById(id).orElseThrow().getModifiedAt();
+    assertThat(repository.findByIdAndOrganisationId(id, ORGANISATION_ID)).isPresent();
+    Instant modifiedAtAfterDelete =
+        repository.findByIdAndOrganisationId(id, ORGANISATION_ID).orElseThrow().getModifiedAt();
 
     // get -> the deleted tombstone is still fetchable (EUDPA-293.AC2)
     mockMvc
@@ -460,7 +461,7 @@ class OperatorCrudIT extends IntegrationBase {
     mockMvc
         .perform(delete("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, id).header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isNoContent());
-    assertThat(repository.findById(id))
+    assertThat(repository.findByIdAndOrganisationId(id, ORGANISATION_ID))
         .get()
         .satisfies(
             address -> {
@@ -493,7 +494,7 @@ class OperatorCrudIT extends IntegrationBase {
         .andExpect(status().isNotFound());
 
     // the address remains untouched under its owning organisation
-    assertThat(repository.findById(saved.getId()))
+    assertThat(repository.findByIdAndOrganisationId(saved.getId(), ORGANISATION_ID))
         .get()
         .satisfies(address -> assertThat(address.getStatus()).isEqualTo(AddressStatus.ACTIVE));
   }

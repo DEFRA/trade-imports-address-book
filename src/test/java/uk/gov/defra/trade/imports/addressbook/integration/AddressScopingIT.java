@@ -140,7 +140,7 @@ class AddressScopingIT extends IntegrationBase {
         .perform(
             delete("/organisation/{orgId}/addresses/{operator-id}", ORG_A, id).header(ORG_HEADER, ORG_B))
         .andExpect(status().isNotFound());
-    assertThat(repository.findById(id))
+    assertThat(repository.findByIdAndOrganisationId(id, ORG_A))
         .get()
         .extracting("status")
         .isEqualTo(AddressStatus.ACTIVE);
@@ -196,7 +196,7 @@ class AddressScopingIT extends IntegrationBase {
     String id = createAsOrgA();
 
     // organisationId is stamped from the trusted identity, never the body (cv-010)
-    assertThat(repository.findById(id))
+    assertThat(repository.findByIdAndOrganisationId(id, ORG_A))
         .get()
         .satisfies(address -> assertThat(address.getOrganisationId()).isEqualTo(ORG_A));
 

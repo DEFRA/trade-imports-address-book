@@ -65,7 +65,10 @@ public class OperatorService {
     }
 
     Pageable pageable =
-        PageRequest.of(page - 1, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+        PageRequest.of(
+            page - 1,
+            pageSize,
+            Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id")));
 
     Timer.Sample sample = Timer.start(meterRegistry);
     try {
@@ -91,14 +94,16 @@ public class OperatorService {
 
     if (hasQuery && hasCountryCode) {
       return repository.searchByQueryAndCountryCode(
-          organisationId, toPartialMatchRegex(q), countryCode.trim(), pageable);
+          organisationId, AddressStatus.ACTIVE, toPartialMatchRegex(q), countryCode.trim(), pageable);
     }
 
     if (hasQuery) {
-      return repository.searchByQuery(organisationId, toPartialMatchRegex(q), pageable);
+      return repository.searchByQuery(
+          organisationId, AddressStatus.ACTIVE, toPartialMatchRegex(q), pageable);
     }
 
-    return repository.searchByCountryCode(organisationId, countryCode.trim(), pageable);
+    return repository.searchByCountryCode(
+        organisationId, AddressStatus.ACTIVE, countryCode.trim(), pageable);
   }
 
   private static String toPartialMatchRegex(String q) {

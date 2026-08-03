@@ -1,66 +1,57 @@
 package uk.gov.defra.trade.imports.addressbook.filter;
 
-import jakarta.servlet.*;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
-
-import java.io.IOException;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Servlet filter that populates MDC (Mapped Diagnostic Context) with request tracing information
- * for ECS (Elastic Common Schema) structured logging.
- *
- * Runs at HIGHEST_PRECEDENCE to ensure MDC is populated before any other filters or interceptors.
+ * Populates MDC with request tracing metadata for ECS structured logging.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
-public class RequestTracingFilter implements Filter {
+@Slf4j
+public class RequestTracingFilter extends OncePerRequestFilter {
 
-    
-    private static final String MDC_TRACE_ID = "trace.id";
-    private static final String MDC_HTTP_METHOD = "http.request.method";
-    private static final String MDC_HTTP_STATUS = "http.response.status_code";
-    private static final String MDC_URL_FULL = "url.full";
+  private static final String MDC_TRACE_ID = "trace.id";
+  private static final String MDC_HTTP_METHOD = "http.request.method";
+  private static final String MDC_URL_FULL = "url.full";
 
-    @Value("${cdp.tracing.header-name}")
-    private String header;
-    
-    @Override
-    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
-            throws IOException, ServletException {
+  private final String header;
 
-        if (!(request instanceof HttpServletRequest httpRequest)) {
-            chain.doFilter(request, response);
-            return;
-        }
+  RequestTracingFilter(@Value("${cdp.tracing.header-name}") String header) {
+    this.header = header;
+  }
 
-        try {
-            // Extract trace ID from CDP request header (leave empty if not present)
-            String traceId = httpRequest.getHeader(header);
-            if (traceId != null && !traceId.isBlank()) {
-                MDC.put(MDC_TRACE_ID, traceId);
-            }
+  @Override
+  protected void doFilterInternal(
+      HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+      throws ServletException, IOException {
+    try {
+      String traceId = request.getHeader(header);
+      if (traceId != null && !traceId.isBlank()) {
+        MDC.put(MDC_TRACE_ID, traceId);
+      }
+      MDC.put(MDC_HTTP_METHOD, request.getMethod());
+      MDC.put(MDC_URL_FULL, request.getRequestURL().toString());
 
-            // Populate request metadata
-            MDC.put(MDC_HTTP_METHOD, httpRequest.getMethod());
-            MDC.put(MDC_URL_FULL, httpRequest.getRequestURL().toString());
+      chain.doFilter(request, response);
 
-            // Execute filter chain
-            chain.doFilter(request, response);
-
-            // Capture response status after chain completes
-            if (response instanceof HttpServletResponse httpResponse) {
-                MDC.put(MDC_HTTP_STATUS, String.valueOf(httpResponse.getStatus()));
-            }
-
-        } finally {
-            // Critical: Clear MDC to prevent data leakage across requests in thread pool
-            MDC.clear();
-        }
+      log.debug(
+          "request completed method={} url={} status={}",
+          request.getMethod(),
+          request.getRequestURL(),
+          response.getStatus());
+    } finally {
+      MDC.clear();
     }
+  }
 }

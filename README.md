@@ -80,6 +80,16 @@ mvn spring-boot:run
 Or use the dev Dockerfile stage for hot reload against a bind-mounted `src/` tree — see
 [docker/dev-run.sh](docker/dev-run.sh).
 
+## Identity and trust boundary
+
+`Trade-Imports-Organisation-Id` is the tenant key for every operation. The service expects the
+**CDP ingress or calling BFF** to strip any client-supplied copy and set this header from the
+authenticated session. Direct callers that can reach the service without that protection must not
+be exposed in production.
+
+The filter rejects missing, blank or malformed header values with **400**, and returns **404** when
+the header value does not match the path `{orgId}` (no cross-org existence disclosure).
+
 ## API overview
 
 All routes under `/organisation/{orgId}/addresses` require the trusted identity header

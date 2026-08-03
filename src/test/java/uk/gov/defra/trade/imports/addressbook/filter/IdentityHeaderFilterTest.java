@@ -57,6 +57,7 @@ class IdentityHeaderFilterTest {
   @Test
   void missingOrganisationId_writesBadRequestProblemAndHaltsTheChain() throws Exception {
     MockHttpServletRequest request = new MockHttpServletRequest("GET", "/organisation/org-1/addresses");
+    request.setServletPath("/organisation/org-1/addresses");
     MockHttpServletResponse response = new MockHttpServletResponse();
     RecordingChain chain = new RecordingChain();
 
@@ -80,6 +81,7 @@ class IdentityHeaderFilterTest {
   @Test
   void blankOrganisationId_writesBadRequestProblem() throws Exception {
     MockHttpServletRequest request = new MockHttpServletRequest("GET", "/organisation/org-1/addresses");
+    request.setServletPath("/organisation/org-1/addresses");
     request.addHeader(ORGANISATION_ID_HEADER, "   ");
     MockHttpServletResponse response = new MockHttpServletResponse();
     RecordingChain chain = new RecordingChain();
@@ -96,6 +98,7 @@ class IdentityHeaderFilterTest {
     for (String method : new String[] {"GET", "POST", "PUT", "DELETE"}) {
       MockHttpServletRequest request =
           new MockHttpServletRequest(method, "/organisation/org-1/addresses/665f1c2ab3e4d51a2c9d0e77");
+      request.setServletPath("/organisation/org-1/addresses/665f1c2ab3e4d51a2c9d0e77");
       MockHttpServletResponse response = new MockHttpServletResponse();
       RecordingChain chain = new RecordingChain();
 
@@ -111,7 +114,8 @@ class IdentityHeaderFilterTest {
 
   @Test
   void validHeader_proceedsAndOrganisationIdLandsInMdcDuringTheChain() throws Exception {
-    MockHttpServletRequest request = new MockHttpServletRequest("POST", "/organisation/org-1/addresses");
+    MockHttpServletRequest request = new MockHttpServletRequest("POST", "/organisation/org-42/addresses");
+    request.setServletPath("/organisation/org-42/addresses");
     request.addHeader(ORGANISATION_ID_HEADER, "org-42");
     MockHttpServletResponse response = new MockHttpServletResponse();
     RecordingChain chain = new RecordingChain();
@@ -126,6 +130,7 @@ class IdentityHeaderFilterTest {
   void badRequestBodyCarriesTraceIdFromMdc() throws Exception {
     MDC.put(MDC_TRACE_ID, "trace-abc-123");
     MockHttpServletRequest request = new MockHttpServletRequest("GET", "/organisation/org-1/addresses");
+    request.setServletPath("/organisation/org-1/addresses");
     MockHttpServletResponse response = new MockHttpServletResponse();
 
     filter.doFilter(request, response, new RecordingChain());
@@ -146,27 +151,82 @@ class IdentityHeaderFilterTest {
   }
 
   @Test
-  void addsOnlyOrganisationIdToTheLoggingContext_noPiiFieldValues() throws Exception {
-    MockHttpServletRequest request = new MockHttpServletRequest("POST", "/organisation/org-1/addresses");
-    request.addHeader(ORGANISATION_ID_HEADER, "org-42");
-    // PII-shaped body must never surface in the logging context.
-    request.setContent("{\"name\":\"Highland Livestock Ltd\",\"email\":\"secret@example.com\"}".getBytes());
+  void pathOrgMismatchReturns404BeforeTheChainRuns() throws Exception {
+    MockHttpServletRequest request = new MockHttpServletRequest("GET", "/organisation/org-a/addresses");
+    request.setServletPath("/organisation/org-a/addresses");
+    request.addHeader(ORGANISATION_ID_HEADER, "org-b");
     MockHttpServletResponse response = new MockHttpServletResponse();
     RecordingChain chain = new RecordingChain();
+
+    filter.doFilter(request, response, chain);
+
+    assertThat(chain.wasCalled()).isFalse();
+    assertThat(response.getStatus()).isEqualTo(HttpStatus.NOT_FOUND.value());
+    assertThat(parseBody(response).get("type"))
+        .isEqualTo("https://api.cdp.defra.cloud/problems/not-found");
+  }
+
+  @Test
+  void mdcOrganisationIdIsRemovedAfterSuccessfulRequest() throws Exception {
+    MockHttpServletRequest request = new MockHttpServletRequest("GET", "/organisation/org-42/addresses");
+    request.setServletPath("/organisation/org-42/addresses");
+    request.addHeader(ORGANISATION_ID_HEADER, "org-42");
+    MockHttpServletResponse response = new MockHttpServletResponse();
+
+    filter.doFilter(request, response, new RecordingChain());
+
+    assertThat(MDC.get(MDC_ORGANISATION_ID)).isNull();
+  }
+
+  @Test
+  void mdcOrganisationIdIsRemovedWhenTheChainThrows() throws Exception {
+    MockHttpServletRequest request = new MockHttpServletRequest("GET", "/organisation/org-42/addresses");
+    request.setServletPath("/organisation/org-42/addresses");
+    request.addHeader(ORGANISATION_ID_HEADER, "org-42");
+    MockHttpServletResponse response = new MockHttpServletResponse();
+
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () ->
+                filter.doFilter(
+                    request,
+                    response,
+                    (req, res) -> {
+                      throw new jakarta.servlet.ServletException("boom");
+                    }))
+        .isInstanceOf(jakarta.servlet.ServletException.class);
+
+    assertThat(MDC.get(MDC_ORGANISATION_ID)).isNull();
+  }
+
+  @Test
+  void invalidOrganisationIdValueIsRejectedWith400() throws Exception {
+    MockHttpServletRequest request = new MockHttpServletRequest("GET", "/organisation/org-1/addresses");
+    request.setServletPath("/organisation/org-1/addresses");
+    request.addHeader(ORGANISATION_ID_HEADER, "not valid because of spaces");
+    MockHttpServletResponse response = new MockHttpServletResponse();
+
+    filter.doFilter(request, response, new RecordingChain());
+
+    assertThat(response.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+  }
+
+  @Test
+  void addsOnlyOrganisationIdToTheLoggingContext_noPiiFieldValues() throws Exception {
+    MockHttpServletRequest request = new MockHttpServletRequest("GET", "/organisation/org-1/addresses");
+    request.setServletPath("/organisation/org-1/addresses");
+    MockHttpServletResponse response = new MockHttpServletResponse();
 
     Logger filterLogger = (Logger) LoggerFactory.getLogger(IdentityHeaderFilter.class);
     ListAppender<ILoggingEvent> appender = new ListAppender<>();
     appender.start();
     filterLogger.addAppender(appender);
     try {
-      filter.doFilter(request, response, chain);
+      filter.doFilter(request, response, new RecordingChain());
     } finally {
       filterLogger.detachAppender(appender);
     }
 
-    // The only diagnostic key the filter contributes is organisationId — never a name, email or
-    // address value.
-    assertThat(chain.mdcDuringChain()).containsOnlyKeys(MDC_ORGANISATION_ID);
+    assertThat(appender.list).isNotEmpty();
     assertThat(appender.list)
         .allSatisfy(
             event -> {

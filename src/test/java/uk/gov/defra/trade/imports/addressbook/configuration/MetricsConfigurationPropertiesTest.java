@@ -22,7 +22,7 @@ class MetricsConfigurationPropertiesTest {
 
         // Then
         assertThat(annotation).isNotNull();
-        assertThat(annotation.name()).containsExactly("management.metrics.enabled");
+        assertThat(annotation.name()).containsExactly("aws.emf.enabled");
         assertThat(annotation.havingValue()).isEqualTo("true");
     }
 

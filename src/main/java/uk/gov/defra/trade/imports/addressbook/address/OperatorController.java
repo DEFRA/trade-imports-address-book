@@ -28,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
 import uk.gov.defra.trade.imports.addressbook.exceptions.Problem;
 import uk.gov.defra.trade.imports.addressbook.exceptions.ValidationProblem;
+import uk.gov.defra.trade.imports.addressbook.filter.IdentityHeaderFilter;
 
 /**
  * REST API for an organisation's address book. Every operation is path-scoped to an
@@ -43,8 +44,6 @@ import uk.gov.defra.trade.imports.addressbook.exceptions.ValidationProblem;
 @Slf4j
 @RequiredArgsConstructor
 public class OperatorController {
-
-  private static final String ORGANISATION_ID_HEADER = "Trade-Imports-Organisation-Id";
 
   private final OperatorService operatorService;
   private final OperatorMapper operatorMapper;
@@ -109,13 +108,13 @@ public class OperatorController {
   @Timed("controller.listOperators.time")
   public OperatorPageResponse list(
       @PathVariable String orgId,
-      @RequestHeader(ORGANISATION_ID_HEADER) String sessionOrg,
+      @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String sessionOrg,
       @RequestParam(defaultValue = "1") int page,
       @RequestParam(required = false) String q,
       @RequestParam(required = false) String countryCode) {
     authoriseOrg(orgId, sessionOrg);
     log.info("GET addresses - page {}, q present {}, countryCode {}", page, q != null, countryCode);
-    return operatorService.list(orgId, page, q, countryCode);
+    return operatorService.list(sessionOrg, page, q, countryCode);
   }
 
   /**
@@ -166,11 +165,11 @@ public class OperatorController {
   @Timed("controller.createOperator.time")
   public ResponseEntity<OperatorResponse> create(
       @PathVariable String orgId,
-      @RequestHeader(ORGANISATION_ID_HEADER) String sessionOrg,
+      @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String sessionOrg,
       @Valid @RequestBody AddressRequest request) {
     authoriseOrg(orgId, sessionOrg);
     log.info("POST addresses - creating address");
-    Address created = operatorService.create(request, orgId);
+    Address created = operatorService.create(request, sessionOrg);
     URI location =
         ServletUriComponentsBuilder.fromCurrentRequest()
             .path("/{id}")
@@ -211,13 +210,13 @@ public class OperatorController {
   @Timed("controller.getOperator.time")
   public OperatorResponse get(
       @PathVariable String orgId,
-      @RequestHeader(ORGANISATION_ID_HEADER) String sessionOrg,
+      @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String sessionOrg,
       @PathVariable("operator-id") String operatorId) {
     authoriseOrg(orgId, sessionOrg);
     log.info("GET addresses/{}", operatorId);
     Address address =
         operatorService
-            .get(operatorId, orgId)
+            .get(operatorId, sessionOrg)
             .orElseThrow(() -> new NotFoundException("Address not found"));
     return operatorMapper.toResponse(address);
   }
@@ -265,12 +264,12 @@ public class OperatorController {
   @Timed("controller.updateOperator.time")
   public OperatorResponse update(
       @PathVariable String orgId,
-      @RequestHeader(ORGANISATION_ID_HEADER) String sessionOrg,
+      @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String sessionOrg,
       @PathVariable("operator-id") String operatorId,
       @Valid @RequestBody AddressRequest request) {
     authoriseOrg(orgId, sessionOrg);
     log.info("PUT addresses/{}", operatorId);
-    Address updated = operatorService.update(operatorId, request, orgId);
+    Address updated = operatorService.update(operatorId, request, sessionOrg);
     return operatorMapper.toResponse(updated);
   }
 
@@ -308,11 +307,11 @@ public class OperatorController {
   @Timed("controller.deleteOperator.time")
   public ResponseEntity<Void> delete(
       @PathVariable String orgId,
-      @RequestHeader(ORGANISATION_ID_HEADER) String sessionOrg,
+      @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String sessionOrg,
       @PathVariable("operator-id") String operatorId) {
     authoriseOrg(orgId, sessionOrg);
     log.info("DELETE addresses/{}", operatorId);
-    operatorService.delete(operatorId, orgId);
+    operatorService.delete(operatorId, sessionOrg);
     return ResponseEntity.noContent().build();
   }
 }

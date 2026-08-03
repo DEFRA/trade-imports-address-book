@@ -1,6 +1,7 @@
 package uk.gov.defra.trade.imports.addressbook.configuration;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,6 +22,7 @@ public class JacksonConfig {
     return builder ->
         builder
             .propertyNamingStrategy(PropertyNamingStrategies.LOWER_CAMEL_CASE)
-            .failOnUnknownProperties(false);
+            .failOnUnknownProperties(false)
+            .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
   }
 }
