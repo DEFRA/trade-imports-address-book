@@ -23,10 +23,29 @@ Block); addresses are created, listed, searched, updated, and soft-deleted via R
 
 ## Running the local stack
 
-### Workspace stack (recommended)
+### Repo Docker Compose (recommended)
 
-The full EUDP stack — including this service, MongoDB, and the ins-frontend — lives in
-[DEFRA/trade-imports-animals-workspace](https://github.com/DEFRA/trade-imports-animals-workspace):
+This repo includes a standalone [compose.yml](compose.yml) with Floci, MongoDB, and the service.
+The compose file builds the Dockerfile `dev-run` stage and bind-mounts `./src` for hot reload via
+[docker/dev-run.sh](docker/dev-run.sh):
+
+```bash
+docker compose up --build -d
+```
+
+The service listens on **http://localhost:8089**. Health check: `GET /health`.
+
+Interactive Swagger UI is available at **http://localhost:8089/swagger-ui.html** when
+`SPRING_PROFILES_ACTIVE=local` (set by default in `compose.yml`).
+
+### Workspace stack (planned)
+
+Full EUDP stack integration — including this service alongside ins-frontend and the other stack
+services — is planned in
+[DEFRA/trade-imports-animals-workspace](https://github.com/DEFRA/trade-imports-animals-workspace).
+Until that lands, use repo Docker Compose above.
+
+When available, the workspace commands will be:
 
 ```bash
 # from the workspace root
@@ -37,33 +56,14 @@ The full EUDP stack — including this service, MongoDB, and the ins-frontend �
 ./scripts/stack/stop-stack.sh                             # tear down and wipe volumes
 ```
 
-This service runs on **port 8089** in the stack. After editing Java source in `-d` mode, recreate
-the container if a dependency change is not picked up by DevTools:
-
-```bash
-docker compose -f docker/stack/dev.compose.yml up -d --force-recreate trade-imports-address-book
-```
-
-(From the workspace root; adjust the compose file path if you use a different stack overlay.)
+This service will run on **port 8089** in the stack. The Dockerfile `dev-run` stage is intended
+for workspace `-d` mode hot reload; recreate the container after `pom.xml` dependency changes.
 
 To run only the infrastructure this service needs (MongoDB + Floci):
 
 ```bash
 ./scripts/stack/run-stack.sh --profile database --profile infrastructure
 ```
-
-### Repo Docker Compose
-
-This repo includes a standalone [compose.yml](compose.yml) with Floci, MongoDB, and the service:
-
-```bash
-docker compose up --build -d
-```
-
-The service listens on **http://localhost:8089**. Health check: `GET /health`.
-
-Interactive Swagger UI is available at **http://localhost:8089/swagger-ui.html** when
-`SPRING_PROFILES_ACTIVE=local` (set by default in `compose.yml`).
 
 ## Running natively
 
@@ -206,8 +206,9 @@ Regenerate the committed artifact after an intentional API change:
 mvn verify -Dopenapi.generate=true -Dit.test=OperatorComplianceIT
 ```
 
-`/v3/api-docs` is served in every profile. Swagger UI is enabled only under the `local` profile
-(see [application-local.yml](src/main/resources/application-local.yml)).
+`/v3/api-docs` and Swagger UI are enabled only under the `local` profile
+(see [application-local.yml](src/main/resources/application-local.yml)); they are disabled in the
+default configuration.
 
 ## Soft delete (tombstones)
 

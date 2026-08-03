@@ -49,7 +49,7 @@ aws:
 # Logging configuration
 logging:
   level:
-    root: ${LOG_LEVEL:info}
+    root: ${LOG_LEVEL:INFO}
     uk.gov.defra.trade.imports.addressbook: ${LOG_LEVEL:INFO}
     org.springframework: ${LOGGING_LEVEL_ORG_SPRINGFRAMEWORK:INFO}
     org.springframework.web: ${LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_WEB:INFO}

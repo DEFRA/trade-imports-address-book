@@ -33,7 +33,11 @@ services:
   ################################################################################
 
   trade-imports-address-book:
-    build: ./
+    build:
+      context: ./
+      target: dev-run
+    volumes:
+      - ./src:/app/src
     ports:
       - '8089:8089'
       - '5006:5005' # Java debug port
