@@ -126,6 +126,12 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+        '409':
+          description: Concurrent update conflict
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
         '500':
           description: Unexpected server error
           content:
@@ -301,11 +307,11 @@ components:
         name:
           type: string
           maxLength: 255
-          minLength: 0
+          minLength: 1
         addressLine1:
           type: string
           maxLength: 255
-          minLength: 0
+          minLength: 1
         addressLine2:
           type: string
           maxLength: 255
@@ -313,7 +319,7 @@ components:
         townOrCity:
           type: string
           maxLength: 100
-          minLength: 0
+          minLength: 1
         county:
           type: string
           maxLength: 100
@@ -321,7 +327,7 @@ components:
         postcode:
           type: string
           maxLength: 12
-          minLength: 0
+          minLength: 1
         countryCode:
           type: string
           maxLength: 2
@@ -329,11 +335,11 @@ components:
         phone:
           type: string
           maxLength: 20
-          minLength: 0
+          minLength: 1
         email:
           type: string
           maxLength: 254
-          minLength: 0
+          minLength: 1
       required:
       - addressLine1
       - countryCode
@@ -361,6 +367,11 @@ components:
             type: array
             items:
               type: string
+      required:
+      - errors
+      - status
+      - title
+      - type
     Problem:
       properties:
         type:
@@ -374,6 +385,10 @@ components:
           type: string
         traceId:
           type: string
+      required:
+      - status
+      - title
+      - type
     OperatorResponse:
       properties:
         id:

@@ -194,10 +194,6 @@ class OperatorComplianceIT extends IntegrationBase {
     live.remove("servers");
     String rendered = yaml().dump(live);
 
-    if (Boolean.getBoolean("openapi.generate")) {
-      return;
-    }
-
     // staleness gate: the committed artifact must be regenerated when the API changes
     assertThat(Files.exists(GENERATED_DOC))
         .as("docs/openapi/operators.yml must be committed — regenerate with -Dopenapi.generate=true")
@@ -253,13 +249,23 @@ class OperatorComplianceIT extends IntegrationBase {
   @SuppressWarnings("unchecked")
   private static void assertSchemaPropertyNamesMatch(
       Map<String, Object> live, Map<String, Object> locked) {
-    Map<String, Object> liveSchemas = (Map<String, Object>) live.get("components");
-    Map<String, Object> lockedSchemas = (Map<String, Object>) locked.get("components");
-    if (liveSchemas == null || lockedSchemas == null) {
-      return;
-    }
-    Map<String, Object> liveSchemaMap = (Map<String, Object>) liveSchemas.get("schemas");
-    Map<String, Object> lockedSchemaMap = (Map<String, Object>) lockedSchemas.get("schemas");
+    Map<String, Object> liveComponents = (Map<String, Object>) live.get("components");
+    Map<String, Object> lockedComponents = (Map<String, Object>) locked.get("components");
+    assertThat(liveComponents)
+        .as("live /v3/api-docs must declare components")
+        .isNotNull();
+    assertThat(lockedComponents)
+        .as("locked contract must declare components")
+        .isNotNull();
+
+    Map<String, Object> liveSchemaMap = (Map<String, Object>) liveComponents.get("schemas");
+    Map<String, Object> lockedSchemaMap = (Map<String, Object>) lockedComponents.get("schemas");
+    assertThat(liveSchemaMap)
+        .as("live /v3/api-docs must declare component schemas")
+        .isNotNull();
+    assertThat(lockedSchemaMap)
+        .as("locked contract must declare component schemas")
+        .isNotNull();
     assertThat(liveSchemaMap.keySet())
         .as("component schema names must match the locked contract")
         .isEqualTo(lockedSchemaMap.keySet());
@@ -267,12 +273,15 @@ class OperatorComplianceIT extends IntegrationBase {
         (name, liveSchema) -> {
           Object liveProps = ((Map<String, Object>) liveSchema).get("properties");
           Object lockedProps = ((Map<String, Object>) lockedSchemaMap.get(name)).get("properties");
-          if (liveProps instanceof Map<?, ?> livePropertyMap
-              && lockedProps instanceof Map<?, ?> lockedPropertyMap) {
-            assertThat(livePropertyMap.keySet())
-                .as("property names on schema %s must match the locked contract", name)
-                .isEqualTo(lockedPropertyMap.keySet());
-          }
+          assertThat(liveProps)
+              .as("schema %s must declare properties on live /v3/api-docs", name)
+              .isInstanceOf(Map.class);
+          assertThat(lockedProps)
+              .as("schema %s must declare properties on the locked contract", name)
+              .isInstanceOf(Map.class);
+          assertThat(((Map<?, ?>) liveProps).keySet())
+              .as("property names on schema %s must match the locked contract", name)
+              .isEqualTo(((Map<?, ?>) lockedProps).keySet());
         });
   }
 

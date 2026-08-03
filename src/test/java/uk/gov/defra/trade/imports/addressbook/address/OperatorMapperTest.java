@@ -203,4 +203,55 @@ class OperatorMapperTest {
     assertThat(entity.getCreatedAt()).isNull();
     assertThat(entity.getModifiedAt()).isNull();
   }
+
+  @Test
+  void updateEntity_replacesAllMutableFieldsAndClearsOmittedOptionals() {
+    Address existing =
+        Address.builder()
+            .id("665f1c2ab3e4d51a2c9d0e77")
+            .name("Acme Livestock")
+            .addressLine1("1 Market Street")
+            .addressLine2("Docklands")
+            .townOrCity("Hull")
+            .county("East Riding")
+            .postcode("HU1 1AA")
+            .countryCode("GB")
+            .phone("+441482000000")
+            .email("ops@acme.example")
+            .organisationId("ORG-001")
+            .status(AddressStatus.ACTIVE)
+            .createdAt(Instant.parse("2026-07-01T09:00:00Z"))
+            .modifiedAt(Instant.parse("2026-07-02T10:30:00Z"))
+            .version(2L)
+            .build();
+
+    AddressRequest request =
+        AddressRequest.builder()
+            .name("Lowland Cattle Co")
+            .addressLine1("2 Market Street")
+            .townOrCity("Perth")
+            .postcode("PH1 5AA")
+            .countryCode("IE")
+            .phone("+44 1738 111222")
+            .email("ops@lowlandcattle.example.com")
+            .build();
+
+    operatorMapper.updateEntity(request, existing);
+
+    assertThat(existing.getName()).isEqualTo("Lowland Cattle Co");
+    assertThat(existing.getAddressLine1()).isEqualTo("2 Market Street");
+    assertThat(existing.getAddressLine2()).isNull();
+    assertThat(existing.getTownOrCity()).isEqualTo("Perth");
+    assertThat(existing.getCounty()).isNull();
+    assertThat(existing.getPostcode()).isEqualTo("PH1 5AA");
+    assertThat(existing.getCountryCode()).isEqualTo("IE");
+    assertThat(existing.getPhone()).isEqualTo("+44 1738 111222");
+    assertThat(existing.getEmail()).isEqualTo("ops@lowlandcattle.example.com");
+    assertThat(existing.getId()).isEqualTo("665f1c2ab3e4d51a2c9d0e77");
+    assertThat(existing.getOrganisationId()).isEqualTo("ORG-001");
+    assertThat(existing.getStatus()).isEqualTo(AddressStatus.ACTIVE);
+    assertThat(existing.getCreatedAt()).isEqualTo(Instant.parse("2026-07-01T09:00:00Z"));
+    assertThat(existing.getModifiedAt()).isEqualTo(Instant.parse("2026-07-02T10:30:00Z"));
+    assertThat(existing.getVersion()).isEqualTo(2L);
+  }
 }

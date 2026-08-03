@@ -289,6 +289,13 @@ public class OperatorController {
                 mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                 schema = @Schema(implementation = Problem.class))),
     @ApiResponse(
+        responseCode = "409",
+        description = "Concurrent update conflict",
+        content =
+            @Content(
+                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                schema = @Schema(implementation = Problem.class))),
+    @ApiResponse(
         responseCode = "500",
         description = "Unexpected server error",
         content =

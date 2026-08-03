@@ -62,6 +62,38 @@ class AddressSearchIT extends IntegrationBase {
   }
 
   @Test
+  void partialWordSearchMatchesTownOrCityCaseInsensitively() throws Exception {
+    Address match =
+        save(ORGANISATION_ID, AddressStatus.ACTIVE, "North Depot", "Inverness", "IV2 3JH", "GB", "14 Drover's Way");
+    save(ORGANISATION_ID, AddressStatus.ACTIVE, "South Depot", "Perth", "PH1 5AA", "GB", "2 Market Street");
+
+    mockMvc
+        .perform(
+            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
+                .header(ORG_HEADER, ORGANISATION_ID)
+                .param("q", "inver"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(1))
+        .andExpect(jsonPath("$.items[0].id").value(match.getId()));
+  }
+
+  @Test
+  void partialWordSearchMatchesPostcodeCaseInsensitively() throws Exception {
+    Address match =
+        save(ORGANISATION_ID, AddressStatus.ACTIVE, "Highland Livestock", "Inverness", "IV2 3JH", "GB", "14 Drover's Way");
+    save(ORGANISATION_ID, AddressStatus.ACTIVE, "Lowland Cattle", "Perth", "PH1 5AA", "GB", "2 Market Street");
+
+    mockMvc
+        .perform(
+            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
+                .header(ORG_HEADER, ORGANISATION_ID)
+                .param("q", "iv2"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(1))
+        .andExpect(jsonPath("$.items[0].id").value(match.getId()));
+  }
+
+  @Test
   void searchTermIsTreatedAsLiteralNotRegex() throws Exception {
     save(ORGANISATION_ID, AddressStatus.ACTIVE, "Green Farm", "Inverness", "IV2 3JH", "GB", "14 Drover's Way");
     save(ORGANISATION_ID, AddressStatus.ACTIVE, "Blue Barn", "Perth", "PH1 5AA", "GB", "2 Market Street");

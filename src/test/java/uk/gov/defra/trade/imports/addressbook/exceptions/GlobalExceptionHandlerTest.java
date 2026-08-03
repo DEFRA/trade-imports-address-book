@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 import org.springframework.core.MethodParameter;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -205,6 +206,23 @@ class GlobalExceptionHandlerTest {
     assertThat(body.type())
         .isEqualTo("https://api.cdp.defra.cloud/problems/bad-request");
     assertThat(body.traceId()).isEqualTo("trace-malformed");
+  }
+
+  @Test
+  void handleOptimisticLocking_shouldReturn409ConflictProblem() {
+    // When
+    ResponseEntity<Problem> response =
+        exceptionHandler.handleOptimisticLocking(new OptimisticLockingFailureException("stale"));
+
+    // Then
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+    assertThat(response.getHeaders().getContentType())
+        .isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
+    Problem body = response.getBody();
+    assertThat(body.type())
+        .isEqualTo("https://api.cdp.defra.cloud/problems/conflict");
+    assertThat(body.title()).isEqualTo("Conflict");
+    assertThat(body.detail()).isEqualTo("The resource was modified by another request");
   }
 
   @Test

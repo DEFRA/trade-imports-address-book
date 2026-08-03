@@ -17,10 +17,11 @@ import lombok.Builder;
  * prior GET is accepted and the field dropped, never a 400.
  *
  * <p>{@code type} and {@code role} are the one exception (cv-044): the address book is untyped and
- * unroled, so they are modelled as explicit {@code @Null} components. A supplied value binds and
- * fails {@code @Null}, landing in the same Bean-Validation {@code errors} map keyed {@code type} /
- * {@code role} — a per-field 400, not a silent drop and not a deserialization failure. They are
- * never mapped onto the entity.
+ * unroled, so they are modelled as explicit {@code @Null} components with {@code @Schema(hidden =
+ * true)} — present for Bean Validation and absent from the generated OpenAPI request schema. A
+ * supplied value binds and fails {@code @Null}, landing in the same Bean-Validation {@code errors}
+ * map keyed {@code type} / {@code role} — a per-field 400, not a silent drop and not a
+ * deserialization failure. They are never mapped onto the entity.
  *
  * <p>This record carries <strong>no</strong> null guards: it is client-supplied and its non-null
  * enforcement is Bean Validation's job, which must collect every field's error into the

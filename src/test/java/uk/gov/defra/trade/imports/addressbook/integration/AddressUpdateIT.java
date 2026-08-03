@@ -9,10 +9,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MvcResult;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
 import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
@@ -200,6 +210,43 @@ class AddressUpdateIT extends IntegrationBase {
               assertThat(address.getCreatedAt().toEpochMilli()).isEqualTo(createdAt.toEpochMilli());
               assertThat(address.getModifiedAt()).isAfter(baselineModifiedAt);
             });
+  }
+
+  @Test
+  void put_shouldReturn409ConflictProblem_whenConcurrentUpdatesRace() throws Exception {
+    // Given
+    Address saved = saveActiveWithOptionals();
+    String id = saved.getId();
+    ExecutorService pool = Executors.newFixedThreadPool(2);
+    CyclicBarrier start = new CyclicBarrier(2);
+    List<Integer> statuses = Collections.synchronizedList(new ArrayList<>());
+
+    Callable<Void> concurrentPut =
+        () -> {
+          start.await();
+          MvcResult result =
+              mockMvc
+                  .perform(
+                      put("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, id)
+                          .header(ORG_HEADER, ORGANISATION_ID)
+                          .contentType(MediaType.APPLICATION_JSON)
+                          .content(VALID_REPLACE_BODY))
+                  .andReturn();
+          statuses.add(result.getResponse().getStatus());
+          return null;
+        };
+
+    // When
+    Future<Void> first = pool.submit(concurrentPut);
+    Future<Void> second = pool.submit(concurrentPut);
+    first.get(30, TimeUnit.SECONDS);
+    second.get(30, TimeUnit.SECONDS);
+    pool.shutdown();
+
+    // Then — one writer succeeds, the other hits optimistic locking
+    assertThat(statuses).hasSize(2);
+    assertThat(statuses.stream().filter(status -> status == 200).count()).isEqualTo(1);
+    assertThat(statuses.stream().filter(status -> status == 409).count()).isEqualTo(1);
   }
 
   @Test

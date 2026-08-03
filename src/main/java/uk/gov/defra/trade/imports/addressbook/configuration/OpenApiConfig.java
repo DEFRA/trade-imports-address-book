@@ -21,6 +21,12 @@ import uk.gov.defra.trade.imports.addressbook.filter.IdentityHeaderFilter;
  * divergence {@code OperatorComplianceIT} fails the build on. The {@link ModelResolver} makes the
  * {@link JacksonConfig} camelCase naming strategy (cv-001) authoritative for the generated document
  * too.
+ *
+ * <p>springdoc emits per-operation {@code security} blocks, places {@code securitySchemes} after
+ * {@code schemas}, and may reorder schema property keys — the committed {@code docs/openapi/operators.yml}
+ * is a SnakeYAML byte-stable dump of live {@code /v3/api-docs} (servers stripped). Regenerate with
+ * {@code mvn verify -Dopenapi.generate=true -Dit.test=OperatorComplianceIT#regenerateCommittedOpenApiArtifact}
+ * after any annotation change; a plain build then fails until it is committed.
  */
 @Configuration
 @OpenAPIDefinition(
