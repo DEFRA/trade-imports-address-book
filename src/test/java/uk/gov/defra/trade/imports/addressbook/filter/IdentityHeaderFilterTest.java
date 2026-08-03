@@ -56,13 +56,16 @@ class IdentityHeaderFilterTest {
 
   @Test
   void missingOrganisationId_writesBadRequestProblemAndHaltsTheChain() throws Exception {
+    // Given
     MockHttpServletRequest request = new MockHttpServletRequest("GET", "/organisation/org-1/addresses");
     request.setServletPath("/organisation/org-1/addresses");
     MockHttpServletResponse response = new MockHttpServletResponse();
     RecordingChain chain = new RecordingChain();
 
+    // When
     filter.doFilter(request, response, chain);
 
+    // Then
     assertThat(chain.wasCalled()).isFalse();
     assertThat(response.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
     assertThat(response.getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
@@ -72,20 +75,21 @@ class IdentityHeaderFilterTest {
     assertThat(body).containsEntry("title", "Bad Request");
     assertThat(body).containsEntry("status", HttpStatus.BAD_REQUEST.value());
     assertThat(body.get("detail").toString()).contains(ORGANISATION_ID_HEADER);
-    // The bad-request 400 shape carries NO errors map — a scoping failure is not field validation.
     assertThat(body).doesNotContainKey("errors");
-    // Not 401/403 — those are outside the ruled status set.
     assertThat(response.getStatus()).isNotIn(401, 403);
   }
 
   @Test
   void missingOrganisationIdWithRequestUriOnly_writesBadRequestProblem() throws Exception {
+    // Given
     MockHttpServletRequest request = new MockHttpServletRequest("GET", "/organisation/org-1/addresses");
     MockHttpServletResponse response = new MockHttpServletResponse();
     RecordingChain chain = new RecordingChain();
 
+    // When
     filter.doFilter(request, response, chain);
 
+    // Then
     assertThat(chain.wasCalled()).isFalse();
     assertThat(response.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
     assertThat(response.getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
@@ -93,14 +97,17 @@ class IdentityHeaderFilterTest {
 
   @Test
   void blankOrganisationId_writesBadRequestProblem() throws Exception {
+    // Given
     MockHttpServletRequest request = new MockHttpServletRequest("GET", "/organisation/org-1/addresses");
     request.setServletPath("/organisation/org-1/addresses");
     request.addHeader(ORGANISATION_ID_HEADER, "   ");
     MockHttpServletResponse response = new MockHttpServletResponse();
     RecordingChain chain = new RecordingChain();
 
+    // When
     filter.doFilter(request, response, chain);
 
+    // Then
     assertThat(chain.wasCalled()).isFalse();
     assertThat(response.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
     assertThat(parseBody(response)).containsEntry("type", BAD_REQUEST_TYPE).doesNotContainKey("errors");
@@ -109,14 +116,17 @@ class IdentityHeaderFilterTest {
   @Test
   void organisationIdIsRequiredOnEveryOperation() throws Exception {
     for (String method : new String[] {"GET", "POST", "PUT", "DELETE"}) {
+      // Given
       MockHttpServletRequest request =
           new MockHttpServletRequest(method, "/organisation/org-1/addresses/665f1c2ab3e4d51a2c9d0e77");
       request.setServletPath("/organisation/org-1/addresses/665f1c2ab3e4d51a2c9d0e77");
       MockHttpServletResponse response = new MockHttpServletResponse();
       RecordingChain chain = new RecordingChain();
 
+      // When
       filter.doFilter(request, response, chain);
 
+      // Then
       assertThat(chain.wasCalled())
           .as("chain must halt for %s without the org-id header", method)
           .isFalse();
@@ -127,52 +137,64 @@ class IdentityHeaderFilterTest {
 
   @Test
   void validHeader_proceedsAndOrganisationIdLandsInMdcDuringTheChain() throws Exception {
+    // Given
     MockHttpServletRequest request = new MockHttpServletRequest("POST", "/organisation/org-42/addresses");
     request.setServletPath("/organisation/org-42/addresses");
     request.addHeader(ORGANISATION_ID_HEADER, "org-42");
     MockHttpServletResponse response = new MockHttpServletResponse();
     RecordingChain chain = new RecordingChain();
 
+    // When
     filter.doFilter(request, response, chain);
 
+    // Then
     assertThat(chain.wasCalled()).isTrue();
     assertThat(chain.mdcDuringChain()).containsEntry(MDC_ORGANISATION_ID, "org-42");
   }
 
   @Test
   void badRequestBodyCarriesTraceIdFromMdc() throws Exception {
+    // Given
     MDC.put(MDC_TRACE_ID, "trace-abc-123");
     MockHttpServletRequest request = new MockHttpServletRequest("GET", "/organisation/org-1/addresses");
     request.setServletPath("/organisation/org-1/addresses");
     MockHttpServletResponse response = new MockHttpServletResponse();
 
+    // When
     filter.doFilter(request, response, new RecordingChain());
 
+    // Then
     assertThat(parseBody(response)).containsEntry("traceId", "trace-abc-123");
   }
 
   @Test
   void nonOrganisationPathsBypassTheFilterEntirely() throws Exception {
+    // Given
     MockHttpServletRequest request = new MockHttpServletRequest("GET", "/health");
     MockHttpServletResponse response = new MockHttpServletResponse();
     RecordingChain chain = new RecordingChain();
 
+    // When
     filter.doFilter(request, response, chain);
 
+    // Then
     assertThat(chain.wasCalled()).isTrue();
-    assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
+    assertThat(response.getContentAsString()).isEmpty();
   }
 
   @Test
   void pathOrgMismatchReturns404BeforeTheChainRuns() throws Exception {
+    // Given
     MockHttpServletRequest request = new MockHttpServletRequest("GET", "/organisation/org-a/addresses");
     request.setServletPath("/organisation/org-a/addresses");
     request.addHeader(ORGANISATION_ID_HEADER, "org-b");
     MockHttpServletResponse response = new MockHttpServletResponse();
     RecordingChain chain = new RecordingChain();
 
+    // When
     filter.doFilter(request, response, chain);
 
+    // Then
     assertThat(chain.wasCalled()).isFalse();
     assertThat(response.getStatus()).isEqualTo(HttpStatus.NOT_FOUND.value());
     assertThat(parseBody(response).get("type"))
@@ -181,23 +203,28 @@ class IdentityHeaderFilterTest {
 
   @Test
   void mdcOrganisationIdIsRemovedAfterSuccessfulRequest() throws Exception {
+    // Given
     MockHttpServletRequest request = new MockHttpServletRequest("GET", "/organisation/org-42/addresses");
     request.setServletPath("/organisation/org-42/addresses");
     request.addHeader(ORGANISATION_ID_HEADER, "org-42");
     MockHttpServletResponse response = new MockHttpServletResponse();
 
+    // When
     filter.doFilter(request, response, new RecordingChain());
 
+    // Then
     assertThat(MDC.get(MDC_ORGANISATION_ID)).isNull();
   }
 
   @Test
   void mdcOrganisationIdIsRemovedWhenTheChainThrows() throws Exception {
+    // Given
     MockHttpServletRequest request = new MockHttpServletRequest("GET", "/organisation/org-42/addresses");
     request.setServletPath("/organisation/org-42/addresses");
     request.addHeader(ORGANISATION_ID_HEADER, "org-42");
     MockHttpServletResponse response = new MockHttpServletResponse();
 
+    // When & Then
     org.assertj.core.api.Assertions.assertThatThrownBy(
             () ->
                 filter.doFilter(
@@ -213,18 +240,22 @@ class IdentityHeaderFilterTest {
 
   @Test
   void invalidOrganisationIdValueIsRejectedWith400() throws Exception {
+    // Given
     MockHttpServletRequest request = new MockHttpServletRequest("GET", "/organisation/org-1/addresses");
     request.setServletPath("/organisation/org-1/addresses");
     request.addHeader(ORGANISATION_ID_HEADER, "not valid because of spaces");
     MockHttpServletResponse response = new MockHttpServletResponse();
 
+    // When
     filter.doFilter(request, response, new RecordingChain());
 
+    // Then
     assertThat(response.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
   }
 
   @Test
   void addsOnlyOrganisationIdToTheLoggingContext_noPiiFieldValues() throws Exception {
+    // Given
     MockHttpServletRequest request = new MockHttpServletRequest("GET", "/organisation/org-1/addresses");
     request.setServletPath("/organisation/org-1/addresses");
     MockHttpServletResponse response = new MockHttpServletResponse();
@@ -233,12 +264,15 @@ class IdentityHeaderFilterTest {
     ListAppender<ILoggingEvent> appender = new ListAppender<>();
     appender.start();
     filterLogger.addAppender(appender);
+
+    // When
     try {
       filter.doFilter(request, response, new RecordingChain());
     } finally {
       filterLogger.detachAppender(appender);
     }
 
+    // Then
     assertThat(appender.list).isNotEmpty();
     assertThat(appender.list)
         .allSatisfy(
