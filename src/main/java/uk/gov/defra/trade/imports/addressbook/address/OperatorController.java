@@ -15,7 +15,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -170,11 +169,7 @@ public class OperatorController {
     authoriseOrg(orgId, sessionOrg);
     log.info("POST addresses - creating address");
     Address created = operatorService.create(request, sessionOrg);
-    URI location =
-        ServletUriComponentsBuilder.fromCurrentRequest()
-            .path("/{id}")
-            .buildAndExpand(created.getId())
-            .toUri();
+    URI location = URI.create("/organisation/" + orgId + "/addresses/" + created.getId());
     return ResponseEntity.created(location).body(operatorMapper.toResponse(created));
   }
 

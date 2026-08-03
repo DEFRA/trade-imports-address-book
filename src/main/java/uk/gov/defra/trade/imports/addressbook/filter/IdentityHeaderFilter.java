@@ -54,8 +54,7 @@ public class IdentityHeaderFilter extends OncePerRequestFilter {
 
   @Override
   protected boolean shouldNotFilter(HttpServletRequest request) {
-    String servletPath = request.getServletPath();
-    return servletPath == null || !servletPath.startsWith("/organisation/");
+    return !isOrganisationPath(organisationRequestPath(request));
   }
 
   @Override
@@ -78,7 +77,7 @@ public class IdentityHeaderFilter extends OncePerRequestFilter {
       return;
     }
 
-    String pathOrgId = extractPathOrganisationId(request.getServletPath());
+    String pathOrgId = extractPathOrganisationId(organisationRequestPath(request));
     if (pathOrgId != null && !organisationId.equals(pathOrgId)) {
       reject(
           response,
@@ -97,13 +96,37 @@ public class IdentityHeaderFilter extends OncePerRequestFilter {
     }
   }
 
-  static String extractPathOrganisationId(String servletPath) {
-    if (servletPath == null || !servletPath.startsWith("/organisation/")) {
+  static String extractPathOrganisationId(String path) {
+    if (path == null || !path.startsWith("/organisation/")) {
       return null;
     }
     int start = "/organisation/".length();
-    int slash = servletPath.indexOf('/', start);
-    return slash < 0 ? servletPath.substring(start) : servletPath.substring(start, slash);
+    int slash = path.indexOf('/', start);
+    return slash < 0 ? path.substring(start) : path.substring(start, slash);
+  }
+
+  /**
+   * Resolves the request path for org-scoping. Production requests populate {@code servletPath};
+   * MockMvc and some proxies leave it empty and put the path on {@code requestURI} instead.
+   */
+  static String organisationRequestPath(HttpServletRequest request) {
+    String servletPath = request.getServletPath();
+    if (servletPath != null && !servletPath.isEmpty()) {
+      return servletPath;
+    }
+    String uri = request.getRequestURI();
+    if (uri == null) {
+      return "";
+    }
+    String contextPath = request.getContextPath();
+    if (contextPath != null && !contextPath.isEmpty() && uri.startsWith(contextPath)) {
+      return uri.substring(contextPath.length());
+    }
+    return uri;
+  }
+
+  private static boolean isOrganisationPath(String path) {
+    return path != null && path.startsWith("/organisation/");
   }
 
   private void reject(

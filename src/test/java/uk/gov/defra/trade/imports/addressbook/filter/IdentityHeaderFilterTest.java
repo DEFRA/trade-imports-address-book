@@ -79,6 +79,19 @@ class IdentityHeaderFilterTest {
   }
 
   @Test
+  void missingOrganisationIdWithRequestUriOnly_writesBadRequestProblem() throws Exception {
+    MockHttpServletRequest request = new MockHttpServletRequest("GET", "/organisation/org-1/addresses");
+    MockHttpServletResponse response = new MockHttpServletResponse();
+    RecordingChain chain = new RecordingChain();
+
+    filter.doFilter(request, response, chain);
+
+    assertThat(chain.wasCalled()).isFalse();
+    assertThat(response.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(response.getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
+  }
+
+  @Test
   void blankOrganisationId_writesBadRequestProblem() throws Exception {
     MockHttpServletRequest request = new MockHttpServletRequest("GET", "/organisation/org-1/addresses");
     request.setServletPath("/organisation/org-1/addresses");

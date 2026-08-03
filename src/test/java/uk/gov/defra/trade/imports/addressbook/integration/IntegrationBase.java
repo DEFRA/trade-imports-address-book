@@ -1,6 +1,7 @@
 package uk.gov.defra.trade.imports.addressbook.integration;
 
 import java.util.List;
+import org.bson.Document;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -61,6 +62,9 @@ abstract class IntegrationBase {
 
   @BeforeEach
   void cleanDatabase() {
-    mongoTemplate.getDb().listCollectionNames().forEach(mongoTemplate::dropCollection);
+    mongoTemplate
+        .getDb()
+        .listCollectionNames()
+        .forEach(name -> mongoTemplate.getCollection(name).deleteMany(new Document()));
   }
 }

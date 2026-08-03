@@ -1,7 +1,8 @@
 openapi: 3.1.0
 info:
-  title: OpenAPI definition
-  version: v0
+  title: trade-imports-address-book
+  description: Org-scoped address book API for EUDP Live Animals (EUDPA-58)
+  version: 1.0.0
 tags:
 - name: addresses
   description: Address book, scoped to the caller's organisation
@@ -281,6 +282,7 @@ components:
       - postcode
       - townOrCity
     ValidationProblem:
+      description: RFC 9457 validation problem with field errors
       properties:
         type:
           type: string
@@ -299,7 +301,13 @@ components:
             type: array
             items:
               type: string
+      required:
+      - errors
+      - status
+      - title
+      - type
     Problem:
+      description: RFC 9457 problem details
       properties:
         type:
           type: string
@@ -312,6 +320,10 @@ components:
           type: string
         traceId:
           type: string
+      required:
+      - status
+      - title
+      - type
     OperatorResponse:
       properties:
         id:
