@@ -208,6 +208,7 @@ paths:
           headers:
             Location:
               description: Relative URI of the created address
+              style: simple
               schema:
                 type: string
           content:
@@ -260,7 +261,7 @@ components:
         countryCode:
           type: string
           maxLength: 2
-          minLength: 1
+          minLength: 0
         phone:
           type: string
           maxLength: 20
