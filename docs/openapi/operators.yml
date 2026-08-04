@@ -1,0 +1,491 @@
+openapi: 3.1.0
+info:
+  title: trade-imports-address-book
+  description: Org-scoped address book API for EUDP Live Animals (EUDPA-58)
+  version: 1.0.0
+security:
+- Trade-Imports-Organisation-Id: []
+tags:
+- name: addresses
+  description: Address book, scoped to the caller's organisation
+paths:
+  /organisation/{orgId}/addresses/{operator-id}:
+    get:
+      tags:
+      - addresses
+      summary: Fetch one address, including tombstones
+      operationId: get-address
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Trade-Imports-Organisation-Id
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: operator-id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: The address (deleted false or true)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperatorResponse'
+        '404':
+          description: Unknown id, or an id outside the caller's organisation scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: Unexpected server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      security:
+      - Trade-Imports-Organisation-Id: []
+    put:
+      tags:
+      - addresses
+      summary: Replace an address's mutable fields
+      operationId: update-address
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Trade-Imports-Organisation-Id
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: operator-id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressRequest'
+        required: true
+      responses:
+        '200':
+          description: Updated address with bumped modifiedAt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperatorResponse'
+        '400':
+          description: Validation error, or a missing org header
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                anyOf:
+                - $ref: '#/components/schemas/ValidationProblem'
+                - $ref: '#/components/schemas/Problem'
+        '404':
+          description: Unknown id, an id outside the caller's organisation scope, or a tombstone
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: Concurrent update conflict
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: Unexpected server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      security:
+      - Trade-Imports-Organisation-Id: []
+    delete:
+      tags:
+      - addresses
+      summary: Soft-delete an address (tombstone)
+      operationId: delete-address
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Trade-Imports-Organisation-Id
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: operator-id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Soft-deleted (or already deleted — idempotent)
+        '400':
+          description: Missing org header
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: Unknown id, or an id outside the caller's organisation scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: Unexpected server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      security:
+      - Trade-Imports-Organisation-Id: []
+  /organisation/{orgId}/addresses:
+    get:
+      tags:
+      - addresses
+      summary: List the caller's ACTIVE addresses (paginated, searchable)
+      operationId: list-addresses
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Trade-Imports-Organisation-Id
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: page
+        in: query
+        description: 1-based page number
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 1
+          minimum: 1
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: countryCode
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: One page of the caller's ACTIVE addresses
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperatorPageResponse'
+        '400':
+          description: An out-of-range or non-numeric page, or a missing org header
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: Path orgId does not match the caller's organisation header
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: Unexpected server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      security:
+      - Trade-Imports-Organisation-Id: []
+    post:
+      tags:
+      - addresses
+      summary: Create an address in the caller's address book
+      operationId: create-address
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Trade-Imports-Organisation-Id
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressRequest'
+        required: true
+      responses:
+        '201':
+          description: Created
+          headers:
+            Location:
+              description: Absolute URI of the created address
+              style: simple
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperatorResponse'
+        '400':
+          description: Validation error, or a missing identity header
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                anyOf:
+                - $ref: '#/components/schemas/ValidationProblem'
+                - $ref: '#/components/schemas/Problem'
+        '404':
+          description: Path orgId does not match the caller's organisation header
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: Unexpected server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      security:
+      - Trade-Imports-Organisation-Id: []
+components:
+  schemas:
+    AddressRequest:
+      description: Create or replace an address in the caller's address book
+      properties:
+        name:
+          type: string
+          description: Display name for the address
+          example: Highland Livestock Ltd
+          maxLength: 255
+          minLength: 1
+        addressLine1:
+          type: string
+          description: First line of the postal address
+          example: 14 Drover's Way
+          maxLength: 255
+          minLength: 1
+        addressLine2:
+          type: string
+          description: Second line of the postal address
+          maxLength: 255
+          minLength: 0
+        townOrCity:
+          type: string
+          description: Town or city
+          example: Inverness
+          maxLength: 100
+          minLength: 1
+        county:
+          type: string
+          description: County or region
+          maxLength: 100
+          minLength: 0
+        postcode:
+          type: string
+          description: Postal or ZIP code
+          example: IV2 3JH
+          maxLength: 12
+          minLength: 1
+        countryCode:
+          type: string
+          description: Country code (stored as-given, cv-011)
+          example: GB
+          minLength: 1
+        phone:
+          type: string
+          description: Contact telephone number
+          example: +44 1463 234567
+          maxLength: 20
+          minLength: 1
+        email:
+          type: string
+          description: Contact email address
+          example: exports@highlandlivestock.example.com
+          maxLength: 254
+          minLength: 1
+      required:
+      - addressLine1
+      - countryCode
+      - email
+      - name
+      - phone
+      - postcode
+      - townOrCity
+    OperatorResponse:
+      description: An address in the caller's organisation-scoped address book
+      properties:
+        id:
+          type: string
+          description: Opaque address identifier
+          example: 665f1c2ab3e4d51a2c9d0e77
+        name:
+          type: string
+          description: Display name
+        addressLine1:
+          type: string
+          description: First line of the postal address
+        addressLine2:
+          type: string
+          description: Second line of the postal address
+        townOrCity:
+          type: string
+          description: Town or city
+        county:
+          type: string
+          description: County or region
+        postcode:
+          type: string
+          description: Postal or ZIP code
+        countryCode:
+          type: string
+          description: ISO 3166-1 alpha-2 country code (cv-011)
+          example: GB
+        phone:
+          type: string
+          description: Contact telephone number
+        email:
+          type: string
+          description: Contact email address
+        organisationId:
+          type: string
+          description: Organisation that owns this address
+        deleted:
+          type: boolean
+          description: True when the address has been soft-deleted (cv-016)
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp (UTC)
+        modifiedAt:
+          type: string
+          format: date-time
+          description: Last modification timestamp (UTC)
+      required:
+      - addressLine1
+      - countryCode
+      - createdAt
+      - deleted
+      - email
+      - id
+      - modifiedAt
+      - name
+      - organisationId
+      - phone
+      - postcode
+      - townOrCity
+    ValidationProblem:
+      description: RFC 9457 validation problem with field errors
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string
+        traceId:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+      required:
+      - errors
+      - status
+      - title
+      - type
+    Problem:
+      description: RFC 9457 problem details
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string
+        traceId:
+          type: string
+      required:
+      - status
+      - title
+      - type
+    OperatorPageResponse:
+      description: Paginated list of ACTIVE addresses (never a bare array)
+      properties:
+        items:
+          type: array
+          description: Addresses on this page
+          items:
+            $ref: '#/components/schemas/OperatorResponse'
+        page:
+          type: integer
+          format: int32
+          description: Current 1-based page number
+          minimum: 1
+        pageSize:
+          type: integer
+          format: int32
+          description: Server-configured page size (cv-025)
+          minimum: 1
+        totalItems:
+          type: integer
+          format: int32
+          description: Total number of matching addresses
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          description: Total number of pages
+          minimum: 0
+      required:
+      - items
+      - page
+      - pageSize
+      - totalItems
+      - totalPages
+  securitySchemes:
+    Trade-Imports-Organisation-Id:
+      type: apiKey
+      description: Caller organisation id from the trusted forwarded header; must match path orgId (cv-010)
+      name: Trade-Imports-Organisation-Id
+      in: header

@@ -33,9 +33,13 @@ services:
   ################################################################################
 
   trade-imports-address-book:
-    build: ./
+    build:
+      context: ./
+      target: dev-run
+    volumes:
+      - ./src:/app/src
     ports:
-      - '8085:8085'
+      - '8089:8089'
       - '5006:5005' # Java debug port
     depends_on:
       floci:
@@ -45,7 +49,7 @@ services:
     env_file:
       - 'compose/aws.env'
     environment:
-      PORT: 8085
+      PORT: 8089
 
       MONGO_URI: mongodb://mongodb:27017
 
