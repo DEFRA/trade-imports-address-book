@@ -323,6 +323,7 @@ components:
           type: string
           description: Country code (stored as-given, cv-011)
           example: GB
+          minLength: 1
         phone:
           type: string
           description: Contact telephone number
