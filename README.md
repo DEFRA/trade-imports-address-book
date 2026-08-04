@@ -39,17 +39,16 @@ The service listens on **http://localhost:8089**. Health check: `GET /health`.
 Interactive Swagger UI is available at **http://localhost:8089/swagger-ui.html** when
 `SPRING_PROFILES_ACTIVE=local` (set by default in `compose.yml`).
 
-### Workspace stack (planned)
+### Workspace stack
 
-Full EUDP stack integration — including this service alongside ins-frontend and the other stack
-services — is planned in
-[DEFRA/trade-imports-animals-workspace](https://github.com/DEFRA/trade-imports-animals-workspace).
-Until that lands, use repo Docker Compose above.
+This service is wired into the full EUDP stack in
+[DEFRA/trade-imports-animals-workspace](https://github.com/DEFRA/trade-imports-animals-workspace)
+(`docker/stack/backend.compose.yml`, port **8089**). Use repo Docker Compose above when you only
+need address-book plus MongoDB.
 
-When available, the workspace commands will be:
+From the workspace root:
 
 ```bash
-# from the workspace root
 ./scripts/stack/run-stack.sh                              # published images (:latest)
 ./scripts/stack/run-stack.sh -b feat/EUDPA-58-address-book  # branch-tagged images where available
 ./scripts/stack/run-stack.sh -d                           # build from local source under repos/
@@ -57,8 +56,8 @@ When available, the workspace commands will be:
 ./scripts/stack/stop-stack.sh                             # tear down and wipe volumes
 ```
 
-This service will run on **port 8089** in the stack. The Dockerfile `dev-run` stage is intended
-for workspace `-d` mode hot reload; recreate the container after `pom.xml` dependency changes.
+The Dockerfile `dev-run` stage supports workspace `-d` mode hot reload; recreate the container
+after `pom.xml` dependency changes.
 
 To run only the infrastructure this service needs (MongoDB + Floci):
 
@@ -219,11 +218,13 @@ The API surface is locked and tested on every `mvn verify`:
 `OperatorComplianceIT` fails the build if `operators.yml` is stale against live `/v3/api-docs`, or
 if paths, HTTP methods, operationIds, or component schema property names diverge from the locked contract.
 
-Regenerate the committed artifact after an intentional API change:
+Regenerate the committed artifact after an intentional API change (no Testcontainers required):
 
 ```bash
-mvn verify -Dopenapi.generate=true -Dit.test=OperatorComplianceIT
+mvn verify -Dopenapi.generate=true -Dit.test=OpenApiArtifactGeneratorIT
 ```
+
+`OperatorComplianceIT` still byte-checks the artifact on every full `mvn verify`.
 
 `/v3/api-docs` and Swagger UI are enabled only under the `local` profile
 (see [application-local.yml](src/main/resources/application-local.yml)); they are disabled in the

@@ -38,8 +38,9 @@ import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
  *       HTTP methods, operationIds, query/path parameter names and component schema property names.
  * </ol>
  *
- * <p>Regenerate the committed artifact with {@code mvn verify -Dopenapi.generate=true} after an
- * intentional API change; a plain build then fails until it is committed.
+ * <p>Regenerate the committed artifact with {@code OpenApiArtifactGeneratorIT} ({@code mvn verify
+ * -Dopenapi.generate=true -Dit.test=OpenApiArtifactGeneratorIT}) after an intentional API change;
+ * a plain build then fails until it is committed.
  */
 class OperatorComplianceIT extends IntegrationBase {
 
@@ -234,16 +235,6 @@ class OperatorComplianceIT extends IntegrationBase {
 
     assertAnyOfProblem(live, locked, "/organisation/{orgId}/addresses", "post");
     assertAnyOfProblem(live, locked, "/organisation/{orgId}/addresses/{operator-id}", "put");
-  }
-
-  @Test
-  @org.junit.jupiter.api.condition.EnabledIfSystemProperty(
-      named = "openapi.generate",
-      matches = "true")
-  void regenerateCommittedOpenApiArtifact() throws IOException {
-    Map<String, Object> live = fetchApiDocs();
-    live.remove("servers");
-    Files.writeString(GENERATED_DOC, yaml().dump(live));
   }
 
   @SuppressWarnings("unchecked")

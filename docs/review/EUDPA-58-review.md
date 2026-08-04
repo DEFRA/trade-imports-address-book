@@ -1,7 +1,7 @@
 # EUDPA-58 code review — trade-imports-address-book
 
 **PR:** [#1](https://github.com/DEFRA/trade-imports-address-book/pull/1)
-**Head:** `f5dc661` — org-scoped address book API (M0–M2)
+**Head:** `45e5910` — org-scoped address book API (M0–M2)
 **Ticket:** EUDPA-58 / EUDPA-287
 
 ## Status (2026-08-04)
@@ -11,24 +11,24 @@
 | Total findings | 188 |
 | Fix → Done | 110 |
 | Auto-Resolved | 78 |
-| Critical (open in table) | 11 |
+| Open Fix items | 0 |
 
 **Latest fix commits on this branch:**
 
 | Commit | Summary |
 |--------|---------|
+| `45e5910` | Review table synced to CI fix commits |
 | `f5dc661` | Deterministic 409 PUT ITs (replaced flaky concurrent race) |
 | `ebed099` | Pin `IntegrationBase` to `Application.class`; move OpenAPI generator to `openapi` package |
 | `45f1f35` | Regenerate `operators.yml` from live springdoc (`OpenApiArtifactGeneratorIT`) |
 | `f21bf2b` | Consolidated review Criticals (#33/#49/#66/#70) |
 | `7bbe782` | Walker fixes #188–#201 |
-| `bbf547c` | Contract gate, 409 handler, search ITs |
 
 Canonical item state: [`items.trade-imports-address-book.json`](items.trade-imports-address-book.json). Re-render this table after JSON edits with the workspace `render-items.sh` helper.
 
 ## Items
 
-188 findings: 11 Critical · 98 Major · 79 Minor. 110 Fix items Done · 78 Auto-Resolved. Latest CI fixes: `45f1f35` (operators.yml regeneration), `ebed099` (IT context isolation), `f5dc661` (deterministic 409 PUT tests). Disposition / Status / Notes are maintained in `items.trade-imports-address-book.json`; this table is rendered from that file.
+188 findings: 11 Critical · 98 Major · 79 Minor. 110 Fix items Done · 78 Auto-Resolved · 0 open. Latest CI fixes: `45f1f35` (operators.yml regeneration), `ebed099` (IT context isolation), `f5dc661` (deterministic 409 PUT tests). Disposition / Status / Notes are maintained in `items.trade-imports-address-book.json`; this table is rendered from that file.
 
 | # | File | Line | Severity | Category | Issue | Fix | Disposition | Status | Notes |
 |---|------|------|----------|----------|-------|-----|-------------|--------|-------|
