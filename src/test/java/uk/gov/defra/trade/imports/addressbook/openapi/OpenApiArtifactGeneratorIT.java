@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.addressbook.integration;
+package uk.gov.defra.trade.imports.addressbook.openapi;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
@@ -12,12 +12,12 @@ import org.springframework.boot.autoconfigure.data.mongo.MongoDataAutoConfigurat
 import org.springframework.boot.autoconfigure.data.mongo.MongoRepositoriesAutoConfiguration;
 import org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
@@ -32,8 +32,12 @@ import uk.gov.defra.trade.imports.addressbook.configuration.MongoConfig;
  * Regenerates {@code docs/openapi/operators.yml} without Testcontainers — for local doc refresh
  * when Docker is unavailable. The compliance IT still byte-checks the artifact on every build.
  *
+ * <p>Kept outside {@code integration} so a nested {@link SpringBootApplication} does not shadow
+ * {@link uk.gov.defra.trade.imports.addressbook.Application} for integration tests.
+ *
  * <p>{@code mvn verify -Dopenapi.generate=true -Dit.test=OpenApiArtifactGeneratorIT}
  */
+@EnabledIfSystemProperty(named = "openapi.generate", matches = "true")
 @SpringBootTest(
     classes = OpenApiArtifactGeneratorIT.OpenApiGeneratorApplication.class,
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -49,7 +53,6 @@ class OpenApiArtifactGeneratorIT {
   @MockBean MongoTemplate mongoTemplate;
 
   @Test
-  @EnabledIfSystemProperty(named = "openapi.generate", matches = "true")
   void regenerateCommittedOpenApiArtifact() throws IOException {
     Map<String, Object> live = fetchApiDocs();
     live.remove("servers");

@@ -16,11 +16,14 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.mongodb.MongoDBContainer;
 import org.testcontainers.utility.DockerImageName;
+import uk.gov.defra.trade.imports.addressbook.Application;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
 import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+    classes = Application.class,
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
 @ActiveProfiles("integration-test")
 abstract class IntegrationBase {
