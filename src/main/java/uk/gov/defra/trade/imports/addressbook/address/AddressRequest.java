@@ -27,8 +27,8 @@ import lombok.Builder;
  * enforcement is Bean Validation's job, which must collect every field's error into the
  * {@code errors} map rather than fail fast on the first null.
  *
- * <p>{@code countryCode} is capped at 2 characters (ISO 3166-1 alpha-2, cv-011) with no list
- * check — it is stored exactly as given; the service does not convert it to or from a display name.
+ * <p>{@code countryCode} is validated for presence only ({@code @NotBlank}, cv-011): it is stored
+ * exactly as given with no length, list, or ISO pattern check.
  */
 @Builder
 @Schema(description = "Create or replace an address in the caller's address book")
@@ -76,12 +76,9 @@ public record AddressRequest(
             example = "IV2 3JH")
         String postcode,
     @NotBlank(message = "Enter a country")
-        @Size(min = 1, max = 2, message = "Country code must be 2 characters or less")
         @Schema(
-            description = "ISO 3166-1 alpha-2 country code (stored as-given, cv-011)",
+            description = "Country code (stored as-given, cv-011)",
             requiredMode = Schema.RequiredMode.REQUIRED,
-            minLength = 1,
-            maxLength = 2,
             example = "GB")
         String countryCode,
     @NotBlank(message = "Enter a telephone number")

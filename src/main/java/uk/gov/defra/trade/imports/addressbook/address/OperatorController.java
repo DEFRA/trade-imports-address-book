@@ -121,7 +121,7 @@ public class OperatorController {
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String sessionOrg,
       @Parameter(
               description = "1-based page number",
-              schema = @Schema(minimum = "1", defaultValue = "1"))
+              schema = @Schema(type = "integer", format = "int32", minimum = "1", defaultValue = "1"))
           @RequestParam(defaultValue = "1")
           int page,
       @RequestParam(required = false) String q,

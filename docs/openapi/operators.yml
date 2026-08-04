@@ -181,8 +181,10 @@ paths:
         description: 1-based page number
         required: false
         schema:
-          type: string
+          type: integer
+          format: int32
           minimum: 1
+          default: 1
       - name: q
         in: query
         required: false

@@ -7,7 +7,6 @@ import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -21,7 +20,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * the create/update body against the Standard Address Block field table: every mandatory field,
  * every max-length, and the email format leg.
  *
- * <p>{@code countryCode} is ISO 3166-1 alpha-2 ({@code @Size(max = 2)}).
+ * <p>{@code countryCode} is stored as-given with presence-only validation (cv-011).
  *
  * <p>{@code type} and {@code role} are {@code @Null}: the book is untyped/unroled, so a supplied
  * value is a violation on that field (cv-044), while their absence (the normal case) is valid.
@@ -185,7 +184,6 @@ class AddressRequestValidationTest {
         Arguments.of(
             "county at max", validRequest().addressLine2("Unit 3").county(repeat(100)).build()),
         Arguments.of("postcode at max", validRequest().postcode(repeat(12)).build()),
-        Arguments.of("countryCode at max", validRequest().countryCode("GB").build()),
         Arguments.of("phone at max", validRequest().phone(repeat(20)).build()),
         Arguments.of("email at max", validRequest().email(maxLengthValidEmail()).build()));
   }
@@ -197,15 +195,10 @@ class AddressRequestValidationTest {
   }
 
   @Test
-  void countryCodeRejectsValuesLongerThanTwoCharacters() {
-    AddressRequest request = validRequest().countryCode(repeat(3)).build();
+  void countryCodeIsPresenceOnlyAndAcceptsAnyNonBlankValueRegardlessOfLength() {
+    AddressRequest request = validRequest().countryCode(repeat(50)).build();
 
-    Set<String> violatedProperties =
-        validator.validate(request).stream()
-            .map(v -> v.getPropertyPath().toString())
-            .collect(Collectors.toSet());
-
-    assertThat(violatedProperties).contains("countryCode");
+    assertThat(validator.validate(request)).isEmpty();
   }
 
   @Test

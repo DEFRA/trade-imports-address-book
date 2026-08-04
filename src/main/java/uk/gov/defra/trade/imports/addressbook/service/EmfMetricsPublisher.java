@@ -5,6 +5,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Measurement;
 import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -20,6 +21,7 @@ public class EmfMetricsPublisher {
   private final MeterRegistry meterRegistry;
   private final Supplier<MetricsLogger> metricsLoggerSupplier;
 
+  @Autowired
   EmfMetricsPublisher(
       @Value("${aws.emf.namespace}") String namespace, MeterRegistry meterRegistry) {
     this(namespace, meterRegistry, MetricsLogger::new);

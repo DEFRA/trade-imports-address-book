@@ -62,7 +62,7 @@ public class ProxyConfig {
       System.setProperty("http.nonProxyHosts", NON_PROXY_HOSTS);
       System.setProperty("https.nonProxyHosts", NON_PROXY_HOSTS);
 
-      configureProxyAuthentication(proxyUri.getUserInfo());
+      configureProxyAuthentication(proxyHost, proxyPort, proxyUri.getUserInfo());
 
       ProxySelector.setDefault(createNonProxyAwareSelector(proxyHost, proxyPort));
 
@@ -90,7 +90,8 @@ public class ProxyConfig {
     return host.endsWith(".cdp-int.defra.cloud");
   }
 
-  private static void configureProxyAuthentication(String userInfo) {
+  private static void configureProxyAuthentication(
+      String proxyHost, int proxyPort, String userInfo) {
     if (userInfo == null || userInfo.isBlank()) {
       return;
     }
@@ -103,10 +104,16 @@ public class ProxyConfig {
         new Authenticator() {
           @Override
           protected PasswordAuthentication getPasswordAuthentication() {
+            if (getRequestorType() != RequestorType.PROXY) {
+              return null;
+            }
+            if (!proxyHost.equals(getRequestingHost()) || proxyPort != getRequestingPort()) {
+              return null;
+            }
             return new PasswordAuthentication(username, password.toCharArray());
           }
         });
-    log.info("HTTP proxy authentication configured for user {}", username);
+    log.info("HTTP proxy authentication configured");
   }
 
   private static ProxySelector createNonProxyAwareSelector(String proxyHost, int proxyPort) {
