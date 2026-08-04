@@ -50,6 +50,8 @@ class AddressSearchIT extends IntegrationBase {
     Address match =
         save(ORGANISATION_ID, AddressStatus.ACTIVE, "Green Farm", "Inverness", "IV2 3JH", "GB", "14 Drover's Way");
     save(ORGANISATION_ID, AddressStatus.ACTIVE, "Blue Barn", "Perth", "PH1 5AA", "GB", "2 Market Street");
+    Address addressLine1Only =
+        save(ORGANISATION_ID, AddressStatus.ACTIVE, "North Depot", "Perth", "PH1 5AA", "GB", "Green Lane");
 
     mockMvc
         .perform(
@@ -58,7 +60,8 @@ class AddressSearchIT extends IntegrationBase {
                 .param("q", "gree"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[0].id").value(match.getId()));
+        .andExpect(jsonPath("$.items[0].id").value(match.getId()))
+        .andExpect(jsonPath("$.items[*].id", not(hasItem(addressLine1Only.getId()))));
   }
 
   @Test

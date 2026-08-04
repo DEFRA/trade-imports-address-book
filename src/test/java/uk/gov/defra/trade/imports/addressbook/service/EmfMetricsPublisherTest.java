@@ -2,6 +2,7 @@ package uk.gov.defra.trade.imports.addressbook.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -45,6 +46,7 @@ class EmfMetricsPublisherTest {
     Id meterId = mock(Id.class);
     Measurement finite = new Measurement(() -> 42.0, Statistic.COUNT);
     Measurement nonFinite = new Measurement(() -> Double.NaN, Statistic.MAX);
+    MetricsLogger metricsLogger = mock(MetricsLogger.class);
 
     when(meterId.getName()).thenReturn("test.metric");
     when(mockMeter.getId()).thenReturn(meterId);
@@ -52,10 +54,11 @@ class EmfMetricsPublisherTest {
     when(meterRegistry.getMeters()).thenReturn(Arrays.asList(mockMeter));
 
     // When
-    new EmfMetricsPublisher(TEST_NAMESPACE, meterRegistry).publishMetrics();
+    new EmfMetricsPublisher(TEST_NAMESPACE, meterRegistry, () -> metricsLogger).publishMetrics();
 
     // Then
-    verify(mockMeter).measure();
+    verify(metricsLogger).putMetric("test.metric.count", 42.0);
+    verify(metricsLogger, never()).putMetric("test.metric.max", Double.NaN);
   }
 
   @Test

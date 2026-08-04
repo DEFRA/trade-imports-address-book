@@ -1,6 +1,7 @@
 package uk.gov.defra.trade.imports.addressbook.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -69,7 +70,10 @@ class AddressCrudIT extends IntegrationBase {
                 .content(body))
         .andExpect(status().isCreated())
         .andExpect(
-            header().string("Location", startsWith("/organisation/" + ORGANISATION_ID + "/addresses/")))
+            header()
+                .string(
+                    "Location",
+                    containsString("/organisation/" + ORGANISATION_ID + "/addresses/")))
         .andExpect(jsonPath("$.id").exists())
         .andExpect(jsonPath("$.name").value("Highland Livestock Ltd"))
         .andExpect(jsonPath("$.addressLine1").value("14 Drover's Way"))

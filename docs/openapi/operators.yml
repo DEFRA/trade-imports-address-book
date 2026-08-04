@@ -247,7 +247,7 @@ paths:
           description: Created
           headers:
             Location:
-              description: Relative URI of the created address
+              description: Absolute URI of the created address
               style: simple
               schema:
                 type: string

@@ -6,9 +6,17 @@ import java.net.Proxy;
 import java.net.ProxySelector;
 import java.net.URI;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class ProxyConfigTest {
+
+  private ProxySelector originalSelector;
+
+  @BeforeEach
+  void saveOriginalProxySelector() {
+    originalSelector = ProxySelector.getDefault();
+  }
 
   @AfterEach
   void cleanup() {
@@ -18,7 +26,7 @@ class ProxyConfigTest {
     System.clearProperty("https.proxyPort");
     System.clearProperty("http.nonProxyHosts");
     System.clearProperty("https.nonProxyHosts");
-    ProxySelector.setDefault(ProxySelector.getDefault());
+    ProxySelector.setDefault(originalSelector);
   }
 
   @Test

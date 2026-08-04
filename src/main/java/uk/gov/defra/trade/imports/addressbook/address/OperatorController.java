@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
 import uk.gov.defra.trade.imports.addressbook.exceptions.Problem;
 import uk.gov.defra.trade.imports.addressbook.exceptions.ValidationProblem;
@@ -152,7 +152,7 @@ public class OperatorController {
         headers =
             @Header(
                 name = "Location",
-                description = "Relative URI of the created address",
+                description = "Absolute URI of the created address",
                 schema = @Schema(type = "string")),
         content =
             @Content(
@@ -192,8 +192,9 @@ public class OperatorController {
     log.info("POST addresses - creating address");
     Address created = operatorService.create(request, sessionOrg);
     URI location =
-        UriComponentsBuilder.fromPath("/organisation/{orgId}/addresses/{operator-id}")
-            .buildAndExpand(orgId, created.getId())
+        ServletUriComponentsBuilder.fromCurrentRequest()
+            .path("/{operator-id}")
+            .buildAndExpand(created.getId())
             .encode()
             .toUri();
     return ResponseEntity.created(location).body(operatorMapper.toResponse(created));
