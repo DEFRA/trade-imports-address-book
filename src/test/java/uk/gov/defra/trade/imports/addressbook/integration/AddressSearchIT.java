@@ -81,6 +81,38 @@ class AddressSearchIT extends IntegrationBase {
   }
 
   @Test
+  void multiWordSearchMatchesNameCaseInsensitively() throws Exception {
+    Address match =
+        save(
+            ORGANISATION_ID,
+            AddressStatus.ACTIVE,
+            "Green Valley Livestock Farm",
+            "Inverness",
+            "IV2 3JH",
+            "GB",
+            "14 Drover's Way");
+    save(ORGANISATION_ID, AddressStatus.ACTIVE, "Blue Barn", "Perth", "PH1 5AA", "GB", "2 Market Street");
+
+    mockMvc
+        .perform(
+            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
+                .header(ORG_HEADER, ORGANISATION_ID)
+                .param("q", "green valley"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(1))
+        .andExpect(jsonPath("$.items[0].id").value(match.getId()));
+
+    mockMvc
+        .perform(
+            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
+                .header(ORG_HEADER, ORGANISATION_ID)
+                .param("q", "GREEN"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(1))
+        .andExpect(jsonPath("$.items[0].id").value(match.getId()));
+  }
+
+  @Test
   void partialWordSearchMatchesPostcodeCaseInsensitively() throws Exception {
     Address match =
         save(ORGANISATION_ID, AddressStatus.ACTIVE, "Highland Livestock", "Inverness", "IV2 3JH", "GB", "14 Drover's Way");
