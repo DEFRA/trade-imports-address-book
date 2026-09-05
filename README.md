@@ -253,3 +253,5 @@ future index against real collection size before adding it.
 ## Licence
 
 This code is licensed under the [Open Government Licence v3.0](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/).
+
+<!-- Canary build: exercises the multi-arch branch-image publish workflow. -->
