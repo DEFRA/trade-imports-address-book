@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -25,6 +26,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import uk.gov.defra.trade.imports.addressbook.configuration.AddressTtlConfig;
 import uk.gov.defra.trade.imports.addressbook.exceptions.BadRequestException;
 import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
 
@@ -32,6 +34,7 @@ import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
 class OperatorServiceTest {
 
   private static final String ORG = "org-uuid-1";
+  private static final AddressTtlConfig NO_TTL = new AddressTtlConfig(null, "dev");
 
   @Mock private OperatorRepository repository;
 
@@ -42,7 +45,7 @@ class OperatorServiceTest {
 
   @BeforeEach
   void setUp() {
-    service = new OperatorService(repository, operatorMapper, meterRegistry, 25);
+    service = new OperatorService(repository, operatorMapper, meterRegistry, NO_TTL, 25);
   }
 
   private AddressRequest request() {
@@ -99,6 +102,62 @@ class OperatorServiceTest {
     assertThat(persisted.getOrganisationId()).isEqualTo(ORG);
     assertThat(persisted.getCreatedAt()).isNull();
     assertThat(persisted.getModifiedAt()).isNull();
+  }
+
+  @Test
+  void create_inANonProdEnvironmentWithTtlDaysSetsExpireAtThatManyDaysAhead() {
+    // Given
+    OperatorService withTtl =
+        new OperatorService(
+            repository,
+            operatorMapper,
+            meterRegistry,
+            new AddressTtlConfig(7, "dev"),
+            25);
+    ArgumentCaptor<Address> captor = ArgumentCaptor.forClass(Address.class);
+    when(repository.save(captor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
+    Instant before = Instant.now();
+
+    // When
+    withTtl.create(request(), ORG);
+
+    // Then
+    Instant after = Instant.now();
+    assertThat(captor.getValue().getExpireAt())
+        .isBetween(before.plus(7, ChronoUnit.DAYS), after.plus(7, ChronoUnit.DAYS));
+  }
+
+  @Test
+  void create_withNoTtlDaysConfiguredLeavesExpireAtUnset() {
+    // Given
+    ArgumentCaptor<Address> captor = ArgumentCaptor.forClass(Address.class);
+    when(repository.save(captor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    // When
+    service.create(request(), ORG);
+
+    // Then
+    assertThat(captor.getValue().getExpireAt()).isNull();
+  }
+
+  @Test
+  void create_inProdNeverSetsExpireAtEvenWithTtlDaysConfigured() {
+    // Given
+    OperatorService inProd =
+        new OperatorService(
+            repository,
+            operatorMapper,
+            meterRegistry,
+            new AddressTtlConfig(7, "prod"),
+            25);
+    ArgumentCaptor<Address> captor = ArgumentCaptor.forClass(Address.class);
+    when(repository.save(captor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    // When
+    inProd.create(request(), ORG);
+
+    // Then
+    assertThat(captor.getValue().getExpireAt()).isNull();
   }
 
   private Address persistedAddress(String id, String organisationId, AddressStatus status) {
@@ -208,6 +267,23 @@ class OperatorServiceTest {
     assertThat(persisted.getOrganisationId()).isEqualTo(ORG);
     assertThat(persisted.getStatus()).isEqualTo(AddressStatus.ACTIVE);
     assertThat(persisted.getCreatedAt()).isEqualTo(Instant.parse("2026-07-14T09:15:27Z"));
+  }
+
+  @Test
+  void update_keepsTheExpireAtSetWhenTheAddressWasCreated() {
+    // Given
+    Address existing = persistedAddress("665f1c2ab3e4d51a2c9d0e77", ORG, AddressStatus.ACTIVE);
+    existing.setExpireAt(Instant.parse("2026-07-21T09:15:27Z"));
+    when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", ORG))
+        .thenReturn(Optional.of(existing));
+    ArgumentCaptor<Address> captor = ArgumentCaptor.forClass(Address.class);
+    when(repository.save(captor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    // When
+    service.update("665f1c2ab3e4d51a2c9d0e77", updateRequest(), ORG);
+
+    // Then
+    assertThat(captor.getValue().getExpireAt()).isEqualTo(Instant.parse("2026-07-21T09:15:27Z"));
   }
 
   @Test
@@ -344,7 +420,8 @@ class OperatorServiceTest {
   @Test
   void list_usesTheConfiguredPageSizeNotAValuePassedByTheCaller() {
     // Given
-    OperatorService configured = new OperatorService(repository, operatorMapper, meterRegistry, 10);
+    OperatorService configured =
+        new OperatorService(repository, operatorMapper, meterRegistry, NO_TTL, 10);
     ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
     when(repository.findByOrganisationIdAndStatus(
             eq(ORG), eq(AddressStatus.ACTIVE), pageableCaptor.capture()))

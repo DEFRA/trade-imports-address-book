@@ -2,6 +2,8 @@ package uk.gov.defra.trade.imports.addressbook.address;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -12,6 +14,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import uk.gov.defra.trade.imports.addressbook.configuration.AddressTtlConfig;
 import uk.gov.defra.trade.imports.addressbook.exceptions.BadRequestException;
 import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
 
@@ -30,16 +33,19 @@ public class OperatorService {
   private final OperatorRepository repository;
   private final OperatorMapper operatorMapper;
   private final MeterRegistry meterRegistry;
+  private final AddressTtlConfig ttlConfig;
   private final int pageSize;
 
   public OperatorService(
       OperatorRepository repository,
       OperatorMapper operatorMapper,
       MeterRegistry meterRegistry,
+      AddressTtlConfig ttlConfig,
       @Value("${address-book.list.page-size:25}") int pageSize) {
     this.repository = repository;
     this.operatorMapper = operatorMapper;
     this.meterRegistry = meterRegistry;
+    this.ttlConfig = ttlConfig;
     this.pageSize = pageSize;
   }
 
@@ -111,7 +117,8 @@ public class OperatorService {
   }
 
   /**
-   * Persists a new address owned by the calling organisation.
+   * Persists a new address owned by the calling organisation. In non-prod it is given an
+   * {@code expireAt} (see {@link #stampExpiry}), which a later update or soft delete leaves as is.
    *
    * @param request the validated create body (client-supplied fields only)
    * @param organisationId the owning organisation id, from the identity header
@@ -121,10 +128,24 @@ public class OperatorService {
     Address address = operatorMapper.toEntity(request);
     address.setOrganisationId(organisationId);
     address.setStatus(AddressStatus.ACTIVE);
+    stampExpiry(address);
 
     Address saved = repository.save(address);
     log.info("Created address {}", saved.getId());
     return saved;
+  }
+
+  /**
+   * Sets {@code expireAt} on a new address, but only when both prod safeguards pass: a TTL duration
+   * is configured (non-prod config) and the running environment is not prod. Counted from now
+   * rather than {@code createdAt}, which auditing only fills in during the save.
+   */
+  private void stampExpiry(Address address) {
+    Integer days = ttlConfig.days();
+    if (days == null || ttlConfig.isProd()) {
+      return;
+    }
+    address.setExpireAt(Instant.now().plus(days, ChronoUnit.DAYS));
   }
 
   /**

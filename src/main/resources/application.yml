@@ -23,6 +23,16 @@ spring:
     timeout-per-shutdown-phase: 30s
 
 
+# Automatic expiry of addresses in non-prod environments. Defaults here are the prod-safe values:
+# days unset (no expireAt stamped) and expiry disabled (no TTL index). Non-prod environments opt in
+# via ADDRESS_TTL_DAYS and ADDRESS_TTL_EXPIRY_ENABLED.
+address-book:
+  ttl:
+    days: ${ADDRESS_TTL_DAYS:}
+    environment: ${ENVIRONMENT:local}
+    expiry:
+      enabled: ${ADDRESS_TTL_EXPIRY_ENABLED:false}
+
 # CDP platform configuration
 cdp:
   certificate: ${TRUSTSTORE_CDP_ROOT_CA:}
