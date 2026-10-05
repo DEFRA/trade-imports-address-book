@@ -272,6 +272,13 @@ class OperatorServiceTest {
   @Test
   void update_keepsTheExpireAtSetWhenTheAddressWasCreated() {
     // Given
+    OperatorService withTtl =
+        new OperatorService(
+            repository,
+            operatorMapper,
+            meterRegistry,
+            new AddressTtlConfig(7, "dev"),
+            25);
     Address existing = persistedAddress("665f1c2ab3e4d51a2c9d0e77", ORG, AddressStatus.ACTIVE);
     existing.setExpireAt(Instant.parse("2026-07-21T09:15:27Z"));
     when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", ORG))
@@ -280,10 +287,33 @@ class OperatorServiceTest {
     when(repository.save(captor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
 
     // When
-    service.update("665f1c2ab3e4d51a2c9d0e77", updateRequest(), ORG);
+    withTtl.update("665f1c2ab3e4d51a2c9d0e77", updateRequest(), ORG);
 
     // Then
     assertThat(captor.getValue().getExpireAt()).isEqualTo(Instant.parse("2026-07-21T09:15:27Z"));
+  }
+
+  @Test
+  void update_ofAnAddressWithNoExpireAtLeavesItUnsetEvenWithTtlDaysConfigured() {
+    // Given
+    OperatorService withTtl =
+        new OperatorService(
+            repository,
+            operatorMapper,
+            meterRegistry,
+            new AddressTtlConfig(7, "dev"),
+            25);
+    Address existing = persistedAddress("665f1c2ab3e4d51a2c9d0e77", ORG, AddressStatus.ACTIVE);
+    when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", ORG))
+        .thenReturn(Optional.of(existing));
+    ArgumentCaptor<Address> captor = ArgumentCaptor.forClass(Address.class);
+    when(repository.save(captor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    // When
+    withTtl.update("665f1c2ab3e4d51a2c9d0e77", updateRequest(), ORG);
+
+    // Then
+    assertThat(captor.getValue().getExpireAt()).isNull();
   }
 
   @Test
