@@ -1,5 +1,6 @@
 package uk.gov.defra.trade.imports.addressbook.configuration;
 
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
@@ -26,14 +27,15 @@ import org.springframework.validation.annotation.Validated;
  *     prod default). Must be positive when set, so a misconfiguration fails at startup rather than
  *     stamping an already-elapsed {@code expireAt}
  * @param environment the running CDP environment name (from {@code ENVIRONMENT}); production is
- *     exactly {@code prod}
+ *     {@code prod}, in any case and ignoring surrounding whitespace. Required, so a blank value
+ *     fails at startup rather than being read as non-prod
  */
 @Validated
 @ConfigurationProperties(prefix = "address-book.ttl")
-public record AddressTtlConfig(@Positive Integer days, String environment) {
+public record AddressTtlConfig(@Positive Integer days, @NotBlank String environment) {
 
   /** True when the running environment is production, where expiry must never occur. */
   public boolean isProd() {
-    return "prod".equalsIgnoreCase(environment);
+    return environment != null && "prod".equalsIgnoreCase(environment.strip());
   }
 }

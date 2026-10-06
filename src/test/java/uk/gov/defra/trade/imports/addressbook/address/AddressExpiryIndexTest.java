@@ -26,7 +26,8 @@ class AddressExpiryIndexTest {
   private final ApplicationContextRunner contextRunner =
       new ApplicationContextRunner()
           .withUserConfiguration(TtlProperties.class, AddressExpiryIndex.class)
-          .withBean(MongoTemplate.class, () -> mock(MongoTemplate.class));
+          .withBean(MongoTemplate.class, () -> mock(MongoTemplate.class))
+          .withPropertyValues("address-book.ttl.environment=dev");
 
   @Configuration
   @EnableConfigurationProperties(AddressTtlConfig.class)

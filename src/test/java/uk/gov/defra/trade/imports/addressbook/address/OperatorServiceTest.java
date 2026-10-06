@@ -48,6 +48,11 @@ class OperatorServiceTest {
     service = new OperatorService(repository, operatorMapper, meterRegistry, NO_TTL, 25);
   }
 
+  private OperatorService serviceWithTtl(Integer days, String environment) {
+    return new OperatorService(
+        repository, operatorMapper, meterRegistry, new AddressTtlConfig(days, environment), 25);
+  }
+
   private AddressRequest request() {
     return AddressRequest.builder()
         .name("Highland Livestock Ltd")
@@ -107,13 +112,7 @@ class OperatorServiceTest {
   @Test
   void create_inANonProdEnvironmentWithTtlDaysSetsExpireAtThatManyDaysAhead() {
     // Given
-    OperatorService withTtl =
-        new OperatorService(
-            repository,
-            operatorMapper,
-            meterRegistry,
-            new AddressTtlConfig(7, "dev"),
-            25);
+    OperatorService withTtl = serviceWithTtl(7, "dev");
     ArgumentCaptor<Address> captor = ArgumentCaptor.forClass(Address.class);
     when(repository.save(captor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
     Instant before = Instant.now();
@@ -143,13 +142,7 @@ class OperatorServiceTest {
   @Test
   void create_inProdNeverSetsExpireAtEvenWithTtlDaysConfigured() {
     // Given
-    OperatorService inProd =
-        new OperatorService(
-            repository,
-            operatorMapper,
-            meterRegistry,
-            new AddressTtlConfig(7, "prod"),
-            25);
+    OperatorService inProd = serviceWithTtl(7, "prod");
     ArgumentCaptor<Address> captor = ArgumentCaptor.forClass(Address.class);
     when(repository.save(captor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -272,13 +265,7 @@ class OperatorServiceTest {
   @Test
   void update_keepsTheExpireAtSetWhenTheAddressWasCreated() {
     // Given
-    OperatorService withTtl =
-        new OperatorService(
-            repository,
-            operatorMapper,
-            meterRegistry,
-            new AddressTtlConfig(7, "dev"),
-            25);
+    OperatorService withTtl = serviceWithTtl(7, "dev");
     Address existing = persistedAddress("665f1c2ab3e4d51a2c9d0e77", ORG, AddressStatus.ACTIVE);
     existing.setExpireAt(Instant.parse("2026-07-21T09:15:27Z"));
     when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", ORG))
@@ -296,13 +283,7 @@ class OperatorServiceTest {
   @Test
   void update_ofAnAddressWithNoExpireAtLeavesItUnsetEvenWithTtlDaysConfigured() {
     // Given
-    OperatorService withTtl =
-        new OperatorService(
-            repository,
-            operatorMapper,
-            meterRegistry,
-            new AddressTtlConfig(7, "dev"),
-            25);
+    OperatorService withTtl = serviceWithTtl(7, "dev");
     Address existing = persistedAddress("665f1c2ab3e4d51a2c9d0e77", ORG, AddressStatus.ACTIVE);
     when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", ORG))
         .thenReturn(Optional.of(existing));

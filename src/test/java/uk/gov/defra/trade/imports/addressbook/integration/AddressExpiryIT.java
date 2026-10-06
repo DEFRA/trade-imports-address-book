@@ -83,7 +83,8 @@ class AddressExpiryIT extends IntegrationBase {
           "email": "exports@highlandlivestock.example.com"
         }
         """;
-    Instant before = Instant.now();
+    // Mongo stores dates to the millisecond, so the lower bound must be no finer than that
+    Instant before = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
     // When
     mockMvc
