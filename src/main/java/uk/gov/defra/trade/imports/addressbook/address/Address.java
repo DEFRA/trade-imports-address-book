@@ -73,6 +73,8 @@ public class Address {
   @LastModifiedDate
   private Instant modifiedAt;
 
+  private Instant expireAt;
+
   @Version
   private Long version;
 }

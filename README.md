@@ -236,12 +236,31 @@ default configuration.
 its internal `status` flips to `DELETED`, and `modifiedAt` is bumped. The tombstone remains
 fetchable by id with `deleted: true` on the wire.
 
-- A **404** means unknown id or an id outside the caller's organisation — it is **not** a deletion signal.
+- A **404** means unknown id or an id outside the caller's organisation — it is **not** a deletion
+  signal. Outside prod it can also mean the address has expired (see below).
 - Only a **200** response with `deleted: true` means the user deleted this address.
 - Tombstones are excluded from list results.
 - Deleting an already-deleted address is idempotent (**204**, no state change).
 
-Tombstones are retained indefinitely (~1 KB each). Automatic purge / TTL is deferred.
+In prod, addresses and tombstones are retained indefinitely (~1 KB each).
+
+## Address expiry (non-prod only)
+
+Outside prod, addresses are removed automatically a set number of days after they are created, so
+test data does not build up. Two environment variables control this:
+
+| Variable | Default | Effect |
+|---|---|---|
+| `ADDRESS_TTL_DAYS` | unset | Days after creation an address expires. When set, each new address gets an internal `expireAt` (not returned on the wire). Updates and deletes keep the original `expireAt`. Must be positive. |
+| `ADDRESS_TTL_EXPIRY_ENABLED` | `false` | When `true`, the `address_expire_at_ttl` MongoDB TTL index is created at startup and MongoDB removes documents once `expireAt` has passed — active addresses and tombstones alike. |
+
+Both default to the prod-safe value. Prod is protected by two independent safeguards:
+
+- `expireAt` is only set when `ADDRESS_TTL_DAYS` is configured **and** `ENVIRONMENT` is not `prod`.
+- The TTL index is only created when `ADDRESS_TTL_EXPIRY_ENABLED=true` **and** `ENVIRONMENT` is not
+  `prod`.
+
+`ENVIRONMENT` must not be blank — the service fails to start if it is.
 
 ## Indexes
 

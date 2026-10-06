@@ -19,7 +19,7 @@ public interface OperatorMapper {
   /**
    * Maps a persisted {@link Address} onto its wire response, deriving {@code deleted} from status.
    */
-  @BeanMapping(ignoreUnmappedSourceProperties = {"status", "version"})
+  @BeanMapping(ignoreUnmappedSourceProperties = {"status", "version", "expireAt"})
   @Mapping(target = "deleted", expression = "java(address.getStatus() == AddressStatus.DELETED)")
   OperatorResponse toResponse(Address address);
 
@@ -35,6 +35,7 @@ public interface OperatorMapper {
   @Mapping(target = "createdAt", ignore = true)
   @Mapping(target = "modifiedAt", ignore = true)
   @Mapping(target = "version", ignore = true)
+  @Mapping(target = "expireAt", ignore = true)
   Address toEntity(AddressRequest request);
 
   /**
@@ -48,5 +49,6 @@ public interface OperatorMapper {
   @Mapping(target = "createdAt", ignore = true)
   @Mapping(target = "modifiedAt", ignore = true)
   @Mapping(target = "version", ignore = true)
+  @Mapping(target = "expireAt", ignore = true)
   void updateEntity(AddressRequest request, @MappingTarget Address address);
 }

@@ -3,9 +3,10 @@ package uk.gov.defra.trade.imports.addressbook;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import uk.gov.defra.trade.imports.addressbook.configuration.AddressTtlConfig;
 
 @SpringBootApplication
-@EnableConfigurationProperties
+@EnableConfigurationProperties(AddressTtlConfig.class)
 public class Application {
 
     public static void main(String[] args) {
