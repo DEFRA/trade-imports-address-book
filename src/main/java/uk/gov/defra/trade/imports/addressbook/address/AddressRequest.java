@@ -33,7 +33,7 @@ import lombok.Builder;
 @Builder
 @Schema(description = "Create or replace an address in the caller's address book")
 public record AddressRequest(
-    @NotBlank(message = "Enter a name")
+    @NotBlank(message = "Enter a name or organisation name")
         @Size(min = 1, max = 255, message = "Name must be 255 characters or less")
         @Schema(
             description = "Display name for the address",
@@ -66,7 +66,7 @@ public record AddressRequest(
     @Size(max = 100, message = "County must be 100 characters or less")
         @Schema(description = "County or region", maxLength = 100)
         String county,
-    @NotBlank(message = "Enter a postcode")
+    @NotBlank(message = "Enter a postcode or Zip code")
         @Size(min = 1, max = 12, message = "Postcode must be 12 characters or less")
         @Schema(
             description = "Postal or ZIP code",
@@ -75,13 +75,13 @@ public record AddressRequest(
             maxLength = 12,
             example = "IV2 3JH")
         String postcode,
-    @NotBlank(message = "Enter a country")
+    @NotBlank(message = "Select a country")
         @Schema(
             description = "Country code (stored as-given, cv-011)",
             requiredMode = Schema.RequiredMode.REQUIRED,
             example = "GB")
         String countryCode,
-    @NotBlank(message = "Enter a telephone number")
+    @NotBlank(message = "Enter a phone number")
         @Size(min = 1, max = 20, message = "Telephone number must be 20 characters or less")
         @Schema(
             description = "Contact telephone number",
