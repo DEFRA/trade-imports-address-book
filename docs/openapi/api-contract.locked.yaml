@@ -25,6 +25,13 @@ info:
       Stored as-given with presence-only validation (cv-011); consumers resolve alpha-2 to a
       display name in the frontend.
 
+    **Address type and uses:** optional on create and update. `addressType` is one of
+    ORIGIN_OR_CONSIGNOR, DESTINATION_CONSIGNEE_OR_IMPORTER or BRANCH; `uses` lists any of
+    PLACE_OF_ORIGIN, CONSIGNOR, PLACE_OF_DESTINATION, CONSIGNEE, IMPORTER and BRANCH_ADDRESS.
+    An unknown value is a 400 validation problem keyed by the field. Updates replace both.
+    A record created without them, or saved before they existed, reads back with
+    `addressType: null` and `uses: []`.
+
     OperatorComplianceIT compares paths, HTTP methods, operationIds and component schema
     property names against this file.
 servers:
@@ -340,6 +347,23 @@ components:
           type: string
           maxLength: 254
           minLength: 1
+        addressType:
+          type: string
+          enum:
+          - ORIGIN_OR_CONSIGNOR
+          - DESTINATION_CONSIGNEE_OR_IMPORTER
+          - BRANCH
+        uses:
+          type: array
+          items:
+            type: string
+            enum:
+            - PLACE_OF_ORIGIN
+            - CONSIGNOR
+            - PLACE_OF_DESTINATION
+            - CONSIGNEE
+            - IMPORTER
+            - BRANCH_ADDRESS
       required:
       - addressLine1
       - countryCode
@@ -411,6 +435,23 @@ components:
           type: string
         email:
           type: string
+        addressType:
+          type: string
+          enum:
+          - ORIGIN_OR_CONSIGNOR
+          - DESTINATION_CONSIGNEE_OR_IMPORTER
+          - BRANCH
+        uses:
+          type: array
+          items:
+            type: string
+            enum:
+            - PLACE_OF_ORIGIN
+            - CONSIGNOR
+            - PLACE_OF_DESTINATION
+            - CONSIGNEE
+            - IMPORTER
+            - BRANCH_ADDRESS
         organisationId:
           type: string
         deleted:

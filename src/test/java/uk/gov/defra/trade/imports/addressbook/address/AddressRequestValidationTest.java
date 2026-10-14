@@ -6,6 +6,7 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterAll;
@@ -22,8 +23,9 @@ import org.junit.jupiter.params.provider.MethodSource;
  *
  * <p>{@code countryCode} is stored as-given with presence-only validation (cv-011).
  *
- * <p>{@code type} and {@code role} are {@code @Null}: the book is untyped/unroled, so a supplied
- * value is a violation on that field (cv-044), while their absence (the normal case) is valid.
+ * <p>{@code addressType} and {@code uses} are optional but must be known names. {@code type} and
+ * {@code role} stay {@code @Null} guards: a supplied value is a violation on that field (cv-044),
+ * while their absence (the normal case) is valid.
  *
  * <p>Keys here are the Java property paths (e.g. {@code addressLine1}); the wire keys are identical
  * (camelCase, cv-001) and asserted end-to-end through the real handler in {@code OperatorCrudIT}.
@@ -72,6 +74,24 @@ class AddressRequestValidationTest {
   @Test
   void aFullyPopulatedValidRequestHasNoViolations() {
     AddressRequest request = validRequest().addressLine2("Unit 3").county("Highland").build();
+
+    assertThat(validator.validate(request)).isEmpty();
+  }
+
+  @Test
+  void aRequestWithATypeAndEverySixUsesHasNoViolations() {
+    AddressRequest request =
+        validRequest()
+            .addressType("ORIGIN_OR_CONSIGNOR")
+            .uses(
+                List.of(
+                    "PLACE_OF_ORIGIN",
+                    "CONSIGNOR",
+                    "PLACE_OF_DESTINATION",
+                    "CONSIGNEE",
+                    "IMPORTER",
+                    "BRANCH_ADDRESS"))
+            .build();
 
     assertThat(validator.validate(request)).isEmpty();
   }
@@ -147,7 +167,18 @@ class AddressRequestValidationTest {
             validRequest().email("not-an-email").build(),
             "email",
             "Enter an email address in the correct format"),
-        // untyped/unroled — a stray type/role is a per-field violation (cv-044)
+        // an unknown address type or use is a per-field violation
+        Arguments.of(
+            "unknown addressType",
+            validRequest().addressType("TRANSPORTER").build(),
+            "addressType",
+            "Address type must be ORIGIN_OR_CONSIGNOR, DESTINATION_CONSIGNEE_OR_IMPORTER or BRANCH"),
+        Arguments.of(
+            "unknown use",
+            validRequest().uses(List.of("CONSIGNOR", "TRANSPORTER")).build(),
+            "uses",
+            "Uses must each be PLACE_OF_ORIGIN, CONSIGNOR, PLACE_OF_DESTINATION, CONSIGNEE, IMPORTER or BRANCH_ADDRESS"),
+        // a stray type/role is a per-field violation (cv-044)
         Arguments.of(
             "stray type",
             validRequest().type("IMPORTER").build(),

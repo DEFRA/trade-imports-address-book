@@ -2,6 +2,7 @@ package uk.gov.defra.trade.imports.addressbook.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -11,12 +12,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.MediaType;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
+import uk.gov.defra.trade.imports.addressbook.address.AddressType;
+import uk.gov.defra.trade.imports.addressbook.address.AddressUse;
 import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 
 /**
@@ -131,6 +136,113 @@ class AddressUpdateIT extends IntegrationBase {
               assertThat(address.getName()).isEqualTo("Highland Livestock Ltd");
               assertThat(address.getAddressLine1()).isEqualTo("14 Drover's Way");
               assertThat(address.getEmail()).isEqualTo("exports@highlandlivestock.example.com");
+            });
+  }
+
+  private Address saveActiveWithTypeAndUses() {
+    return repository.save(
+        Address.builder()
+            .name("Highland Livestock Ltd")
+            .addressLine1("14 Drover's Way")
+            .townOrCity("Inverness")
+            .postcode("IV2 3JH")
+            .countryCode("GB")
+            .phone("+44 1463 234567")
+            .email("exports@highlandlivestock.example.com")
+            .addressType(AddressType.ORIGIN_OR_CONSIGNOR)
+            .uses(new ArrayList<>(List.of(AddressUse.PLACE_OF_ORIGIN, AddressUse.CONSIGNOR)))
+            .organisationId(ORGANISATION_ID)
+            .status(AddressStatus.ACTIVE)
+            .build());
+  }
+
+  private static String replaceBodyWith(String typeAndUses) {
+    return """
+        {
+          "name": "Lowland Cattle Co",
+          "addressLine1": "2 Market Street",
+          "townOrCity": "Perth",
+          "postcode": "PH1 5AA",
+          "countryCode": "IE",
+          "phone": "+44 1738 111222",
+          "email": "ops@lowlandcattle.example.com",
+          %s
+        }
+        """
+        .formatted(typeAndUses);
+  }
+
+  @Test
+  void put_shouldReplaceUsesWithTheNewSet() throws Exception {
+    // Given
+    Address saved = saveActiveWithTypeAndUses();
+
+    // When / Then
+    mockMvc
+        .perform(
+            put("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, saved.getId())
+                .header(ORG_HEADER, ORGANISATION_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    replaceBodyWith(
+                        "\"addressType\": \"ORIGIN_OR_CONSIGNOR\", \"uses\": [\"CONSIGNOR\"]")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.uses.length()").value(1))
+        .andExpect(jsonPath("$.uses[0]").value("CONSIGNOR"));
+
+    assertThat(repository.findByIdAndOrganisationId(saved.getId(), ORGANISATION_ID))
+        .get()
+        .satisfies(address -> assertThat(address.getUses()).containsExactly(AddressUse.CONSIGNOR));
+  }
+
+  @Test
+  void put_shouldClearTypeAndUses_whenOmitted() throws Exception {
+    // Given
+    Address saved = saveActiveWithTypeAndUses();
+
+    // When / Then
+    mockMvc
+        .perform(
+            put("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, saved.getId())
+                .header(ORG_HEADER, ORGANISATION_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(VALID_REPLACE_BODY))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.addressType").value(nullValue()))
+        .andExpect(jsonPath("$.uses").isEmpty());
+
+    assertThat(repository.findByIdAndOrganisationId(saved.getId(), ORGANISATION_ID))
+        .get()
+        .satisfies(
+            address -> {
+              assertThat(address.getAddressType()).isNull();
+              assertThat(address.getUses()).isNull();
+            });
+  }
+
+  @Test
+  void put_shouldReturn400NamingUsesAndLeaveRowUntouched_whenAUseIsUnknown() throws Exception {
+    // Given
+    Address saved = saveActiveWithTypeAndUses();
+
+    // When / Then
+    mockMvc
+        .perform(
+            put("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, saved.getId())
+                .header(ORG_HEADER, ORGANISATION_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(replaceBodyWith("\"uses\": [\"TRANSPORTER\"]")))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/validation-error"))
+        .andExpect(jsonPath("$.errors.uses").exists());
+
+    assertThat(repository.findByIdAndOrganisationId(saved.getId(), ORGANISATION_ID))
+        .get()
+        .satisfies(
+            address -> {
+              assertThat(address.getName()).isEqualTo("Highland Livestock Ltd");
+              assertThat(address.getUses())
+                  .containsExactly(AddressUse.PLACE_OF_ORIGIN, AddressUse.CONSIGNOR);
             });
   }
 
