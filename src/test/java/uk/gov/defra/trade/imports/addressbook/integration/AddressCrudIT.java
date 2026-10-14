@@ -2,6 +2,7 @@ package uk.gov.defra.trade.imports.addressbook.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
@@ -446,6 +447,40 @@ class AddressCrudIT extends IntegrationBase {
         .andExpect(status().isBadRequest())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
         .andExpect(jsonPath("$.errors.countryCode").exists());
+
+    assertThat(activeAddressesFor(ORGANISATION_ID)).isEmpty();
+  }
+
+  @Test
+  void post_shouldReturn400WithTheFieldMessages_whenNamePostcodeCountryAndPhoneAreBlank()
+      throws Exception {
+    // Given
+    String body =
+        """
+        {
+          "name": "",
+          "addressLine1": "14 Drover's Way",
+          "townOrCity": "Inverness",
+          "postcode": "",
+          "countryCode": "",
+          "phone": "",
+          "email": "exports@highlandlivestock.example.com"
+        }
+        """;
+
+    // When / Then
+    mockMvc
+        .perform(
+            post("/organisation/{orgId}/addresses", ORGANISATION_ID)
+                .header(ORG_HEADER, ORGANISATION_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+        .andExpect(status().isBadRequest())
+        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+        .andExpect(jsonPath("$.errors.name", hasItem("Enter a name or organisation name")))
+        .andExpect(jsonPath("$.errors.postcode", hasItem("Enter a postcode or Zip code")))
+        .andExpect(jsonPath("$.errors.countryCode", hasItem("Select a country")))
+        .andExpect(jsonPath("$.errors.phone", hasItem("Enter a phone number")));
 
     assertThat(activeAddressesFor(ORGANISATION_ID)).isEmpty();
   }

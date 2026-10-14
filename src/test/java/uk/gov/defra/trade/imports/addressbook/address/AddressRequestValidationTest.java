@@ -99,7 +99,11 @@ class AddressRequestValidationTest {
   static Stream<Arguments> invalidFields() {
     return Stream.of(
         // missing mandatory
-        Arguments.of("blank name", validRequest().name("").build(), "name", "Enter a name"),
+        Arguments.of(
+            "blank name",
+            validRequest().name("").build(),
+            "name",
+            "Enter a name or organisation name"),
         Arguments.of(
             "blank addressLine1",
             validRequest().addressLine1("").build(),
@@ -111,13 +115,17 @@ class AddressRequestValidationTest {
             "townOrCity",
             "Enter a town or city"),
         Arguments.of(
-            "blank postcode", validRequest().postcode("").build(), "postcode", "Enter a postcode"),
+            "blank postcode",
+            validRequest().postcode("").build(),
+            "postcode",
+            "Enter a postcode or Zip code"),
         Arguments.of(
             "blank countryCode",
             validRequest().countryCode("").build(),
             "countryCode",
-            "Enter a country"),
-        Arguments.of("blank phone", validRequest().phone("").build(), "phone", "Enter a telephone number"),
+            "Select a country"),
+        Arguments.of(
+            "blank phone", validRequest().phone("").build(), "phone", "Enter a phone number"),
         Arguments.of(
             "blank email", validRequest().email("").build(), "email", "Enter an email address"),
         // over max length
