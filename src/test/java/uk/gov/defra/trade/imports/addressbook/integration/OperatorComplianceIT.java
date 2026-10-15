@@ -1,6 +1,7 @@
 package uk.gov.defra.trade.imports.addressbook.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -60,6 +61,17 @@ class OperatorComplianceIT extends IntegrationBase {
       }
       """;
 
+  private static final List<String> ADDRESS_TYPES =
+      List.of("ORIGIN_OR_CONSIGNOR", "DESTINATION_CONSIGNEE_OR_IMPORTER", "BRANCH");
+  private static final List<String> ADDRESS_USES =
+      List.of(
+          "PLACE_OF_ORIGIN",
+          "CONSIGNOR",
+          "PLACE_OF_DESTINATION",
+          "CONSIGNEE",
+          "IMPORTER",
+          "BRANCH_ADDRESS");
+
   @Autowired private OperatorRepository repository;
 
   // ---- runtime wire behaviour -------------------------------------------------------------
@@ -82,6 +94,10 @@ class OperatorComplianceIT extends IntegrationBase {
         // the tombstone is a derived boolean, never the internal status enum (cv-016)
         .andExpect(jsonPath("$.deleted").value(false))
         .andExpect(jsonPath("$.status").doesNotExist())
+        // an untyped create reads back with no type and no uses
+        .andExpect(jsonPath("$.addressType").value(nullValue()))
+        .andExpect(jsonPath("$.uses").isArray())
+        .andExpect(jsonPath("$.uses").isEmpty())
         // never the snake_case forms, and no retired typed fields
         .andExpect(jsonPath("$.address_line_1").doesNotExist())
         .andExpect(jsonPath("$.operatorType").doesNotExist());
@@ -158,17 +174,34 @@ class OperatorComplianceIT extends IntegrationBase {
 
     assertSchemaPropertyNamesMatch(doc, locked);
 
-    // the untyped model carries no operatorType/transporterCategory/status enum on the wire
+    // the model carries addressType and uses, but no operatorType/transporterCategory/status enum
     Map<String, Object> requestProps =
         (Map<String, Object>) nested(schemas, "AddressRequest", "properties");
     Map<String, Object> lockedRequestProps =
         (Map<String, Object>) nested(lockedSchemas, "AddressRequest", "properties");
     assertThat(requestProps.keySet()).isEqualTo(lockedRequestProps.keySet());
+    assertThat(requestProps).containsKeys("addressType", "uses");
     assertThat(requestProps).doesNotContainKeys("operatorType", "transporterCategory");
     Map<String, Object> responseProps =
         (Map<String, Object>) nested(schemas, "OperatorResponse", "properties");
     assertThat(responseProps).doesNotContainKey("status");
-    assertThat(responseProps).containsKey("deleted");
+    assertThat(responseProps).containsKeys("deleted", "addressType", "uses");
+
+    // the type and the six uses are the same closed lists live and in the lock, on both schemas
+    for (String schemaName : List.of("AddressRequest", "OperatorResponse")) {
+      assertThat(nested(schemas, schemaName, "properties", "addressType", "enum"))
+          .as("live %s addressType", schemaName)
+          .isEqualTo(ADDRESS_TYPES);
+      assertThat(nested(schemas, schemaName, "properties", "uses", "items", "enum"))
+          .as("live %s uses", schemaName)
+          .isEqualTo(ADDRESS_USES);
+      assertThat(nested(lockedSchemas, schemaName, "properties", "addressType", "enum"))
+          .as("locked %s addressType", schemaName)
+          .isEqualTo(ADDRESS_TYPES);
+      assertThat(nested(lockedSchemas, schemaName, "properties", "uses", "items", "enum"))
+          .as("locked %s uses", schemaName)
+          .isEqualTo(ADDRESS_USES);
+    }
 
     // the list schema is a top-level object with an items array, never a bare array (OpenAPI 3.1
     // omits `type: object` on a schema that declares properties, so pin the absence of a bare array)

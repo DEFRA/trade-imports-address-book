@@ -1,10 +1,12 @@
 package uk.gov.defra.trade.imports.addressbook.address;
 
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Null;
 import jakarta.validation.constraints.Size;
+import java.util.List;
 import lombok.Builder;
 
 /**
@@ -16,12 +18,14 @@ import lombok.Builder;
  * {@code fail-on-unknown-properties} off (Zalando default): a body echoing a read-only field from a
  * prior GET is accepted and the field dropped, never a 400.
  *
- * <p>{@code type} and {@code role} are the one exception (cv-044): the address book is untyped and
- * unroled, so they are modelled as explicit {@code @Null} components with {@code @Schema(hidden =
- * true)} — present for Bean Validation and absent from the generated OpenAPI request schema. A
- * supplied value binds and fails {@code @Null}, landing in the same Bean-Validation {@code errors}
- * map keyed {@code type} / {@code role} — a per-field 400, not a silent drop and not a
- * deserialization failure. They are never mapped onto the entity.
+ * <p>{@code addressType} and {@code uses} are optional. They are carried as their wire names and
+ * checked by {@link EnumNames}, so an unknown value is a per-field 400 in the {@code errors} map
+ * (keyed {@code addressType} / {@code uses}), not a body-parse failure; the mapper turns them into
+ * {@link AddressType} / {@link AddressUse}.
+ *
+ * <p>{@code type} and {@code role} stay {@code @Null} guards with {@code @Schema(hidden = true)}
+ * (cv-044): a supplied value is a per-field 400 keyed {@code type} / {@code role}, never mapped
+ * onto the entity.
  *
  * <p>This record carries <strong>no</strong> null guards: it is client-supplied and its non-null
  * enforcement is Bean Validation's job, which must collect every field's error into the
@@ -33,7 +37,7 @@ import lombok.Builder;
 @Builder
 @Schema(description = "Create or replace an address in the caller's address book")
 public record AddressRequest(
-    @NotBlank(message = "Enter a name")
+    @NotBlank(message = "Enter a name or organisation name")
         @Size(min = 1, max = 255, message = "Name must be 255 characters or less")
         @Schema(
             description = "Display name for the address",
@@ -66,7 +70,7 @@ public record AddressRequest(
     @Size(max = 100, message = "County must be 100 characters or less")
         @Schema(description = "County or region", maxLength = 100)
         String county,
-    @NotBlank(message = "Enter a postcode")
+    @NotBlank(message = "Enter a postcode or Zip code")
         @Size(min = 1, max = 12, message = "Postcode must be 12 characters or less")
         @Schema(
             description = "Postal or ZIP code",
@@ -75,13 +79,13 @@ public record AddressRequest(
             maxLength = 12,
             example = "IV2 3JH")
         String postcode,
-    @NotBlank(message = "Enter a country")
+    @NotBlank(message = "Select a country")
         @Schema(
             description = "Country code (stored as-given, cv-011)",
             requiredMode = Schema.RequiredMode.REQUIRED,
             example = "GB")
         String countryCode,
-    @NotBlank(message = "Enter a telephone number")
+    @NotBlank(message = "Enter a phone number")
         @Size(min = 1, max = 20, message = "Telephone number must be 20 characters or less")
         @Schema(
             description = "Contact telephone number",
@@ -100,6 +104,21 @@ public record AddressRequest(
             maxLength = 254,
             example = "exports@highlandlivestock.example.com")
         String email,
+    @EnumNames(
+            value = AddressType.class,
+            message =
+                "Address type must be ORIGIN_OR_CONSIGNOR, DESTINATION_CONSIGNEE_OR_IMPORTER or BRANCH")
+        @Schema(description = "What kind of address this is", implementation = AddressType.class)
+        String addressType,
+    @EnumNames(
+            value = AddressUse.class,
+            message =
+                "Uses must each be PLACE_OF_ORIGIN, CONSIGNOR, PLACE_OF_DESTINATION, CONSIGNEE, IMPORTER or BRANCH_ADDRESS")
+        @ArraySchema(
+            schema = @Schema(implementation = AddressUse.class),
+            arraySchema =
+                @Schema(description = "Every use the address can be put to; omitted or empty for none"))
+        List<String> uses,
     @Null(message = "type is not a supported field")
         @Schema(hidden = true)
         Object type,

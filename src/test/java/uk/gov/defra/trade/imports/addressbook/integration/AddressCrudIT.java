@@ -2,7 +2,9 @@ package uk.gov.defra.trade.imports.addressbook.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -18,6 +20,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
+import uk.gov.defra.trade.imports.addressbook.address.AddressType;
+import uk.gov.defra.trade.imports.addressbook.address.AddressUse;
 import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 
 /**
@@ -213,6 +217,137 @@ class AddressCrudIT extends IntegrationBase {
     assertThat(activeAddressesFor(ORGANISATION_ID)).isEmpty();
   }
 
+  private static String bodyWith(String typeAndUses) {
+    return """
+        {
+          "name": "Highland Livestock Ltd",
+          "addressLine1": "14 Drover's Way",
+          "townOrCity": "Inverness",
+          "postcode": "IV2 3JH",
+          "countryCode": "GB",
+          "phone": "+44 1463 234567",
+          "email": "exports@highlandlivestock.example.com",
+          %s
+        }
+        """
+        .formatted(typeAndUses);
+  }
+
+  @Test
+  void post_shouldStoreTypeAndUses_andGetReturnsThem() throws Exception {
+    // Given
+    String body =
+        bodyWith(
+            """
+            "addressType": "ORIGIN_OR_CONSIGNOR",
+            "uses": ["PLACE_OF_ORIGIN", "CONSIGNOR"]
+            """);
+
+    // When
+    String location =
+        mockMvc
+            .perform(
+                post("/organisation/{orgId}/addresses", ORGANISATION_ID)
+                    .header(ORG_HEADER, ORGANISATION_ID)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.addressType").value("ORIGIN_OR_CONSIGNOR"))
+            .andExpect(jsonPath("$.uses[0]").value("PLACE_OF_ORIGIN"))
+            .andExpect(jsonPath("$.uses[1]").value("CONSIGNOR"))
+            .andReturn()
+            .getResponse()
+            .getHeader("Location");
+    assertThat(location).isNotNull();
+    String id = location.substring(location.lastIndexOf('/') + 1);
+
+    // Then
+    mockMvc
+        .perform(
+            get("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, id)
+                .header(ORG_HEADER, ORGANISATION_ID))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.addressType").value("ORIGIN_OR_CONSIGNOR"))
+        .andExpect(jsonPath("$.uses.length()").value(2))
+        .andExpect(jsonPath("$.uses[0]").value("PLACE_OF_ORIGIN"))
+        .andExpect(jsonPath("$.uses[1]").value("CONSIGNOR"));
+    assertThat(activeAddressesFor(ORGANISATION_ID))
+        .singleElement()
+        .satisfies(
+            address -> {
+              assertThat(address.getAddressType()).isEqualTo(AddressType.ORIGIN_OR_CONSIGNOR);
+              assertThat(address.getUses())
+                  .containsExactly(AddressUse.PLACE_OF_ORIGIN, AddressUse.CONSIGNOR);
+            });
+  }
+
+  @Test
+  void post_shouldReturn400NamingUses_whenAUseIsUnknown() throws Exception {
+    // Given
+    String body = bodyWith("\"uses\": [\"CONSIGNOR\", \"TRANSPORTER\"]");
+
+    // When / Then
+    mockMvc
+        .perform(
+            post("/organisation/{orgId}/addresses", ORGANISATION_ID)
+                .header(ORG_HEADER, ORGANISATION_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+        .andExpect(status().isBadRequest())
+        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/validation-error"))
+        .andExpect(jsonPath("$.errors.uses").exists());
+
+    assertThat(activeAddressesFor(ORGANISATION_ID)).isEmpty();
+  }
+
+  @Test
+  void post_shouldReturn400NamingAddressType_whenTheTypeIsUnknown() throws Exception {
+    // Given
+    String body = bodyWith("\"addressType\": \"TRANSPORTER\"");
+
+    // When / Then
+    mockMvc
+        .perform(
+            post("/organisation/{orgId}/addresses", ORGANISATION_ID)
+                .header(ORG_HEADER, ORGANISATION_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/validation-error"))
+        .andExpect(jsonPath("$.errors.addressType").exists());
+
+    assertThat(activeAddressesFor(ORGANISATION_ID)).isEmpty();
+  }
+
+  @Test
+  void get_shouldReadAnUntypedRecordWithNoTypeAndNoUses() throws Exception {
+    // Given — the shape of every document saved before addressType and uses existed
+    Address saved =
+        repository.save(
+            Address.builder()
+                .name("Highland Livestock Ltd")
+                .addressLine1("14 Drover's Way")
+                .townOrCity("Inverness")
+                .postcode("IV2 3JH")
+                .countryCode("GB")
+                .phone("+44 1463 234567")
+                .email("exports@highlandlivestock.example.com")
+                .organisationId(ORGANISATION_ID)
+                .status(AddressStatus.ACTIVE)
+                .build());
+
+    // When / Then
+    mockMvc
+        .perform(
+            get("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, saved.getId())
+                .header(ORG_HEADER, ORGANISATION_ID))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.addressType").value(nullValue()))
+        .andExpect(jsonPath("$.uses").isArray())
+        .andExpect(jsonPath("$.uses").isEmpty());
+  }
+
   @Test
   void post_shouldIgnoreEchoedReadOnlyAndUnknownFields() throws Exception {
     // Given
@@ -312,6 +447,40 @@ class AddressCrudIT extends IntegrationBase {
         .andExpect(status().isBadRequest())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
         .andExpect(jsonPath("$.errors.countryCode").exists());
+
+    assertThat(activeAddressesFor(ORGANISATION_ID)).isEmpty();
+  }
+
+  @Test
+  void post_shouldReturn400WithTheFieldMessages_whenNamePostcodeCountryAndPhoneAreBlank()
+      throws Exception {
+    // Given
+    String body =
+        """
+        {
+          "name": "",
+          "addressLine1": "14 Drover's Way",
+          "townOrCity": "Inverness",
+          "postcode": "",
+          "countryCode": "",
+          "phone": "",
+          "email": "exports@highlandlivestock.example.com"
+        }
+        """;
+
+    // When / Then
+    mockMvc
+        .perform(
+            post("/organisation/{orgId}/addresses", ORGANISATION_ID)
+                .header(ORG_HEADER, ORGANISATION_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+        .andExpect(status().isBadRequest())
+        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+        .andExpect(jsonPath("$.errors.name", hasItem("Enter a name or organisation name")))
+        .andExpect(jsonPath("$.errors.postcode", hasItem("Enter a postcode or Zip code")))
+        .andExpect(jsonPath("$.errors.countryCode", hasItem("Select a country")))
+        .andExpect(jsonPath("$.errors.phone", hasItem("Enter a phone number")));
 
     assertThat(activeAddressesFor(ORGANISATION_ID)).isEmpty();
   }

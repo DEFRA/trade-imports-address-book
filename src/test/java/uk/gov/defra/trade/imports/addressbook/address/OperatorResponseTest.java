@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -37,6 +39,8 @@ class OperatorResponseTest {
         countryCode,
         phone,
         email,
+        null,
+        null,
         organisationId,
         false,
         createdAt,
@@ -95,6 +99,8 @@ class OperatorResponseTest {
             "GB",
             "+441482000000",
             "ops@acme.example",
+            null,
+            null,
             "ORG-001",
             false,
             NOW,
@@ -102,5 +108,35 @@ class OperatorResponseTest {
 
     assertThat(response.addressLine2()).isNull();
     assertThat(response.county()).isNull();
+    assertThat(response.addressType()).isNull();
+    assertThat(response.uses()).isEmpty();
+  }
+
+  @Test
+  void compactConstructor_copiesUses() {
+    List<AddressUse> uses = new ArrayList<>(List.of(AddressUse.CONSIGNOR));
+
+    OperatorResponse response =
+        new OperatorResponse(
+            "665f1c2ab3e4d51a2c9d0e77",
+            "Acme Livestock",
+            "1 Market Street",
+            null,
+            "Hull",
+            null,
+            "HU1 1AA",
+            "GB",
+            "+441482000000",
+            "ops@acme.example",
+            AddressType.BRANCH,
+            uses,
+            "ORG-001",
+            false,
+            NOW,
+            NOW);
+    uses.add(AddressUse.IMPORTER);
+
+    assertThat(response.addressType()).isEqualTo(AddressType.BRANCH);
+    assertThat(response.uses()).containsExactly(AddressUse.CONSIGNOR);
   }
 }

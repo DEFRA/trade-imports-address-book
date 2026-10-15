@@ -1,7 +1,9 @@
 package uk.gov.defra.trade.imports.addressbook.address;
 
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 import lombok.Builder;
 
@@ -15,7 +17,8 @@ import lombok.Builder;
  *
  * <p>Server-constructed and always-present fields are null-guarded in the compact constructor
  * (service-boundary rule): a null here is a server bug and fails loud, not a malformed wire value.
- * {@code addressLine2} and {@code county} are genuinely optional and left unguarded.
+ * {@code addressLine2}, {@code county} and {@code addressType} are genuinely optional and left
+ * unguarded. {@code uses} is never null on the wire: an untyped record reads back with {@code []}.
  */
 @Builder
 @Schema(description = "An address in the caller's organisation-scoped address book")
@@ -44,6 +47,17 @@ public record OperatorResponse(
         String phone,
     @Schema(description = "Contact email address", requiredMode = Schema.RequiredMode.REQUIRED)
         String email,
+    @Schema(
+            description = "What kind of address this is; null when none was given",
+            implementation = AddressType.class)
+        AddressType addressType,
+    @ArraySchema(
+            schema = @Schema(implementation = AddressUse.class),
+            arraySchema =
+                @Schema(
+                    description = "Every use the address can be put to; empty when none was given",
+                    requiredMode = Schema.RequiredMode.REQUIRED))
+        List<AddressUse> uses,
     @Schema(
             description = "Organisation that owns this address",
             requiredMode = Schema.RequiredMode.REQUIRED)
@@ -75,5 +89,6 @@ public record OperatorResponse(
     Objects.requireNonNull(organisationId, "organisationId");
     Objects.requireNonNull(createdAt, "createdAt");
     Objects.requireNonNull(modifiedAt, "modifiedAt");
+    uses = uses == null ? List.of() : List.copyOf(uses);
   }
 }

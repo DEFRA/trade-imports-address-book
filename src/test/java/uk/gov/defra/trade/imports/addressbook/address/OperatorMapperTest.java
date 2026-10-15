@@ -8,6 +8,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
@@ -42,6 +44,8 @@ class OperatorMapperTest {
         .countryCode("GB")
         .phone("+441482000000")
         .email("ops@acme.example")
+        .addressType(AddressType.ORIGIN_OR_CONSIGNOR)
+        .uses(new ArrayList<>(List.of(AddressUse.PLACE_OF_ORIGIN, AddressUse.CONSIGNOR)))
         .organisationId("ORG-001")
         .status(status)
         .createdAt(Instant.parse("2026-07-01T09:00:00Z"))
@@ -63,6 +67,9 @@ class OperatorMapperTest {
     assertThat(response.countryCode()).isEqualTo("GB");
     assertThat(response.phone()).isEqualTo("+441482000000");
     assertThat(response.email()).isEqualTo("ops@acme.example");
+    assertThat(response.addressType()).isEqualTo(AddressType.ORIGIN_OR_CONSIGNOR);
+    assertThat(response.uses())
+        .containsExactly(AddressUse.PLACE_OF_ORIGIN, AddressUse.CONSIGNOR);
     assertThat(response.organisationId()).isEqualTo("ORG-001");
     assertThat(response.deleted()).isFalse();
     assertThat(response.createdAt()).isEqualTo(Instant.parse("2026-07-01T09:00:00Z"));
@@ -98,6 +105,8 @@ class OperatorMapperTest {
 
     assertThat(response.addressLine2()).isNull();
     assertThat(response.county()).isNull();
+    assertThat(response.addressType()).isNull();
+    assertThat(response.uses()).isEmpty();
     assertThat(response.name()).isEqualTo("Acme Livestock");
   }
 
@@ -142,6 +151,10 @@ class OperatorMapperTest {
     assertThat(json.get("createdAt").asText()).isEqualTo("2026-07-01T09:00:00Z");
     assertThat(json.get("modifiedAt").asText()).isEqualTo("2026-07-02T10:30:00Z");
 
+    assertThat(json.get("addressType").asText()).isEqualTo("ORIGIN_OR_CONSIGNOR");
+    assertThat(json.get("uses").isArray()).isTrue();
+    assertThat(json.get("uses").get(0).asText()).isEqualTo("PLACE_OF_ORIGIN");
+
     assertThat(json.get("deleted").asBoolean()).isFalse();
     assertThat(json.has("status")).isFalse();
 
@@ -176,6 +189,8 @@ class OperatorMapperTest {
           "countryCode": "GB",
           "phone": "+441304000000",
           "email": "imports@port.example",
+          "addressType": "BRANCH",
+          "uses": ["BRANCH_ADDRESS"],
           "id": "ignored-server-field",
           "organisationId": "OTHER-ORG",
           "status": "DELETED",
@@ -197,6 +212,8 @@ class OperatorMapperTest {
     assertThat(entity.getCountryCode()).isEqualTo("GB");
     assertThat(entity.getPhone()).isEqualTo("+441304000000");
     assertThat(entity.getEmail()).isEqualTo("imports@port.example");
+    assertThat(entity.getAddressType()).isEqualTo(AddressType.BRANCH);
+    assertThat(entity.getUses()).containsExactly(AddressUse.BRANCH_ADDRESS);
     assertThat(entity.getId()).isNull();
     assertThat(entity.getStatus()).isNull();
     assertThat(entity.getOrganisationId()).isNull();
@@ -218,6 +235,8 @@ class OperatorMapperTest {
             .countryCode("GB")
             .phone("+441482000000")
             .email("ops@acme.example")
+            .addressType(AddressType.BRANCH)
+            .uses(new ArrayList<>(List.of(AddressUse.BRANCH_ADDRESS)))
             .organisationId("ORG-001")
             .status(AddressStatus.ACTIVE)
             .createdAt(Instant.parse("2026-07-01T09:00:00Z"))
@@ -243,6 +262,8 @@ class OperatorMapperTest {
     assertThat(existing.getAddressLine2()).isNull();
     assertThat(existing.getTownOrCity()).isEqualTo("Perth");
     assertThat(existing.getCounty()).isNull();
+    assertThat(existing.getAddressType()).isNull();
+    assertThat(existing.getUses()).isNull();
     assertThat(existing.getPostcode()).isEqualTo("PH1 5AA");
     assertThat(existing.getCountryCode()).isEqualTo("IE");
     assertThat(existing.getPhone()).isEqualTo("+44 1738 111222");
@@ -253,5 +274,18 @@ class OperatorMapperTest {
     assertThat(existing.getCreatedAt()).isEqualTo(Instant.parse("2026-07-01T09:00:00Z"));
     assertThat(existing.getModifiedAt()).isEqualTo(Instant.parse("2026-07-02T10:30:00Z"));
     assertThat(existing.getVersion()).isEqualTo(2L);
+  }
+
+  @Test
+  void updateEntity_replacesUsesWithTheNewSet() {
+    Address existing =
+        Address.builder()
+            .uses(new ArrayList<>(List.of(AddressUse.PLACE_OF_ORIGIN, AddressUse.CONSIGNOR)))
+            .build();
+    AddressRequest request = AddressRequest.builder().uses(List.of("CONSIGNOR")).build();
+
+    operatorMapper.updateEntity(request, existing);
+
+    assertThat(existing.getUses()).containsExactly(AddressUse.CONSIGNOR);
   }
 }
