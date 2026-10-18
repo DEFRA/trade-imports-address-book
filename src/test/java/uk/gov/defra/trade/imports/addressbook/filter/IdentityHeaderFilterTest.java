@@ -22,7 +22,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 /**
- * Unit tests for {@link IdentityHeaderFilter} (cv-010).
+ * Unit tests for {@link IdentityHeaderFilter}.
  *
  * <p>The filter runs before {@code DispatcherServlet}, so {@code GlobalExceptionHandler}
  * (a {@code @RestControllerAdvice}) cannot format its failures — the filter must write the RFC 9457

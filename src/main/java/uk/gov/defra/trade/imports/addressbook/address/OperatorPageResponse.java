@@ -4,13 +4,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 
 /**
- * Top-level list response (rest-api.md — never a bare array). Wire fields are {@code items},
- * {@code page}, {@code pageSize}, {@code totalItems}, {@code totalPages} (camelCase via the global
- * naming strategy). The list/search increment (inc-009/inc-010) populates it from a
- * {@code Page<Operator>}.
+ * Top-level list response, never a bare array. Wire fields are {@code items}, {@code page},
+ * {@code pageSize}, {@code totalItems} and {@code totalPages}.
  *
- * <p>{@code items} is null-guarded (service-boundary rule); the counts are primitives and cannot be
- * null.
+ * <p>{@code items} is never null; the counts are primitives.
  */
 @Schema(description = "Paginated list of ACTIVE addresses (never a bare array)")
 public record OperatorPageResponse(
@@ -24,7 +21,7 @@ public record OperatorPageResponse(
             minimum = "1")
         int page,
     @Schema(
-            description = "Server-configured page size (cv-025)",
+            description = "Server-configured page size",
             requiredMode = Schema.RequiredMode.REQUIRED,
             minimum = "1")
         int pageSize,

@@ -10,7 +10,7 @@ import lombok.Builder;
  * from persistence (the {@code @Document} entity is never serialised). The wire is camelCase, so
  * every field serialises under its Java name.
  *
- * <p>The soft-delete tombstone is exposed as a derived {@code deleted} boolean (cv-016), never the
+ * <p>The soft-delete tombstone is exposed as a derived {@code deleted} boolean, never the
  * internal status enum.
  *
  * <p>Server-constructed and always-present fields are null-guarded in the compact constructor
@@ -36,7 +36,7 @@ public record OperatorResponse(
     @Schema(description = "Postal or ZIP code", requiredMode = Schema.RequiredMode.REQUIRED)
         String postcode,
     @Schema(
-            description = "ISO 3166-1 alpha-2 country code (cv-011)",
+            description = "ISO 3166-1 alpha-2 country code",
             requiredMode = Schema.RequiredMode.REQUIRED,
             example = "GB")
         String countryCode,
@@ -49,7 +49,7 @@ public record OperatorResponse(
             requiredMode = Schema.RequiredMode.REQUIRED)
         String organisationId,
     @Schema(
-            description = "True when the address has been soft-deleted (cv-016)",
+            description = "True when the address has been soft-deleted",
             requiredMode = Schema.RequiredMode.REQUIRED)
         boolean deleted,
     @Schema(

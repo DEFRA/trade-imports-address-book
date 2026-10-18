@@ -20,7 +20,7 @@ import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
 import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 
 /**
- * EUDPA-286 m1-02 — PUT /organisation/{orgId}/addresses/{id} full replace. Omitted optionals are
+ * PUT /organisation/{orgId}/addresses/{id} full replace. Omitted optionals are
  * cleared (not PATCH semantics). Same validation as create; tombstones and unknown/cross-org ids
  * return 404.
  */

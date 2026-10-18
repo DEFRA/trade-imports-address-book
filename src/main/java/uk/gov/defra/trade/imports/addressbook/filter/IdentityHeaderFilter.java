@@ -20,8 +20,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import uk.gov.defra.trade.imports.addressbook.exceptions.Problem;
 
 /**
- * Enforces the trusted-forwarded-header identity contract on every {@code /organisation/**} request
- * (cv-010).
+ * Enforces the trusted-forwarded-header identity contract on every {@code /organisation/**} request.
  *
  * <p>{@code Trade-Imports-Organisation-Id} is the sole tenant key for org-scoped reads and writes.
  * Missing, blank or malformed values fail fast with a 400 bad-request problem. When the path carries

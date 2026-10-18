@@ -23,7 +23,7 @@ import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
  * contract lives on the response records and the persistence shape on the {@link Address} entity.
  *
  * <p>On create the owning {@code organisationId} is stamped from the trusted forwarded header
- * (cv-010), never taken from the body, and the address starts {@code ACTIVE}. {@code id} is left for
+ * and never taken from the body, and the address starts {@code ACTIVE}. {@code id} is left for
  * Mongo and the timestamps for auditing.
  */
 @Service
@@ -53,7 +53,7 @@ public class OperatorService {
    * One page of the organisation's ACTIVE addresses, newest first. Scoped to {@code organisationId};
    * DELETED tombstones are excluded because the query pins {@code status ACTIVE}. {@code page} is
    * 1-based and translated to Spring Data's 0-based index; the page size is a server-side config
-   * (cv-025), not a request parameter; the sort is {@code createdAt} descending, served by the
+   * and not a request parameter; the sort is {@code createdAt} descending, served by the
    * {@code org_status_created} index.
    *
    * <p>An out-of-range {@code page} (&lt; 1) is a {@link BadRequestException}.
@@ -61,7 +61,7 @@ public class OperatorService {
    * @param organisationId the owning organisation id, from the identity header
    * @param page the 1-based page number
    * @param q optional case-insensitive partial-word search over name/townOrCity/postcode
-   * @param countryCode optional ISO alpha-2 country code (FE-resolved, cv-048)
+   * @param countryCode optional ISO alpha-2 country code (FE-resolved)
    * @return one page of ACTIVE addresses with pagination metadata
    * @throws BadRequestException if {@code page} is less than 1
    */
@@ -153,7 +153,7 @@ public class OperatorService {
    * soft-deleted address is returned WITH {@code status DELETED} so a consumer can tell "deleted"
    * (present, DELETED) from "unknown or not yours" (empty &rarr; 404). An id outside the caller's
    * organisation is indistinguishable from an unknown id: both are empty, so 404 leaks no existence
-   * across organisations (cv-010).
+   * across organisations.
    *
    * @param id the address id
    * @param organisationId the caller's organisation id, from the identity header

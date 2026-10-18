@@ -19,7 +19,7 @@ import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
 import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 
 /**
- * Org-path scoping and the cv-040 path-vs-session authorisation (cv-010, cv-040). The address book
+ * Org-path scoping and the path-vs-session authorisation. The address book
  * is path-scoped to {@code /organisation/{orgId}/addresses} and the API authorises the caller's
  * forwarded {@code Trade-Imports-Organisation-Id} against the path {@code orgId} — the path is never
  * trusted alone. This pins three defences:
@@ -29,7 +29,7 @@ import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
  *       the scope is enforced in the query, so a cross-org id is a 404 byte-for-byte identical to an
  *       unknown id (no existence and no deletion leak);
  *   <li>a forwarded session-org that disagrees with the path {@code orgId} is a 404 (never 403 — no
- *       existence disclosure, cv-040), before any store lookup;
+ *       existence disclosure), before any store lookup;
  *   <li>a missing or blank identity header is a platform auth rejection — a 400 bad-request problem
  *       with NO {@code errors} map — not a body-field business validation error.
  * </ul>
@@ -109,7 +109,7 @@ class AddressScopingIT extends IntegrationBase {
 
   @Test
   void forwardedOrgHeaderDisagreeingWithThePathOrgIdIs404() throws Exception {
-    // cv-040: the API authorises the caller's session-org against the path orgId. A caller whose
+    // The API authorises the caller's session-org against the path orgId. A caller whose
     // session is ORG_B addressing ORG_A's path is rejected with a 404 (never 403), before any store
     // lookup, so it cannot even confirm ORG_A's book exists.
     String id = createAsOrgA();
@@ -187,7 +187,7 @@ class AddressScopingIT extends IntegrationBase {
   void organisationIdIsStampedOnCreateAndScopesReads() throws Exception {
     String id = createAsOrgA();
 
-    // organisationId is stamped from the trusted identity, never the body (cv-010)
+    // organisationId is stamped from the trusted identity, never the body
     assertThat(repository.findByIdAndOrganisationId(id, ORG_A))
         .get()
         .satisfies(address -> assertThat(address.getOrganisationId()).isEqualTo(ORG_A));

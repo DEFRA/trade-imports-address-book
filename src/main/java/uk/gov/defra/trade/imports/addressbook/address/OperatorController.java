@@ -35,7 +35,7 @@ import uk.gov.defra.trade.imports.addressbook.filter.IdentityHeaderFilter;
 /**
  * REST API for an organisation's address book. Every operation is path-scoped to an
  * {@code orgId} and authorised against the caller's trusted {@code Trade-Imports-Organisation-Id}
- * forwarded header (cv-010, cv-040): the path is never trusted alone. The
+ * forwarded header: the path is never trusted alone. The
  * {@code IdentityHeaderFilter} fails fast on a missing or blank header, so it is present and
  * non-blank by the time a handler runs; {@link #authoriseOrg} then rejects a caller whose session
  * organisation disagrees with the path {@code orgId} with a 404 (no existence disclosure).
@@ -54,7 +54,7 @@ public class OperatorController {
   /**
    * Authorises the caller's forwarded session organisation against the path {@code orgId}. A
    * mismatch throws {@link NotFoundException} &rarr; 404 (never 403): the API must not disclose that
-   * another organisation's addresses exist (cv-040). The filter guarantees {@code sessionOrg} is
+   * another organisation's addresses exist. The filter guarantees {@code sessionOrg} is
    * present and non-blank before any handler — and therefore before this guard — runs.
    *
    * @param orgId the organisation id from the path
@@ -70,7 +70,7 @@ public class OperatorController {
   /**
    * Lists the caller's ACTIVE addresses, newest first, one page at a time. DELETED tombstones are
    * excluded. {@code page} is 1-based (default 1); an out-of-range or non-numeric value is a 400
-   * bad-request problem with no {@code errors} map. The page size is a server-side config (cv-025),
+   * bad-request problem with no {@code errors} map. The page size is a server-side config,
    * not a request parameter. The response is a top-level object ({@code items} + pagination
    * metadata), never a bare array.
    *
@@ -78,7 +78,7 @@ public class OperatorController {
    * @param sessionOrg the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
    * @param page the 1-based page number (default 1)
    * @param q optional case-insensitive partial-word search over name/townOrCity/postcode
-   * @param countryCode optional ISO alpha-2 country code (FE-resolved, cv-048)
+   * @param countryCode optional ISO alpha-2 country code (FE-resolved)
    * @return 200 with one page of ACTIVE addresses
    */
   @GetMapping

@@ -16,7 +16,7 @@ import lombok.Builder;
  * {@code fail-on-unknown-properties} off (Zalando default): a body echoing a read-only field from a
  * prior GET is accepted and the field dropped, never a 400.
  *
- * <p>{@code type} and {@code role} are the one exception (cv-044): the address book is untyped and
+ * <p>{@code type} and {@code role} are an exception: the address book is untyped and
  * unroled, so they are modelled as explicit {@code @Null} components with {@code @Schema(hidden =
  * true)} — present for Bean Validation and absent from the generated OpenAPI request schema. A
  * supplied value binds and fails {@code @Null}, landing in the same Bean-Validation {@code errors}
@@ -27,7 +27,7 @@ import lombok.Builder;
  * enforcement is Bean Validation's job, which must collect every field's error into the
  * {@code errors} map rather than fail fast on the first null.
  *
- * <p>{@code countryCode} is validated for presence only ({@code @NotBlank}, cv-011): it is stored
+ * <p>{@code countryCode} is validated for presence only ({@code @NotBlank}): it is stored
  * exactly as given with no length, list, or ISO pattern check.
  */
 @Builder
@@ -77,7 +77,7 @@ public record AddressRequest(
         String postcode,
     @NotBlank(message = "Enter a country")
         @Schema(
-            description = "Country code (stored as-given, cv-011)",
+            description = "Country code (stored as-given)",
             requiredMode = Schema.RequiredMode.REQUIRED,
             example = "GB")
         String countryCode,

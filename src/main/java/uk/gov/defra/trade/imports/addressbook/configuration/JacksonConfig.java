@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Makes the whole API camelCase (cv-001): the Spring-managed {@code ObjectMapper} serialises and
+ * Makes the whole API camelCase: the Spring-managed {@code ObjectMapper} serialises and
  * deserialises with {@link PropertyNamingStrategies#LOWER_CAMEL_CASE}, matching reference-data. Enum
  * values are unaffected and stay UPPER_SNAKE (their {@code name()}).
  *

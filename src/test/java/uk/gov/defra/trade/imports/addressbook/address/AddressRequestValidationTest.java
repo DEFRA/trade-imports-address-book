@@ -20,13 +20,13 @@ import org.junit.jupiter.params.provider.MethodSource;
  * the create/update body against the Standard Address Block field table: every mandatory field,
  * every max-length, and the email format leg.
  *
- * <p>{@code countryCode} is stored as-given with presence-only validation (cv-011).
+ * <p>{@code countryCode} is stored as-given with presence-only validation.
  *
  * <p>{@code type} and {@code role} are {@code @Null}: the book is untyped/unroled, so a supplied
- * value is a violation on that field (cv-044), while their absence (the normal case) is valid.
+ * value is a violation on that field, while their absence (the normal case) is valid.
  *
  * <p>Keys here are the Java property paths (e.g. {@code addressLine1}); the wire keys are identical
- * (camelCase, cv-001) and asserted end-to-end through the real handler in {@code OperatorCrudIT}.
+ * (camelCase).
  */
 class AddressRequestValidationTest {
 
@@ -147,7 +147,7 @@ class AddressRequestValidationTest {
             validRequest().email("not-an-email").build(),
             "email",
             "Enter an email address in the correct format"),
-        // untyped/unroled — a stray type/role is a per-field violation (cv-044)
+        // untyped/unroled — a stray type/role is a per-field violation
         Arguments.of(
             "stray type",
             validRequest().type("IMPORTER").build(),
@@ -203,7 +203,7 @@ class AddressRequestValidationTest {
 
   @Test
   void phoneIsNotFormatValidatedSoAFreeStringIsAccepted() {
-    // cv-044: phone keeps @NotBlank/@Size only — no format check.
+    // Phone keeps @NotBlank/@Size only — no format check.
     AddressRequest request = validRequest().phone("call the office").build();
 
     assertThat(validator.validate(request)).isEmpty();

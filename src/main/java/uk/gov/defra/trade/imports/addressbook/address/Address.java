@@ -18,7 +18,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
  * An untyped, organisation-owned address-book entry. The field set is flat — the Standard Address
  * Block is one flat form, so there is no nested {@code Address} value object.
  *
- * <p>{@code countryCode} is stored as an ISO 3166-1 alpha-2 code (cv-011), exactly as supplied — the
+ * <p>{@code countryCode} is stored as an ISO 3166-1 alpha-2 code, exactly as supplied — the
  * service does not convert it to or from a display name.
  *
  * <p>{@code modifiedAt} is bumped by auditing on every write (PUT and soft delete) but is

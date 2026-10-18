@@ -30,7 +30,7 @@ import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 /**
  * Full-stack list integration test for {@code GET /organisation/{orgId}/addresses}. Pins the
  * paginated, newest-first, organisation-scoped, ACTIVE-only listing: 30 seeded addresses paginate
- * 25 + 5 across two pages at the server-config page size (cv-025), DELETED tombstones are excluded,
+ * 25 + 5 across two pages at the server-config page size, DELETED tombstones are excluded,
  * another organisation's addresses are invisible, an out-of-range or non-numeric {@code page} is a
  * 400 bad-request problem with no {@code errors} map, and a supplied page-size request parameter is
  * never honoured (locked contract: pagination size is server-configured, not a request parameter).

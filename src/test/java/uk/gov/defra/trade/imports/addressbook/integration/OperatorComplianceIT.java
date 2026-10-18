@@ -79,7 +79,7 @@ class OperatorComplianceIT extends IntegrationBase {
         .andExpect(jsonPath("$.organisationId").value(ORGANISATION_ID))
         .andExpect(jsonPath("$.createdAt").exists())
         .andExpect(jsonPath("$.modifiedAt").exists())
-        // the tombstone is a derived boolean, never the internal status enum (cv-016)
+        // the tombstone is a derived boolean, never the internal status enum
         .andExpect(jsonPath("$.deleted").value(false))
         .andExpect(jsonPath("$.status").doesNotExist())
         // never the snake_case forms, and no retired typed fields
