@@ -29,9 +29,9 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
  *
  * <p>Responses use the {@link Problem} / {@link ValidationProblem} records rather than Spring's
  * {@code ProblemDetail} so the wire body omits {@code instance} — a request-scoped URI would leak
- * path ids and break the cross-org 404 indistinguishability contract (cv-040).
+ * path ids and break the cross-org 404 indistinguishability contract.
  *
- * <p>The wire is camelCase (cv-001), so an error-map key is the rejected field's Java name
+ * <p>The wire is camelCase, so an error-map key is the rejected field's Java name
  * verbatim ({@code addressLine1}) — the same name the frontend error mapping expects.
  */
 @RestControllerAdvice
@@ -46,7 +46,7 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ValidationProblem> handleValidationException(
       MethodArgumentNotValidException ex) {
     String traceId = MDC.get(MDC_TRACE_ID);
-    log.warn("Validation error (trace: {}): {}", traceId, ex.getMessage());
+    log.warn("Validation error (trace: {}): {}", traceId, ex.getMessage(), ex);
 
     Map<String, List<String>> errors = new LinkedHashMap<>();
     for (FieldError error : ex.getBindingResult().getFieldErrors()) {
@@ -74,7 +74,7 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(MethodArgumentTypeMismatchException.class)
   public ResponseEntity<Problem> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
     String traceId = MDC.get(MDC_TRACE_ID);
-    log.warn("Malformed parameter (trace: {}): {}", traceId, ex.getMessage());
+    log.warn("Malformed parameter (trace: {}): {}", traceId, ex.getMessage(), ex);
 
     return problemResponse(
         HttpStatus.BAD_REQUEST,
@@ -90,7 +90,7 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(HttpMessageNotReadableException.class)
   public ResponseEntity<Problem> handleMessageNotReadable(HttpMessageNotReadableException ex) {
     String traceId = MDC.get(MDC_TRACE_ID);
-    log.warn("Malformed request body (trace: {}): {}", traceId, ex.getMessage());
+    log.warn("Malformed request body (trace: {}): {}", traceId, ex.getMessage(), ex);
 
     return problemResponse(
         HttpStatus.BAD_REQUEST,
@@ -106,7 +106,7 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(OptimisticLockingFailureException.class)
   public ResponseEntity<Problem> handleOptimisticLocking(OptimisticLockingFailureException ex) {
     String traceId = MDC.get(MDC_TRACE_ID);
-    log.warn("Optimistic locking failure (trace: {}): {}", traceId, ex.getMessage());
+    log.warn("Optimistic locking failure (trace: {}): {}", traceId, ex.getMessage(), ex);
 
     return problemResponse(
         HttpStatus.CONFLICT,
@@ -122,7 +122,7 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(BadRequestException.class)
   public ResponseEntity<Problem> handleBadRequestException(BadRequestException ex) {
     String traceId = MDC.get(MDC_TRACE_ID);
-    log.warn("Bad request (trace: {}): {}", traceId, ex.getMessage());
+    log.warn("Bad request (trace: {}): {}", traceId, ex.getMessage(), ex);
 
     return problemResponse(
         HttpStatus.BAD_REQUEST,
@@ -133,7 +133,7 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(NotFoundException.class)
   public ResponseEntity<Problem> handleNotFoundException(NotFoundException ex) {
     String traceId = MDC.get(MDC_TRACE_ID);
-    log.warn("Resource not found (trace: {}): {}", traceId, ex.getMessage());
+    log.warn("Resource not found (trace: {}): {}", traceId, ex.getMessage(), ex);
 
     return problemResponse(
         HttpStatus.NOT_FOUND,

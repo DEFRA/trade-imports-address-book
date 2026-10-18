@@ -38,7 +38,7 @@ public class CertificateLoader {
     try {
       cf = CertificateFactory.getInstance("X.509");
     } catch (CertificateException e) {
-      log.error("Failed to get X.509 CertificateFactory: {}", e.getMessage());
+      log.error("Failed to get X.509 CertificateFactory: {}", e.getMessage(), e);
       throw new IllegalStateException("Cannot initialize certificate factory", e);
     }
 
@@ -53,7 +53,7 @@ public class CertificateLoader {
       return cert;
 
     } catch (CertificateException e) {
-      log.error("Failed to parse configured certificate: {}", e.getMessage());
+      log.error("Failed to parse configured certificate: {}", e.getMessage(), e);
       throw new IllegalStateException("Cannot parse configured CDP certificate", e);
     }
   }

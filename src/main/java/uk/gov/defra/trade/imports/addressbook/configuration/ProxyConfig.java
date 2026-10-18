@@ -72,7 +72,8 @@ public class ProxyConfig {
       log.error(
           "Failed to parse HTTP_PROXY: {}. Error: {}",
           redactCredentials(proxyUrl),
-          e.getMessage());
+          e.getMessage(),
+          e);
     }
   }
 
