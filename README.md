@@ -269,6 +269,17 @@ The list read path is served by the `org_status_created` compound index on
 user's address book today (tens to hundreds of rows), so a bounded scan is acceptable. Reassess any
 future index against real collection size before adding it.
 
+## Design notes
+
+- Responses use the service's own `Problem` and `ValidationProblem` records rather than Spring's `ProblemDetail`, so no body carries `instance`. A request-scoped URI would carry path ids and let a cross-organisation 404 differ from an unknown-id 404.
+- POST and PUT declare their 400 as `anyOf(ValidationProblem, Problem)`, not `oneOf`: a field-validation failure carries an `errors` map and every other 400 carries none.
+- A validation failure is logged with the rejected field names only. The exception's message holds the rejected values, which can be personal data, so it is not logged.
+- `IdentityHeaderFilter` writes its own problem bodies, because `@RestControllerAdvice` does not handle exceptions thrown from servlet filters. It reads the path from `servletPath`, falling back to `requestURI` when a proxy or MockMvc leaves `servletPath` empty.
+- springdoc resolves schemas through the application `ObjectMapper`. Otherwise swagger-core would use its own mapper and the generated document could drift from the camelCase wire.
+- `OperatorResponse` null-guards every required field, so a null is a server fault that fails loudly. `AddressRequest` has no null guards, so Bean Validation can report every missing field at once.
+- The `org_status_created` index was created while the collection was empty, so no later index build runs on a populated collection.
+- An address's `expireAt` is counted from the moment of creation rather than from `createdAt`, which auditing only fills in during the save.
+
 ## Licence
 
 This code is licensed under the [Open Government Licence v3.0](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/).

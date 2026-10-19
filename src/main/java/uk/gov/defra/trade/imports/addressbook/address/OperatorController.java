@@ -35,10 +35,8 @@ import uk.gov.defra.trade.imports.addressbook.filter.IdentityHeaderFilter;
 /**
  * REST API for an organisation's address book. Every operation is path-scoped to an
  * {@code orgId} and authorised against the caller's trusted {@code Trade-Imports-Organisation-Id}
- * forwarded header (cv-010, cv-040): the path is never trusted alone. The
- * {@code IdentityHeaderFilter} fails fast on a missing or blank header, so it is present and
- * non-blank by the time a handler runs; {@link #authoriseOrg} then rejects a caller whose session
- * organisation disagrees with the path {@code orgId} with a 404 (no existence disclosure).
+ * forwarded header: the path is never trusted alone. A caller whose organisation disagrees with
+ * the path {@code orgId} gets a 404, so another organisation's addresses are never disclosed.
  */
 @RestController
 @RequestMapping("/organisation/{orgId}/addresses")
@@ -51,16 +49,6 @@ public class OperatorController {
   private final OperatorService operatorService;
   private final OperatorMapper operatorMapper;
 
-  /**
-   * Authorises the caller's forwarded session organisation against the path {@code orgId}. A
-   * mismatch throws {@link NotFoundException} &rarr; 404 (never 403): the API must not disclose that
-   * another organisation's addresses exist (cv-040). The filter guarantees {@code sessionOrg} is
-   * present and non-blank before any handler — and therefore before this guard — runs.
-   *
-   * @param orgId the organisation id from the path
-   * @param sessionOrg the caller's organisation id from the forwarded identity header
-   * @throws NotFoundException if the session organisation does not match the path {@code orgId}
-   */
   private static void authoriseOrg(String orgId, String sessionOrg) {
     if (!sessionOrg.equals(orgId)) {
       throw new NotFoundException("Address not found");
@@ -70,7 +58,7 @@ public class OperatorController {
   /**
    * Lists the caller's ACTIVE addresses, newest first, one page at a time. DELETED tombstones are
    * excluded. {@code page} is 1-based (default 1); an out-of-range or non-numeric value is a 400
-   * bad-request problem with no {@code errors} map. The page size is a server-side config (cv-025),
+   * bad-request problem with no {@code errors} map. The page size is a server-side config,
    * not a request parameter. The response is a top-level object ({@code items} + pagination
    * metadata), never a bare array.
    *
@@ -78,7 +66,7 @@ public class OperatorController {
    * @param sessionOrg the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
    * @param page the 1-based page number (default 1)
    * @param q optional case-insensitive partial-word search over name/townOrCity/postcode
-   * @param countryCode optional ISO alpha-2 country code (FE-resolved, cv-048)
+   * @param countryCode optional ISO alpha-2 country code
    * @return 200 with one page of ACTIVE addresses
    */
   @GetMapping
@@ -134,7 +122,7 @@ public class OperatorController {
   /**
    * Creates an address in the caller's address book. {@code organisationId} is stamped from the
    * identity header, never from the body; server-assigned fields carried in the body are ignored,
-   * not rejected (Zalando default).
+   * not rejected.
    *
    * @param orgId the organisation scope from the path, authorised against the identity header
    * @param sessionOrg the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
@@ -320,8 +308,7 @@ public class OperatorController {
    * Soft-deletes an address. The document is not removed: {@code status} flips to {@code DELETED}
    * and {@code modifiedAt} is bumped, and the tombstone stays fetchable by id so a deletion is
    * detectable. Idempotent — deleting an already-DELETED address is a 204 with no state change. An
-   * unknown id, or one outside the caller's organisation, is a 404 (existence is never leaked). The
-   * UI reaches this only via the delete-confirmation page.
+   * unknown id, or one outside the caller's organisation, is a 404 (existence is never leaked).
    *
    * @param orgId the organisation scope from the path, authorised against the identity header
    * @param sessionOrg the caller's organisation id, from {@code Trade-Imports-Organisation-Id}

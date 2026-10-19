@@ -15,18 +15,8 @@ import org.springframework.context.annotation.Configuration;
 import uk.gov.defra.trade.imports.addressbook.filter.IdentityHeaderFilter;
 
 /**
- * Binds springdoc's schema generation to the application {@link ObjectMapper} (design §1.6). Without
- * this, swagger-core resolves models through its own default mapper, so the generated
- * {@code /v3/api-docs} could diverge from the runtime wire and the locked contract — the exact
- * divergence {@code OperatorComplianceIT} fails the build on. The {@link ModelResolver} makes the
- * {@link JacksonConfig} camelCase naming strategy (cv-001) authoritative for the generated document
- * too.
- *
- * <p>springdoc emits per-operation {@code security} blocks, places {@code securitySchemes} after
- * {@code schemas}, and may reorder schema property keys — the committed {@code docs/openapi/operators.yml}
- * is a SnakeYAML byte-stable dump of live {@code /v3/api-docs} (servers stripped). Regenerate with
- * {@code mvn verify -Dopenapi.generate=true -Dit.test=OperatorComplianceIT#regenerateCommittedOpenApiArtifact}
- * after any annotation change; a plain build then fails until it is committed.
+ * Describes the API for springdoc and resolves its schemas through the application
+ * {@link ObjectMapper}, so the generated document uses the same property names as the wire.
  */
 @Configuration
 @OpenAPIDefinition(
@@ -34,7 +24,7 @@ import uk.gov.defra.trade.imports.addressbook.filter.IdentityHeaderFilter;
         @Info(
             title = "trade-imports-address-book",
             version = "1.0.0",
-            description = "Org-scoped address book API for EUDP Live Animals (EUDPA-58)"))
+            description = "Org-scoped address book API for EUDP Live Animals"))
 public class OpenApiConfig {
 
   private static final String ORGANISATION_ID_SCHEME = "Trade-Imports-Organisation-Id";
@@ -54,7 +44,7 @@ public class OpenApiConfig {
                         .name(IdentityHeaderFilter.ORGANISATION_ID_HEADER)
                         .description(
                             "Caller organisation id from the trusted forwarded header; must match"
-                                + " path orgId (cv-010)")))
+                                + " path orgId")))
         .addSecurityItem(new SecurityRequirement().addList(ORGANISATION_ID_SCHEME));
   }
 

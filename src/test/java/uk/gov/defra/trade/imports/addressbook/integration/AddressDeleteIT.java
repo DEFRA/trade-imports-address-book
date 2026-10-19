@@ -22,7 +22,7 @@ import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
 import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 
 /**
- * EUDPA-286 m1-03 — DELETE /organisation/{orgId}/addresses/{id} soft-delete. Returns 204 without
+ * DELETE /organisation/{orgId}/addresses/{id} soft-delete. Returns 204 without
  * removing the row; idempotent on repeat. Tombstones are excluded from list but remain resolvable
  * by GET-by-id with {@code deleted: true}.
  */

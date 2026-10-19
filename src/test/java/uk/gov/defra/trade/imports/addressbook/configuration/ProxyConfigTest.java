@@ -2,12 +2,17 @@ package uk.gov.defra.trade.imports.addressbook.configuration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ch.qos.logback.classic.spi.ILoggingEvent;
 import java.net.Proxy;
 import java.net.ProxySelector;
 import java.net.URI;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import uk.gov.defra.trade.imports.addressbook.testsupport.CapturedLogs;
 
 class ProxyConfigTest {
 
@@ -60,10 +65,42 @@ class ProxyConfigTest {
     assertThat(System.getProperty("http.proxyHost")).isNull();
   }
 
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "http://proxy-user:s3cret-password@proxy example:3128",
+        "proxy-user:s3cret-password@proxy.example:3128",
+        "http://proxy-user:s3cret@password@proxy.example:3128"
+      })
+  void configureProxy_unusableUrlWithCredentials_logsRedactedUrlWithoutCredentialsOrThrowable(
+      String proxyUrl) {
+    ProxyConfig config = new ProxyConfig(proxyUrl);
+
+    List<ILoggingEvent> events = CapturedLogs.loggedBy(ProxyConfig.class, config::configureProxy);
+
+    assertThat(System.getProperty("http.proxyHost")).isNull();
+    assertThat(events)
+        .isNotEmpty()
+        .allSatisfy(
+            event -> {
+              assertThat(event.getFormattedMessage())
+                  .contains("***@")
+                  .doesNotContain("proxy-user")
+                  .doesNotContain("password");
+              assertThat(event.getThrowableProxy()).isNull();
+            });
+  }
+
   @Test
-  void redactCredentials_stripsUserInfoFromLoggedUrl() {
+  void redactCredentials_replacesUserInfoAndKeepsSchemeHostAndPort() {
     assertThat(ProxyConfig.redactCredentials("http://user:secret@proxy.example:3128"))
         .isEqualTo("http://***@proxy.example:3128");
+  }
+
+  @Test
+  void redactCredentials_leavesUrlWithoutCredentialsUnchanged() {
+    assertThat(ProxyConfig.redactCredentials("http://proxy.example:3128"))
+        .isEqualTo("http://proxy.example:3128");
   }
 
   @Test
@@ -87,4 +124,5 @@ class ProxyConfigTest {
         .extracting(Proxy::type)
         .containsExactly(Proxy.Type.HTTP);
   }
+
 }

@@ -7,12 +7,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Makes the whole API camelCase (cv-001): the Spring-managed {@code ObjectMapper} serialises and
- * deserialises with {@link PropertyNamingStrategies#LOWER_CAMEL_CASE}, matching reference-data. Enum
- * values are unaffected and stay UPPER_SNAKE (their {@code name()}).
+ * Makes the whole API camelCase: the Spring-managed {@code ObjectMapper} serialises and
+ * deserialises with {@link PropertyNamingStrategies#LOWER_CAMEL_CASE}. Enum values stay
+ * UPPER_SNAKE (their {@code name()}).
  *
- * <p>Unknown properties are ignored (not rejected) so a request body carrying server-assigned
- * fields — {@code id}, {@code status}, timestamps — is accepted and those fields dropped (§1.5).
+ * <p>Unknown properties are ignored, not rejected, so a request body carrying server-assigned
+ * fields such as {@code id}, {@code status} or timestamps is accepted and those fields dropped.
  */
 @Configuration
 public class JacksonConfig {

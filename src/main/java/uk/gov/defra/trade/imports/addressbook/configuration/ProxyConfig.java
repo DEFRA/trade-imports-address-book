@@ -14,14 +14,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Configures HTTP proxy for all outbound HTTP/HTTPS requests.
- *
- * <p>CDP Platform requirement: all egress traffic (except database connections) must go through the
- * platform's proxy server for security and access control.
- *
- * <p>Reads {@code cdp.proxyUrl} (mapped from the {@code HTTP_PROXY} environment variable), sets Java
- * system properties for traditional HTTP clients, and installs a {@link ProxySelector} that honours
- * {@code nonProxyHosts} for loopback and internal CDP targets.
+ * Routes outbound HTTP and HTTPS through {@code cdp.proxyUrl} ({@code HTTP_PROXY}), except loopback
+ * and internal CDP hosts. Sets the JVM proxy system properties and installs a matching
+ * {@link ProxySelector}.
  */
 @Configuration
 @Slf4j
@@ -70,14 +65,14 @@ public class ProxyConfig {
 
     } catch (IllegalArgumentException e) {
       log.error(
-          "Failed to parse HTTP_PROXY: {}. Error: {}",
+          "Failed to parse HTTP_PROXY {}: {}",
           redactCredentials(proxyUrl),
-          e.getMessage());
+          e.getClass().getSimpleName());
     }
   }
 
   static String redactCredentials(String proxyUrl) {
-    return proxyUrl.replaceAll("//[^@/]+@", "//***@");
+    return proxyUrl.replaceFirst("(?s)^([^/@]*//)?.*@", "$1***@");
   }
 
   static boolean shouldBypassProxy(String host) {
@@ -129,7 +124,7 @@ public class ProxyConfig {
 
       @Override
       public void connectFailed(URI uri, SocketAddress sa, java.io.IOException ioe) {
-        log.debug("Proxy connection failed for {} via {}: {}", uri, sa, ioe.getMessage());
+        log.debug("Proxy connection failed for {} via {}", uri, sa, ioe);
       }
     };
   }

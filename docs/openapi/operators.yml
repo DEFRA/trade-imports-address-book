@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: trade-imports-address-book
-  description: Org-scoped address book API for EUDP Live Animals (EUDPA-58)
+  description: Org-scoped address book API for EUDP Live Animals
   version: 1.0.0
 security:
 - Trade-Imports-Organisation-Id: []
@@ -321,7 +321,7 @@ components:
           minLength: 1
         countryCode:
           type: string
-          description: Country code (stored as-given, cv-011)
+          description: Country code (stored as-given)
           example: GB
           minLength: 1
         phone:
@@ -371,7 +371,7 @@ components:
           description: Postal or ZIP code
         countryCode:
           type: string
-          description: ISO 3166-1 alpha-2 country code (cv-011)
+          description: ISO 3166-1 alpha-2 country code
           example: GB
         phone:
           type: string
@@ -384,7 +384,7 @@ components:
           description: Organisation that owns this address
         deleted:
           type: boolean
-          description: True when the address has been soft-deleted (cv-016)
+          description: True when the address has been soft-deleted
         createdAt:
           type: string
           format: date-time
@@ -465,7 +465,7 @@ components:
         pageSize:
           type: integer
           format: int32
-          description: Server-configured page size (cv-025)
+          description: Server-configured page size
           minimum: 1
         totalItems:
           type: integer
@@ -486,6 +486,6 @@ components:
   securitySchemes:
     Trade-Imports-Organisation-Id:
       type: apiKey
-      description: Caller organisation id from the trusted forwarded header; must match path orgId (cv-010)
+      description: Caller organisation id from the trusted forwarded header; must match path orgId
       name: Trade-Imports-Organisation-Id
       in: header

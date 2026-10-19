@@ -13,9 +13,8 @@ import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
 import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 
 /**
- * EUDPA-286 m1-01 — GET /organisation/{orgId}/addresses/{id}. The only endpoint that surfaces a
- * soft-deleted row ({@code deleted: true}); list/search hide tombstones. Cross-org and unknown ids
- * yield 404 not-found problems; byte-identical non-disclosure is asserted in {@link AddressScopingIT}.
+ * GET /organisation/{orgId}/addresses/{id}. Returns a soft-deleted row with {@code deleted: true}.
+ * Cross-org and unknown ids yield 404 not-found problems.
  */
 class AddressGetIT extends IntegrationBase {
 

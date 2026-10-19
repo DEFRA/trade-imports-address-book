@@ -8,7 +8,7 @@ import org.springframework.data.repository.Repository;
 
 /**
  * Organisation-scoped address persistence. Only declares org-scoped finders and {@code save} — no
- * unscoped {@code findById} / {@code deleteById} (cv-010).
+ * unscoped {@code findById} / {@code deleteById}.
  */
 @org.springframework.stereotype.Repository
 public interface OperatorRepository extends Repository<Address, String> {

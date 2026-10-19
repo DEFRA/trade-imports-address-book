@@ -23,7 +23,7 @@ import org.yaml.snakeyaml.Yaml;
 import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 
 /**
- * Executable contract lock for {@code /organisation/{orgId}/addresses} (the M1 close). Two halves:
+ * Executable contract lock for {@code /organisation/{orgId}/addresses}. Two halves:
  *
  * <ol>
  *   <li><b>Runtime wire behaviour</b> — MockMvc requests prove the boundary is camelCase, the
@@ -79,12 +79,10 @@ class OperatorComplianceIT extends IntegrationBase {
         .andExpect(jsonPath("$.organisationId").value(ORGANISATION_ID))
         .andExpect(jsonPath("$.createdAt").exists())
         .andExpect(jsonPath("$.modifiedAt").exists())
-        // the tombstone is a derived boolean, never the internal status enum (cv-016)
+        // the tombstone is a derived boolean, never the internal status enum
         .andExpect(jsonPath("$.deleted").value(false))
         .andExpect(jsonPath("$.status").doesNotExist())
-        // never the snake_case forms, and no retired typed fields
-        .andExpect(jsonPath("$.address_line_1").doesNotExist())
-        .andExpect(jsonPath("$.operatorType").doesNotExist());
+        .andExpect(jsonPath("$.address_line_1").doesNotExist());
   }
 
   @Test
@@ -158,13 +156,11 @@ class OperatorComplianceIT extends IntegrationBase {
 
     assertSchemaPropertyNamesMatch(doc, locked);
 
-    // the untyped model carries no operatorType/transporterCategory/status enum on the wire
     Map<String, Object> requestProps =
         (Map<String, Object>) nested(schemas, "AddressRequest", "properties");
     Map<String, Object> lockedRequestProps =
         (Map<String, Object>) nested(lockedSchemas, "AddressRequest", "properties");
     assertThat(requestProps.keySet()).isEqualTo(lockedRequestProps.keySet());
-    assertThat(requestProps).doesNotContainKeys("operatorType", "transporterCategory");
     Map<String, Object> responseProps =
         (Map<String, Object>) nested(schemas, "OperatorResponse", "properties");
     assertThat(responseProps).doesNotContainKey("status");
