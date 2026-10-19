@@ -61,7 +61,7 @@ public class OperatorService {
    * @param organisationId the owning organisation id, from the identity header
    * @param page the 1-based page number
    * @param q optional case-insensitive partial-word search over name/townOrCity/postcode
-   * @param countryCode optional ISO alpha-2 country code (FE-resolved)
+   * @param countryCode optional ISO alpha-2 country code
    * @return one page of ACTIVE addresses with pagination metadata
    * @throws BadRequestException if {@code page} is less than 1
    */
@@ -117,8 +117,9 @@ public class OperatorService {
   }
 
   /**
-   * Persists a new address owned by the calling organisation. In non-prod it is given an
-   * {@code expireAt} (see {@link #stampExpiry}), which a later update or soft delete leaves as is.
+   * Persists a new address owned by the calling organisation. Outside prod, when a TTL is
+   * configured, it is given an {@code expireAt} counted from now, which a later update or soft
+   * delete leaves as is.
    *
    * @param request the validated create body (client-supplied fields only)
    * @param organisationId the owning organisation id, from the identity header
@@ -135,11 +136,6 @@ public class OperatorService {
     return saved;
   }
 
-  /**
-   * Sets {@code expireAt} on a new address, but only when both prod safeguards pass: a TTL duration
-   * is configured (non-prod config) and the running environment is not prod. Counted from now
-   * rather than {@code createdAt}, which auditing only fills in during the save.
-   */
   private void stampExpiry(Address address) {
     Integer days = ttlConfig.days();
     if (days == null || ttlConfig.isProd()) {

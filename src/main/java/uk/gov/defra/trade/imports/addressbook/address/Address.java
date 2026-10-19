@@ -21,14 +21,11 @@ import org.springframework.data.mongodb.core.mapping.Document;
  * <p>{@code countryCode} is stored as an ISO 3166-1 alpha-2 code, exactly as supplied — the
  * service does not convert it to or from a display name.
  *
- * <p>{@code modifiedAt} is bumped by auditing on every write (PUT and soft delete) but is
- * <strong>audit only</strong>: nothing reads it to refresh anything.
+ * <p>{@code modifiedAt} is bumped by auditing on every write (PUT and soft delete) and is for audit
+ * only.
  *
- * <p>The single compound index {@code org_status_created} serves every production read: org-scoped,
- * status-bounded (ACTIVE), newest-first. It is built now while the collection is empty so it is
- * never a later migration or index build on a populated collection.
- *
- * <p>The entity is never serialised onto the wire — the response records own the wire contract.
+ * <p>The compound index {@code org_status_created} serves org-scoped, status-bounded, newest-first
+ * reads.
  */
 @Document(collection = "addresses")
 @CompoundIndex(

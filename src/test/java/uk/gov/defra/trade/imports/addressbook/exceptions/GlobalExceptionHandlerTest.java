@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import ch.qos.logback.classic.spi.ILoggingEvent;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
@@ -17,10 +18,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import uk.gov.defra.trade.imports.addressbook.testsupport.CapturedLogs;
 
 class GlobalExceptionHandlerTest {
 
@@ -235,18 +238,51 @@ class GlobalExceptionHandlerTest {
     assertThat(response.getBody().traceId()).isNull();
   }
 
+  @Test
+  void handleValidationException_shouldLogTheRejectedFieldNamesButNotTheirValues() {
+    BindingResult bindingResult = new BeanPropertyBindingResult(new Object(), "addressRequest");
+    bindingResult.addError(
+        new FieldError(
+            "addressRequest",
+            "email",
+            "jo.bloggs@example.com.invalid@",
+            false,
+            null,
+            null,
+            "Enter an email address in the correct format"));
+
+    List<ILoggingEvent> events =
+        CapturedLogs.loggedBy(
+            GlobalExceptionHandler.class,
+            () ->
+                exceptionHandler.handleValidationException(
+                    new MethodArgumentNotValidException(validationTargetParameter(), bindingResult)));
+
+    assertThat(events)
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.getFormattedMessage()).contains("[email]");
+              assertThat(event.getFormattedMessage()).doesNotContain("jo.bloggs");
+              assertThat(event.getThrowableProxy()).isNull();
+            });
+  }
+
   @SuppressWarnings("unused")
   private void validationTarget(Object body) {}
 
-  private MethodArgumentNotValidException validationException(FieldError... fieldErrors) {
+  private MethodParameter validationTargetParameter() {
     try {
       Method method = this.getClass().getDeclaredMethod("validationTarget", Object.class);
-      MethodParameter methodParameter = new MethodParameter(method, 0);
-      BindingResult bindingResult = mock(BindingResult.class);
-      when(bindingResult.getFieldErrors()).thenReturn(List.of(fieldErrors));
-      return new MethodArgumentNotValidException(methodParameter, bindingResult);
+      return new MethodParameter(method, 0);
     } catch (NoSuchMethodException e) {
-      throw new IllegalStateException("Failed to build MethodArgumentNotValidException", e);
+      throw new IllegalStateException("Failed to find the validation target method", e);
     }
+  }
+
+  private MethodArgumentNotValidException validationException(FieldError... fieldErrors) {
+    BindingResult bindingResult = mock(BindingResult.class);
+    when(bindingResult.getFieldErrors()).thenReturn(List.of(fieldErrors));
+    return new MethodArgumentNotValidException(validationTargetParameter(), bindingResult);
   }
 }

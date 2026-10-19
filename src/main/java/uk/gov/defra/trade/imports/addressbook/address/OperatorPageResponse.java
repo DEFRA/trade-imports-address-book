@@ -7,7 +7,7 @@ import java.util.List;
  * Top-level list response, never a bare array. Wire fields are {@code items}, {@code page},
  * {@code pageSize}, {@code totalItems} and {@code totalPages}.
  *
- * <p>{@code items} is never null; the counts are primitives.
+ * <p>{@code items} is copied and never null.
  */
 @Schema(description = "Paginated list of ACTIVE addresses (never a bare array)")
 public record OperatorPageResponse(

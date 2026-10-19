@@ -227,7 +227,7 @@ class AddressUpdateIT extends IntegrationBase {
 
   @Test
   void put_shouldRejectStaleVersion_whenRowWasUpdatedConcurrently() throws Exception {
-    // Given — snapshot before another writer bumps @Version (same pattern as delete IT)
+    // Given
     Address saved = saveActiveWithOptionals();
     Address stale =
         repository.findByIdAndOrganisationId(saved.getId(), ORGANISATION_ID).orElseThrow();

@@ -6,16 +6,13 @@ import java.util.Objects;
 import lombok.Builder;
 
 /**
- * Address wire response — the object the entity is mapped onto so the locked contract is decoupled
- * from persistence (the {@code @Document} entity is never serialised). The wire is camelCase, so
- * every field serialises under its Java name.
+ * The address as it appears on the wire. Every field is camelCase, under its Java name.
  *
- * <p>The soft-delete tombstone is exposed as a derived {@code deleted} boolean, never the
- * internal status enum.
+ * <p>The soft-delete tombstone is a derived {@code deleted} boolean, never the internal status
+ * enum.
  *
- * <p>Server-constructed and always-present fields are null-guarded in the compact constructor
- * (service-boundary rule): a null here is a server bug and fails loud, not a malformed wire value.
- * {@code addressLine2} and {@code county} are genuinely optional and left unguarded.
+ * <p>Every field except {@code addressLine2} and {@code county} is required: the compact
+ * constructor throws {@link NullPointerException} when one is null.
  */
 @Builder
 @Schema(description = "An address in the caller's organisation-scoped address book")

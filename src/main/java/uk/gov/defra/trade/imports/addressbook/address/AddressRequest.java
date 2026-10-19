@@ -8,27 +8,18 @@ import jakarta.validation.constraints.Size;
 import lombok.Builder;
 
 /**
- * Create/update request body. The wire is camelCase (global {@code JacksonConfig}), so every field
- * serialises under its Java name.
+ * Create/update request body. Every field is camelCase on the wire, under its Java name.
  *
  * <p>Server-assigned fields ({@code id}, {@code organisationId}, {@code deleted}, timestamps) are
- * not components here, so they are ignored if supplied — Spring Boot leaves
- * {@code fail-on-unknown-properties} off (Zalando default): a body echoing a read-only field from a
- * prior GET is accepted and the field dropped, never a 400.
+ * not components, so a body that echoes them is accepted and they are dropped.
  *
- * <p>{@code type} and {@code role} are an exception: the address book is untyped and
- * unroled, so they are modelled as explicit {@code @Null} components with {@code @Schema(hidden =
- * true)} — present for Bean Validation and absent from the generated OpenAPI request schema. A
- * supplied value binds and fails {@code @Null}, landing in the same Bean-Validation {@code errors}
- * map keyed {@code type} / {@code role} — a per-field 400, not a silent drop and not a
- * deserialization failure. They are never mapped onto the entity.
+ * <p>{@code type} and {@code role} must be absent: a supplied value fails {@code @Null} and is
+ * reported as a per-field validation error. Both are hidden from the OpenAPI schema and never
+ * mapped onto the entity.
  *
- * <p>This record carries <strong>no</strong> null guards: it is client-supplied and its non-null
- * enforcement is Bean Validation's job, which must collect every field's error into the
- * {@code errors} map rather than fail fast on the first null.
+ * <p>The record has no null guards, so Bean Validation can report every missing field at once.
  *
- * <p>{@code countryCode} is validated for presence only ({@code @NotBlank}): it is stored
- * exactly as given with no length, list, or ISO pattern check.
+ * <p>{@code countryCode} is validated for presence only and stored exactly as given.
  */
 @Builder
 @Schema(description = "Create or replace an address in the caller's address book")

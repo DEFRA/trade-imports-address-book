@@ -2,9 +2,7 @@ package uk.gov.defra.trade.imports.addressbook.configuration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.read.ListAppender;
 import java.net.Proxy;
 import java.net.ProxySelector;
 import java.net.URI;
@@ -14,7 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.slf4j.LoggerFactory;
+import uk.gov.defra.trade.imports.addressbook.testsupport.CapturedLogs;
 
 class ProxyConfigTest {
 
@@ -78,7 +76,7 @@ class ProxyConfigTest {
       String proxyUrl) {
     ProxyConfig config = new ProxyConfig(proxyUrl);
 
-    List<ILoggingEvent> events = logEventsWhileConfiguring(config);
+    List<ILoggingEvent> events = CapturedLogs.loggedBy(ProxyConfig.class, config::configureProxy);
 
     assertThat(System.getProperty("http.proxyHost")).isNull();
     assertThat(events)
@@ -127,16 +125,4 @@ class ProxyConfigTest {
         .containsExactly(Proxy.Type.HTTP);
   }
 
-  private static List<ILoggingEvent> logEventsWhileConfiguring(ProxyConfig config) {
-    Logger logger = (Logger) LoggerFactory.getLogger(ProxyConfig.class);
-    ListAppender<ILoggingEvent> appender = new ListAppender<>();
-    appender.start();
-    logger.addAppender(appender);
-    try {
-      config.configureProxy();
-    } finally {
-      logger.detachAppender(appender);
-    }
-    return appender.list;
-  }
 }

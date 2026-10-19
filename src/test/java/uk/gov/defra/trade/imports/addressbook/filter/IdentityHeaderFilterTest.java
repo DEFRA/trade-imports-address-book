@@ -21,15 +21,6 @@ import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
-/**
- * Unit tests for {@link IdentityHeaderFilter}.
- *
- * <p>The filter runs before {@code DispatcherServlet}, so {@code GlobalExceptionHandler}
- * (a {@code @RestControllerAdvice}) cannot format its failures — the filter must write the RFC 9457
- * {@code application/problem+json} bad-request body itself. These tests pin that self-written body,
- * the {@code Trade-Imports-Organisation-Id} required-on-every-operation rule, MDC scoping and the
- * no-PII-in-logs guarantee.
- */
 class IdentityHeaderFilterTest {
 
   private static final String ORGANISATION_ID_HEADER = "Trade-Imports-Organisation-Id";
