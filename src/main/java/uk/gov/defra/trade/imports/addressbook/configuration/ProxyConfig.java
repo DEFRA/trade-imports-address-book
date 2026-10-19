@@ -70,15 +70,14 @@ public class ProxyConfig {
 
     } catch (IllegalArgumentException e) {
       log.error(
-          "Failed to parse HTTP_PROXY: {}. Error: {}",
+          "Failed to parse HTTP_PROXY {}: {}",
           redactCredentials(proxyUrl),
-          e.getMessage(),
-          e);
+          e.getClass().getSimpleName());
     }
   }
 
   static String redactCredentials(String proxyUrl) {
-    return proxyUrl.replaceAll("//[^@/]+@", "//***@");
+    return proxyUrl.replaceFirst("(?s)^([^/@]*//)?.*@", "$1***@");
   }
 
   static boolean shouldBypassProxy(String host) {
