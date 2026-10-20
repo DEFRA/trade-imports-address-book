@@ -1,5 +1,7 @@
 package uk.gov.defra.trade.imports.addressbook.openapi;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -57,6 +59,7 @@ class OpenApiArtifactGeneratorIT {
     Map<String, Object> live = fetchApiDocs();
     live.remove("servers");
     Files.writeString(GENERATED_DOC, yaml().dump(live));
+    assertThat(GENERATED_DOC).exists();
   }
 
   @SuppressWarnings("unchecked")
