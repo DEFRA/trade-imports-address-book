@@ -24,7 +24,7 @@ import lombok.Builder;
 @Builder
 @Schema(description = "Create or replace an address in the caller's address book")
 public record AddressRequest(
-    @NotBlank(message = "Enter a name or organisation name")
+    @NotBlank(message = "Enter a name or organisation")
         @Size(min = 1, max = 255, message = "Name must be 255 characters or less")
         @Schema(
             description = "Display name for the address",

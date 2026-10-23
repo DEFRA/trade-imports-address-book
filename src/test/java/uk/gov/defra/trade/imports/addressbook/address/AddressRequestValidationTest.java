@@ -83,7 +83,7 @@ class AddressRequestValidationTest {
             "blank name",
             validRequest().name("").build(),
             "name",
-            "Enter a name or organisation name"),
+            "Enter a name or organisation"),
         Arguments.of(
             "blank addressLine1",
             validRequest().addressLine1("").build(),
