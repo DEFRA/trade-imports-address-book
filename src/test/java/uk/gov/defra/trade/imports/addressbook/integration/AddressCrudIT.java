@@ -343,7 +343,7 @@ class AddressCrudIT extends IntegrationBase {
                 .content(body))
         .andExpect(status().isBadRequest())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
-        .andExpect(jsonPath("$.errors.name", hasItem("Enter a name or organisation name")))
+        .andExpect(jsonPath("$.errors.name", hasItem("Enter a name or organisation")))
         .andExpect(jsonPath("$.errors.postcode", hasItem("Enter a postcode or Zip code")))
         .andExpect(jsonPath("$.errors.countryCode", hasItem("Select a country")))
         .andExpect(jsonPath("$.errors.phone", hasItem("Enter a phone number")));
