@@ -13,6 +13,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -474,7 +475,7 @@ class OperatorServiceTest {
   }
 
   @Test
-  void list_withSeveralCountryCodesTrimsEachAndDropsBlanksBeforeSearching() {
+  void list_withSeveralCountryCodesTrimsEachAndDropsBlanksAndNullsBeforeSearching() {
     // Given
     Address matching = persistedAddress("matching-id", ORG, AddressStatus.ACTIVE);
     when(repository.searchByCountryCode(
@@ -482,7 +483,7 @@ class OperatorServiceTest {
         .thenReturn(new PageImpl<>(List.of(matching), PageRequest.of(0, 25), 1));
 
     // When
-    OperatorPageResponse response = service.list(ORG, 1, null, null, List.of(" FR ", " ", "GB"));
+    OperatorPageResponse response = service.list(ORG, 1, null, null, Arrays.asList(" FR ", " ", null, "GB"));
 
     // Then
     assertThat(response.items()).extracting(OperatorResponse::id).containsExactly("matching-id");
