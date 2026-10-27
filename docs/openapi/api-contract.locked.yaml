@@ -17,7 +17,8 @@ info:
 
     **Search:** `q` and `countryCode` combine with OR semantics when both are supplied.
 
-    **Pagination:** page size is server-configured (default 25), not a request parameter.
+    **Pagination:** the page size is the optional `pageSize` request parameter, from 1 to 100,
+    defaulting to 25 when the request gives none. Any other value is a 400.
 
     **Deviations from earlier design drafts:**
     - **D1 — `countryCode` is ISO 3166-1 alpha-2** (e.g. "GB"), NOT an MDM display-name
@@ -184,7 +185,7 @@ paths:
     get:
       tags:
       - addresses
-      summary: List the caller's ACTIVE addresses (paginated, searchable)
+      summary: List the caller's live addresses (paginated, searchable)
       operationId: list-addresses
       parameters:
       - name: orgId
@@ -204,6 +205,15 @@ paths:
           type: integer
           format: int32
           default: 1
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 25
+          maximum: 100
+          minimum: 1
       - name: q
         in: query
         required: false
@@ -213,16 +223,18 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type: array
+          items:
+            type: string
       responses:
         '200':
-          description: One page of the caller's ACTIVE addresses
+          description: One page of the caller's live addresses
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/OperatorPageResponse'
         '400':
-          description: An out-of-range or non-numeric page, or a missing org header
+          description: An out-of-range or non-numeric page or page size, or a missing org header
           content:
             application/problem+json:
               schema:

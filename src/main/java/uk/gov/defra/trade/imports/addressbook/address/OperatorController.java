@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -56,34 +57,36 @@ public class OperatorController {
   }
 
   /**
-   * Lists the caller's ACTIVE addresses, newest first, one page at a time. DELETED tombstones are
-   * excluded. {@code page} is 1-based (default 1); an out-of-range or non-numeric value is a 400
-   * bad-request problem with no {@code errors} map. The page size is a server-side config,
-   * not a request parameter. The response is a top-level object ({@code items} + pagination
-   * metadata), never a bare array.
+   * Lists the caller's live addresses, newest first, one page at a time. {@code page} is 1-based
+   * (default 1) and {@code pageSize} runs from 1 to 100 (default 25); an out-of-range or
+   * non-numeric value for either is a 400 bad-request problem with no {@code errors} map. The
+   * response is a top-level object ({@code items} + pagination metadata), never a bare array.
    *
    * @param orgId the organisation scope from the path, authorised against the identity header
    * @param sessionOrg the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
    * @param page the 1-based page number (default 1)
-   * @param q optional case-insensitive partial-word search over name/townOrCity/postcode
-   * @param countryCode optional ISO alpha-2 country code
-   * @return 200 with one page of ACTIVE addresses
+   * @param pageSize the number of addresses a page, from 1 to 100 (default 25)
+   * @param q optional case-insensitive partial-word search over name, address line 1, address line
+   *     2, town or city, county and postcode
+   * @param countryCodes optional ISO alpha-2 country codes; an address in any of them matches
+   * @return 200 with one page of live addresses
    */
   @GetMapping
   @Operation(
       operationId = "list-addresses",
-      summary = "List the caller's ACTIVE addresses (paginated, searchable)")
+      summary = "List the caller's live addresses (paginated, searchable)")
   @ApiResponses({
     @ApiResponse(
         responseCode = "200",
-        description = "One page of the caller's ACTIVE addresses",
+        description = "One page of the caller's live addresses",
         content =
             @Content(
                 mediaType = MediaType.APPLICATION_JSON_VALUE,
                 schema = @Schema(implementation = OperatorPageResponse.class))),
     @ApiResponse(
         responseCode = "400",
-        description = "An out-of-range or non-numeric page, or a missing org header",
+        description =
+            "An out-of-range or non-numeric page or page size, or a missing org header",
         content =
             @Content(
                 mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
@@ -112,11 +115,27 @@ public class OperatorController {
               schema = @Schema(type = "integer", format = "int32", minimum = "1", defaultValue = "1"))
           @RequestParam(defaultValue = "1")
           int page,
+      @Parameter(
+              description = "Addresses a page, from 1 to 100 (default 25)",
+              schema =
+                  @Schema(
+                      type = "integer",
+                      format = "int32",
+                      minimum = "" + OperatorService.MIN_PAGE_SIZE,
+                      maximum = "" + OperatorService.MAX_PAGE_SIZE,
+                      defaultValue = "25"))
+          @RequestParam(required = false)
+          Integer pageSize,
       @RequestParam(required = false) String q,
-      @RequestParam(required = false) String countryCode) {
+      @RequestParam(name = "countryCode", required = false) List<String> countryCodes) {
     authoriseOrg(orgId, sessionOrg);
-    log.info("GET addresses - page {}, q present {}, countryCode {}", page, q != null, countryCode);
-    return operatorService.list(sessionOrg, page, q, countryCode);
+    log.info(
+        "GET addresses - page {}, pageSize {}, q present {}, countryCodes {}",
+        page,
+        pageSize,
+        q != null,
+        countryCodes);
+    return operatorService.list(sessionOrg, page, pageSize, q, countryCodes);
   }
 
   /**

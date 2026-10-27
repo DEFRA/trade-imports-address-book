@@ -3,6 +3,7 @@ package uk.gov.defra.trade.imports.addressbook.integration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.data.domain.PageRequest.of;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -44,7 +45,7 @@ class OperatorRepositoryIT extends IntegrationBase {
     saveAddress("Org A deleted FR", ORG_A, AddressStatus.DELETED, "FR");
 
     Page<Address> page =
-        operatorRepository.searchByCountryCode(ORG_A, AddressStatus.ACTIVE, "FR", of(0, 10));
+        operatorRepository.searchByCountryCode(ORG_A, AddressStatus.ACTIVE, List.of("FR"), of(0, 10));
 
     assertThat(page.getTotalElements()).isEqualTo(1);
     assertThat(page.getContent()).singleElement().extracting(Address::getOrganisationId).isEqualTo(ORG_A);
@@ -57,10 +58,40 @@ class OperatorRepositoryIT extends IntegrationBase {
 
     Page<Address> page =
         operatorRepository.searchByQueryAndCountryCode(
-            ORG_A, AddressStatus.ACTIVE, ".*\\QParis\\E.*", "FR", of(0, 10));
+            ORG_A, AddressStatus.ACTIVE, ".*\\QParis\\E.*", List.of("FR"), of(0, 10));
 
     assertThat(page.getTotalElements()).isEqualTo(1);
     assertThat(page.getContent()).singleElement().extracting(Address::getOrganisationId).isEqualTo(ORG_A);
+  }
+
+  @Test
+  void searchByCountryCode_matchesAnyOfSeveralCountryCodes() {
+    Address french = saveAddress("Paris Depot", ORG_A, AddressStatus.ACTIVE, "FR");
+    Address irish = saveAddress("Dublin Depot", ORG_A, AddressStatus.ACTIVE, "IE");
+    saveAddress("Berlin Depot", ORG_A, AddressStatus.ACTIVE, "DE");
+
+    Page<Address> page =
+        operatorRepository.searchByCountryCode(
+            ORG_A, AddressStatus.ACTIVE, List.of("FR", "IE"), of(0, 10));
+
+    assertThat(page.getContent())
+        .extracting(Address::getId)
+        .containsExactlyInAnyOrder(french.getId(), irish.getId());
+  }
+
+  @Test
+  void searchByQueryAndCountryCode_matchesAnyOfSeveralCountryCodesWhenTheQueryMatchesNothing() {
+    Address french = saveAddress("Paris Depot", ORG_A, AddressStatus.ACTIVE, "FR");
+    Address irish = saveAddress("Dublin Depot", ORG_A, AddressStatus.ACTIVE, "IE");
+    saveAddress("Berlin Depot", ORG_A, AddressStatus.ACTIVE, "DE");
+
+    Page<Address> page =
+        operatorRepository.searchByQueryAndCountryCode(
+            ORG_A, AddressStatus.ACTIVE, ".*\\QNoSuchText\\E.*", List.of("FR", "IE"), of(0, 10));
+
+    assertThat(page.getContent())
+        .extracting(Address::getId)
+        .containsExactlyInAnyOrder(french.getId(), irish.getId());
   }
 
   private Address saveAddress(String name, String organisationId) {

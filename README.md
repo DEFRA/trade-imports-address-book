@@ -127,8 +127,9 @@ returns **404** (no existence disclosure).
 | Parameter | Description |
 | --- | --- |
 | `page` | 1-based page number (default `1`) |
-| `q` | Case-insensitive partial search over `name`, `townOrCity`, and `postcode` |
-| `countryCode` | When combined with `q`, matches addresses where **either** the search term appears in `name`/`townOrCity`/`postcode` **or** the stored `countryCode` equals this value (OR semantics, not AND) |
+| `pageSize` | Addresses a page, from `1` to `100` (default `25`, set by `address-book.list.page-size`); any other value is a `400` |
+| `q` | Case-insensitive partial search over `name`, `addressLine1`, `addressLine2`, `townOrCity`, `county` and `postcode` |
+| `countryCode` | One or more ISO country codes (repeat the parameter). Alone, it lists the addresses in any of them. With `q`, an address matches when the search term appears in a searched field **or** its stored `countryCode` is one of them (OR semantics, not AND) |
 
 **Wire conventions**
 
@@ -139,7 +140,7 @@ returns **404** (no existence disclosure).
   never a bare array.
 - Soft-deleted addresses expose `deleted: true` on read; the internal `status` enum is not on the wire.
 - Validation failures return **400** `application/problem+json` with a camelCase `errors` map.
-- Page size is server-configured (default **25** via `address-book.list.page-size`), not a request parameter.
+- Page size is a request parameter (`pageSize`, `1` to `100`); when the request gives none, the configured default of **25** (`address-book.list.page-size`) applies.
 
 **Example — create an address**
 

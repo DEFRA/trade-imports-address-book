@@ -21,7 +21,7 @@ public record OperatorPageResponse(
             minimum = "1")
         int page,
     @Schema(
-            description = "Server-configured page size",
+            description = "Page size served: the requested one, else the default",
             requiredMode = Schema.RequiredMode.REQUIRED,
             minimum = "1")
         int pageSize,

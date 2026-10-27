@@ -30,45 +30,51 @@ import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
 @Slf4j
 public class OperatorService {
 
+  static final int MIN_PAGE_SIZE = 1;
+  static final int MAX_PAGE_SIZE = 100;
+
   private final OperatorRepository repository;
   private final OperatorMapper operatorMapper;
   private final MeterRegistry meterRegistry;
   private final AddressTtlConfig ttlConfig;
-  private final int pageSize;
+  private final int defaultPageSize;
 
   public OperatorService(
       OperatorRepository repository,
       OperatorMapper operatorMapper,
       MeterRegistry meterRegistry,
       AddressTtlConfig ttlConfig,
-      @Value("${address-book.list.page-size:25}") int pageSize) {
+      @Value("${address-book.list.page-size:25}") int defaultPageSize) {
     this.repository = repository;
     this.operatorMapper = operatorMapper;
     this.meterRegistry = meterRegistry;
     this.ttlConfig = ttlConfig;
-    this.pageSize = pageSize;
+    this.defaultPageSize = defaultPageSize;
   }
 
   /**
-   * One page of the organisation's ACTIVE addresses, newest first. Scoped to {@code organisationId};
-   * DELETED tombstones are excluded because the query pins {@code status ACTIVE}. {@code page} is
-   * 1-based and translated to Spring Data's 0-based index; the page size is a server-side config
-   * and not a request parameter; the sort is {@code createdAt} descending, served by the
-   * {@code org_status_created} index.
-   *
-   * <p>An out-of-range {@code page} (&lt; 1) is a {@link BadRequestException}.
+   * One page of the organisation's live addresses, newest first.
    *
    * @param organisationId the owning organisation id, from the identity header
    * @param page the 1-based page number
-   * @param q optional case-insensitive partial-word search over name/townOrCity/postcode
-   * @param countryCode optional ISO alpha-2 country code
-   * @return one page of ACTIVE addresses with pagination metadata
-   * @throws BadRequestException if {@code page} is less than 1
+   * @param requestedPageSize the page size from 1 to 100, or null for the configured default
+   * @param q optional case-insensitive partial-word search over name, address line 1, address line
+   *     2, town or city, county and postcode
+   * @param countryCodes optional ISO alpha-2 country codes; an address in any of them matches
+   * @return one page of live addresses with pagination metadata
+   * @throws BadRequestException if {@code page} is less than 1 or {@code requestedPageSize} is
+   *     outside 1 to 100
    */
-  public OperatorPageResponse list(String organisationId, int page, String q, String countryCode) {
+  public OperatorPageResponse list(
+      String organisationId,
+      int page,
+      Integer requestedPageSize,
+      String q,
+      List<String> countryCodes) {
     if (page < 1) {
       throw new BadRequestException("page must be 1 or greater");
     }
+    int pageSize = servedPageSize(requestedPageSize);
 
     Pageable pageable =
         PageRequest.of(
@@ -78,7 +84,7 @@ public class OperatorService {
 
     Timer.Sample sample = Timer.start(meterRegistry);
     try {
-      Page<Address> result = queryPage(organisationId, q, countryCode, pageable);
+      Page<Address> result = queryPage(organisationId, q, countryCodes, pageable);
       List<OperatorResponse> items =
           result.getContent().stream().map(operatorMapper::toResponse).toList();
       return new OperatorPageResponse(
@@ -88,10 +94,22 @@ public class OperatorService {
     }
   }
 
+  private int servedPageSize(Integer requestedPageSize) {
+    if (requestedPageSize == null) {
+      return defaultPageSize;
+    }
+    if (requestedPageSize < MIN_PAGE_SIZE || requestedPageSize > MAX_PAGE_SIZE) {
+      throw new BadRequestException(
+          "pageSize must be between " + MIN_PAGE_SIZE + " and " + MAX_PAGE_SIZE);
+    }
+    return requestedPageSize;
+  }
+
   private Page<Address> queryPage(
-      String organisationId, String q, String countryCode, Pageable pageable) {
+      String organisationId, String q, List<String> countryCodes, Pageable pageable) {
+    List<String> searchedCountryCodes = nonBlankTrimmed(countryCodes);
     boolean hasQuery = q != null && !q.isBlank();
-    boolean hasCountryCode = countryCode != null && !countryCode.isBlank();
+    boolean hasCountryCode = !searchedCountryCodes.isEmpty();
 
     if (!hasQuery && !hasCountryCode) {
       return repository.findByOrganisationIdAndStatus(
@@ -100,7 +118,11 @@ public class OperatorService {
 
     if (hasQuery && hasCountryCode) {
       return repository.searchByQueryAndCountryCode(
-          organisationId, AddressStatus.ACTIVE, toPartialMatchRegex(q), countryCode.trim(), pageable);
+          organisationId,
+          AddressStatus.ACTIVE,
+          toPartialMatchRegex(q),
+          searchedCountryCodes,
+          pageable);
     }
 
     if (hasQuery) {
@@ -109,7 +131,17 @@ public class OperatorService {
     }
 
     return repository.searchByCountryCode(
-        organisationId, AddressStatus.ACTIVE, countryCode.trim(), pageable);
+        organisationId, AddressStatus.ACTIVE, searchedCountryCodes, pageable);
+  }
+
+  private static List<String> nonBlankTrimmed(List<String> countryCodes) {
+    if (countryCodes == null) {
+      return List.of();
+    }
+    return countryCodes.stream()
+        .filter(code -> code != null && !code.isBlank())
+        .map(String::trim)
+        .toList();
   }
 
   private static String toPartialMatchRegex(String q) {

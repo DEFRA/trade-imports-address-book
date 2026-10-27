@@ -27,14 +27,6 @@ import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
 import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 
-/**
- * Full-stack list integration test for {@code GET /organisation/{orgId}/addresses}. Pins the
- * paginated, newest-first, organisation-scoped, ACTIVE-only listing: 30 seeded addresses paginate
- * 25 + 5 across two pages at the server-config page size, DELETED tombstones are excluded,
- * another organisation's addresses are invisible, an out-of-range or non-numeric {@code page} is a
- * 400 bad-request problem with no {@code errors} map, and a supplied page-size request parameter is
- * never honoured (locked contract: pagination size is server-configured, not a request parameter).
- */
 class OperatorListIT extends IntegrationBase {
 
   @Autowired private OperatorRepository repository;
@@ -66,14 +58,13 @@ class OperatorListIT extends IntegrationBase {
   private void seedActiveWithDistinctCreatedAt(int count) {
     Instant base = Instant.parse("2026-01-01T00:00:00Z");
     for (int i = 0; i < count; i++) {
-      // Higher suffix ⇒ newer createdAt so list (createdAt DESC) returns Address {count-1} first.
       saveWithCreatedAt(
           ORGANISATION_ID, AddressStatus.ACTIVE, "Address " + i, base.plusSeconds(i + 1L));
     }
   }
 
   @Test
-  void list_shouldReturn25ItemsAcross2Pages_when30AddressesSeeded() throws Exception {
+  void list_shouldReturn25ItemsAcross2Pages_whenNoPageSizeIsRequested() throws Exception {
     // Given
     seedActiveWithDistinctCreatedAt(30);
 
@@ -180,21 +171,54 @@ class OperatorListIT extends IntegrationBase {
   }
 
   @Test
-  void list_shouldIgnorePageSizeRequestParams_whenServerConfigSizeApplies() throws Exception {
+  void list_shouldReturn8ItemsAcross4Pages_whenPageSizeIs8() throws Exception {
     // Given
     seedActiveWithDistinctCreatedAt(30);
 
-    // When / Then — locked contract: page size is server-configured, not a request parameter
+    // When / Then
     mockMvc
         .perform(
             get("/organisation/{orgId}/addresses", ORGANISATION_ID)
                 .header(ORG_HEADER, ORGANISATION_ID)
-                .param("page_size", "5")
-                .param("pageSize", "5"))
+                .param("pageSize", "8"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.items.length()").value(25))
-        .andExpect(jsonPath("$.pageSize").value(25))
-        .andExpect(jsonPath("$.totalItems").value(30));
+        .andExpect(jsonPath("$.items.length()").value(8))
+        .andExpect(jsonPath("$.pageSize").value(8))
+        .andExpect(jsonPath("$.totalItems").value(30))
+        .andExpect(jsonPath("$.totalPages").value(4));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"0", "101", "-1", "abc"})
+  void list_shouldReturn400BadRequestProblemWithNoErrorsMap_whenPageSizeIsOutOfRangeOrNonNumeric(
+      String pageSize) throws Exception {
+    // When / Then
+    mockMvc
+        .perform(
+            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
+                .header(ORG_HEADER, ORGANISATION_ID)
+                .param("pageSize", pageSize))
+        .andExpect(status().isBadRequest())
+        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/bad-request"))
+        .andExpect(jsonPath("$.status").value(400))
+        .andExpect(jsonPath("$.errors").doesNotExist());
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"1", "100"})
+  void list_shouldServeTheRequestedPageSize_whenItIsAtABound(String pageSize) throws Exception {
+    // Given
+    seedActiveWithDistinctCreatedAt(3);
+
+    // When / Then
+    mockMvc
+        .perform(
+            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
+                .header(ORG_HEADER, ORGANISATION_ID)
+                .param("pageSize", pageSize))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.pageSize").value(Integer.parseInt(pageSize)));
   }
 
   @Test

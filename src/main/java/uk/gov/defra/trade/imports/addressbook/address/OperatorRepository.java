@@ -1,5 +1,6 @@
 package uk.gov.defra.trade.imports.addressbook.address;
 
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -22,28 +23,30 @@ public interface OperatorRepository extends Repository<Address, String> {
   Page<Address> findByOrganisationIdAndStatus(
       String organisationId, AddressStatus status, Pageable pageable);
 
-  @Query(
-      "{ 'organisationId': ?0, 'status': ?1, '$or': [ "
-          + "{ 'name': { '$regex': ?2, '$options': 'i' } }, "
+  String TEXT_SEARCH_CLAUSES =
+      "{ 'name': { '$regex': ?2, '$options': 'i' } }, "
+          + "{ 'addressLine1': { '$regex': ?2, '$options': 'i' } }, "
+          + "{ 'addressLine2': { '$regex': ?2, '$options': 'i' } }, "
           + "{ 'townOrCity': { '$regex': ?2, '$options': 'i' } }, "
-          + "{ 'postcode': { '$regex': ?2, '$options': 'i' } } ] }")
+          + "{ 'county': { '$regex': ?2, '$options': 'i' } }, "
+          + "{ 'postcode': { '$regex': ?2, '$options': 'i' } }";
+
+  @Query("{ 'organisationId': ?0, 'status': ?1, '$or': [ " + TEXT_SEARCH_CLAUSES + " ] }")
   Page<Address> searchByQuery(
       String organisationId, AddressStatus status, String regex, Pageable pageable);
 
-  @Query("{ 'organisationId': ?0, 'status': ?1, 'countryCode': ?2 }")
+  @Query("{ 'organisationId': ?0, 'status': ?1, 'countryCode': { '$in': ?2 } }")
   Page<Address> searchByCountryCode(
-      String organisationId, AddressStatus status, String countryCode, Pageable pageable);
+      String organisationId, AddressStatus status, List<String> countryCodes, Pageable pageable);
 
   @Query(
       "{ 'organisationId': ?0, 'status': ?1, '$or': [ "
-          + "{ 'name': { '$regex': ?2, '$options': 'i' } }, "
-          + "{ 'townOrCity': { '$regex': ?2, '$options': 'i' } }, "
-          + "{ 'postcode': { '$regex': ?2, '$options': 'i' } }, "
-          + "{ 'countryCode': ?3 } ] }")
+          + TEXT_SEARCH_CLAUSES
+          + ", { 'countryCode': { '$in': ?3 } } ] }")
   Page<Address> searchByQueryAndCountryCode(
       String organisationId,
       AddressStatus status,
       String regex,
-      String countryCode,
+      List<String> countryCodes,
       Pageable pageable);
 }

@@ -18,6 +18,8 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -382,7 +384,7 @@ class OperatorServiceTest {
         .thenReturn(new PageImpl<>(activeAddresses(25), PageRequest.of(0, 25), 30));
 
     // When
-    OperatorPageResponse response = service.list(ORG, 1, null, null);
+    OperatorPageResponse response = service.list(ORG, 1, null, null, null);
 
     // Then
     assertThat(response.items()).hasSize(25);
@@ -400,7 +402,7 @@ class OperatorServiceTest {
         .thenReturn(new PageImpl<>(activeAddresses(5), PageRequest.of(1, 25), 30));
 
     // When
-    OperatorPageResponse response = service.list(ORG, 2, null, null);
+    OperatorPageResponse response = service.list(ORG, 2, null, null, null);
 
     // Then
     assertThat(response.items()).hasSize(5);
@@ -418,7 +420,7 @@ class OperatorServiceTest {
         .thenReturn(new PageImpl<>(List.of(), PageRequest.of(1, 25), 0));
 
     // When
-    service.list(ORG, 2, null, null);
+    service.list(ORG, 2, null, null, null);
 
     // Then
     Pageable pageable = pageableCaptor.getValue();
@@ -429,7 +431,7 @@ class OperatorServiceTest {
   }
 
   @Test
-  void list_usesTheConfiguredPageSizeNotAValuePassedByTheCaller() {
+  void list_withNoRequestedPageSizeServesTheConfiguredPageSize() {
     // Given
     OperatorService configured =
         new OperatorService(repository, operatorMapper, meterRegistry, NO_TTL, 10);
@@ -439,18 +441,58 @@ class OperatorServiceTest {
         .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
 
     // When
-    OperatorPageResponse response = configured.list(ORG, 1, null, null);
+    OperatorPageResponse response = configured.list(ORG, 1, null, null, null);
 
     // Then
     assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(10);
     assertThat(response.pageSize()).isEqualTo(10);
   }
 
+  @ParameterizedTest
+  @ValueSource(ints = {1, 8, 100})
+  void list_withARequestedPageSizeServesThatPageSize(int requestedPageSize) {
+    // Given
+    ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+    when(repository.findByOrganisationIdAndStatus(
+            eq(ORG), eq(AddressStatus.ACTIVE), pageableCaptor.capture()))
+        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, requestedPageSize), 0));
+
+    // When
+    OperatorPageResponse response = service.list(ORG, 1, requestedPageSize, null, null);
+
+    // Then
+    assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(requestedPageSize);
+    assertThat(response.pageSize()).isEqualTo(requestedPageSize);
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {0, -1, 101})
+  void list_withARequestedPageSizeOutside1To100IsABadRequest(int requestedPageSize) {
+    // When & Then
+    assertThatExceptionOfType(BadRequestException.class)
+        .isThrownBy(() -> service.list(ORG, 1, requestedPageSize, null, null));
+  }
+
+  @Test
+  void list_withSeveralCountryCodesTrimsEachAndDropsBlanksBeforeSearching() {
+    // Given
+    Address matching = persistedAddress("matching-id", ORG, AddressStatus.ACTIVE);
+    when(repository.searchByCountryCode(
+            eq(ORG), eq(AddressStatus.ACTIVE), eq(List.of("FR", "GB")), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of(matching), PageRequest.of(0, 25), 1));
+
+    // When
+    OperatorPageResponse response = service.list(ORG, 1, null, null, List.of(" FR ", " ", "GB"));
+
+    // Then
+    assertThat(response.items()).extracting(OperatorResponse::id).containsExactly("matching-id");
+  }
+
   @Test
   void list_withAPageBelow1IsABadRequest() {
     // When & Then
     assertThatExceptionOfType(BadRequestException.class)
-        .isThrownBy(() -> service.list(ORG, 0, null, null));
+        .isThrownBy(() -> service.list(ORG, 0, null, null, null));
   }
 
   @Test
@@ -461,7 +503,7 @@ class OperatorServiceTest {
         .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
 
     // When
-    OperatorPageResponse response = service.list(ORG, 1, "farm", null);
+    OperatorPageResponse response = service.list(ORG, 1, null, "farm", null);
 
     // Then
     assertThat(response.totalItems()).isZero();
@@ -475,7 +517,7 @@ class OperatorServiceTest {
         .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
 
     // When
-    service.list(ORG, 1, "  farm  ", null);
+    service.list(ORG, 1, null, "  farm  ", null);
 
     // Then — trim is applied before regex construction
     verify(repository)
@@ -490,7 +532,7 @@ class OperatorServiceTest {
         .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
 
     // When
-    OperatorPageResponse response = service.list(ORG, 1, "   ", null);
+    OperatorPageResponse response = service.list(ORG, 1, null, "   ", null);
 
     // Then
     assertThat(response.totalItems()).isZero();
@@ -501,11 +543,11 @@ class OperatorServiceTest {
   void list_withCountryCodeUsesTheCountrySearchRepository() {
     // Given
     when(repository.searchByCountryCode(
-            eq(ORG), eq(AddressStatus.ACTIVE), eq("FR"), any(Pageable.class)))
+            eq(ORG), eq(AddressStatus.ACTIVE), eq(List.of("FR")), any(Pageable.class)))
         .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
 
     // When
-    OperatorPageResponse response = service.list(ORG, 1, null, "FR");
+    OperatorPageResponse response = service.list(ORG, 1, null, null, List.of("FR"));
 
     // Then
     assertThat(response.totalItems()).isZero();
@@ -515,15 +557,15 @@ class OperatorServiceTest {
   void list_withWhitespacePaddedCountryCodeTrimsBeforeSearching() {
     // Given
     when(repository.searchByCountryCode(
-            eq(ORG), eq(AddressStatus.ACTIVE), eq("FR"), any(Pageable.class)))
+            eq(ORG), eq(AddressStatus.ACTIVE), eq(List.of("FR")), any(Pageable.class)))
         .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
 
     // When
-    service.list(ORG, 1, null, " FR ");
+    service.list(ORG, 1, null, null, List.of(" FR "));
 
     // Then
     verify(repository)
-        .searchByCountryCode(eq(ORG), eq(AddressStatus.ACTIVE), eq("FR"), any(Pageable.class));
+        .searchByCountryCode(eq(ORG), eq(AddressStatus.ACTIVE), eq(List.of("FR")), any(Pageable.class));
   }
 
   @Test
@@ -534,7 +576,7 @@ class OperatorServiceTest {
         .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
 
     // When
-    OperatorPageResponse response = service.list(ORG, 1, null, "  ");
+    OperatorPageResponse response = service.list(ORG, 1, null, null, List.of("  "));
 
     // Then
     assertThat(response.totalItems()).isZero();
@@ -545,11 +587,11 @@ class OperatorServiceTest {
   void list_withQueryAndCountryCodeUsesTheCombinedSearchRepository() {
     // Given
     when(repository.searchByQueryAndCountryCode(
-            eq(ORG), eq(AddressStatus.ACTIVE), eq(".*\\QFrance\\E.*"), eq("FR"), any(Pageable.class)))
+            eq(ORG), eq(AddressStatus.ACTIVE), eq(".*\\QFrance\\E.*"), eq(List.of("FR")), any(Pageable.class)))
         .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
 
     // When
-    OperatorPageResponse response = service.list(ORG, 1, "France", "FR");
+    OperatorPageResponse response = service.list(ORG, 1, null, "France", List.of("FR"));
 
     // Then
     assertThat(response.totalItems()).isZero();
