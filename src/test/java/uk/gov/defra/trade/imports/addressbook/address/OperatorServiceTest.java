@@ -2,6 +2,8 @@ package uk.gov.defra.trade.imports.addressbook.address;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static uk.gov.defra.trade.imports.addressbook.address.OperatorTestSupport.DEFAULT_PAGE_SIZE;
+import static uk.gov.defra.trade.imports.addressbook.address.OperatorTestSupport.NO_TTL;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -37,7 +39,6 @@ import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
 class OperatorServiceTest {
 
   private static final String ORG = "org-uuid-1";
-  private static final AddressTtlConfig NO_TTL = new AddressTtlConfig(null, "dev");
 
   @Mock private OperatorRepository repository;
 
@@ -48,12 +49,18 @@ class OperatorServiceTest {
 
   @BeforeEach
   void setUp() {
-    service = new OperatorService(repository, operatorMapper, meterRegistry, NO_TTL, 25);
+    service =
+        new OperatorService(
+            repository, operatorMapper, meterRegistry, NO_TTL, DEFAULT_PAGE_SIZE);
   }
 
   private OperatorService serviceWithTtl(Integer days, String environment) {
     return new OperatorService(
-        repository, operatorMapper, meterRegistry, new AddressTtlConfig(days, environment), 25);
+        repository,
+        operatorMapper,
+        meterRegistry,
+        new AddressTtlConfig(days, environment),
+        DEFAULT_PAGE_SIZE);
   }
 
   private AddressRequest request() {

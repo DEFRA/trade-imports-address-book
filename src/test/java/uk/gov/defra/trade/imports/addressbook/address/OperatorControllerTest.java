@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static uk.gov.defra.trade.imports.addressbook.address.OperatorTestSupport.DEFAULT_PAGE_SIZE;
+import static uk.gov.defra.trade.imports.addressbook.address.OperatorTestSupport.NO_TTL;
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
@@ -12,13 +14,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mapstruct.factory.Mappers;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import uk.gov.defra.trade.imports.addressbook.configuration.AddressTtlConfig;
 import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,51 +35,33 @@ class OperatorControllerTest {
     OperatorMapper operatorMapper = Mappers.getMapper(OperatorMapper.class);
     OperatorService service =
         new OperatorService(
-            repository,
-            operatorMapper,
-            new SimpleMeterRegistry(),
-            new AddressTtlConfig(null, "dev"),
-            25);
+            repository, operatorMapper, new SimpleMeterRegistry(), NO_TTL, DEFAULT_PAGE_SIZE);
     controller = new OperatorController(service, operatorMapper);
   }
 
   @Test
-  void list_servesTheRequestedPageSizeOfTheCallersOrganisation() {
+  void list_respondsWithTheRequestedPageAndPageSizeOfTheCallersOrganisation() {
     // Given
-    ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
-    when(repository.findByOrganisationIdAndStatus(
-            eq(ORG), eq(AddressStatus.ACTIVE), pageable.capture()))
+    when(repository.searchByCountryCode(
+            eq(ORG), eq(AddressStatus.ACTIVE), eq(List.of("FR", "GB")), any(Pageable.class)))
         .thenReturn(new PageImpl<>(List.of(), PageRequest.of(1, 8), 20));
 
     // When
-    OperatorPageResponse response = controller.list(ORG, ORG, 2, 8, null, null);
+    OperatorPageResponse response = controller.list(ORG, ORG, 2, 8, null, List.of("FR", "GB"));
 
     // Then
-    assertThat(pageable.getValue().getPageSize()).isEqualTo(8);
-    assertThat(pageable.getValue().getPageNumber()).isEqualTo(1);
+    assertThat(response.page()).isEqualTo(2);
     assertThat(response.pageSize()).isEqualTo(8);
     assertThat(response.totalPages()).isEqualTo(3);
   }
 
   @Test
-  void list_searchesEveryRequestedCountryCode() {
-    // Given
-    @SuppressWarnings("unchecked")
-    ArgumentCaptor<List<String>> countryCodes = ArgumentCaptor.forClass(List.class);
-    when(repository.searchByCountryCode(
-            eq(ORG), eq(AddressStatus.ACTIVE), countryCodes.capture(), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
-
-    // When
-    controller.list(ORG, ORG, 1, null, null, List.of("FR", "GB"));
-
-    // Then
-    assertThat(countryCodes.getValue()).containsExactly("FR", "GB");
-  }
-
-  @Test
   void list_forAnotherOrganisationsPathIsNotFound() {
+    // Given
+    String pathOrganisation = "org-other";
+
+    // When / Then
     assertThatExceptionOfType(NotFoundException.class)
-        .isThrownBy(() -> controller.list("org-other", ORG, 1, null, null, null));
+        .isThrownBy(() -> controller.list(pathOrganisation, ORG, 1, null, null, null));
   }
 }
