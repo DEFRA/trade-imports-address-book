@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -25,24 +24,22 @@ public class OperatorService {
 
   static final int MIN_PAGE_SIZE = 1;
   static final int MAX_PAGE_SIZE = 100;
+  public static final int DEFAULT_PAGE_SIZE = 25;
 
   private final OperatorRepository repository;
   private final OperatorMapper operatorMapper;
   private final MeterRegistry meterRegistry;
   private final AddressTtlConfig ttlConfig;
-  private final int defaultPageSize;
 
   public OperatorService(
       OperatorRepository repository,
       OperatorMapper operatorMapper,
       MeterRegistry meterRegistry,
-      AddressTtlConfig ttlConfig,
-      @Value("${address-book.list.page-size:25}") int defaultPageSize) {
+      AddressTtlConfig ttlConfig) {
     this.repository = repository;
     this.operatorMapper = operatorMapper;
     this.meterRegistry = meterRegistry;
     this.ttlConfig = ttlConfig;
-    this.defaultPageSize = defaultPageSize;
   }
 
   /**
@@ -50,14 +47,15 @@ public class OperatorService {
    *
    * @param organisationId the owning organisation id, from the identity header
    * @param page the 1-based page number
-   * @param requestedPageSize the page size from 1 to 100, or null for the configured default
+   * @param requestedPageSize the page size from {@link #MIN_PAGE_SIZE} to {@link #MAX_PAGE_SIZE},
+   *     or null for {@link #DEFAULT_PAGE_SIZE}
    * @param q optional case-insensitive partial-word search over name, address line 1, address line
    *     2, town or city, county and postcode
    * @param countryCodes optional ISO alpha-2 country codes; an address in any of them matches. With
    *     {@code q}, an address matching either {@code q} or one of these codes is returned
    * @return one page of live addresses with pagination metadata
    * @throws BadRequestException if {@code page} is less than 1 or {@code requestedPageSize} is
-   *     outside 1 to 100
+   *     outside {@link #MIN_PAGE_SIZE} to {@link #MAX_PAGE_SIZE}
    */
   public OperatorPageResponse list(
       String organisationId,
@@ -90,7 +88,7 @@ public class OperatorService {
 
   private int servedPageSize(Integer requestedPageSize) {
     if (requestedPageSize == null) {
-      return defaultPageSize;
+      return DEFAULT_PAGE_SIZE;
     }
     if (requestedPageSize < MIN_PAGE_SIZE || requestedPageSize > MAX_PAGE_SIZE) {
       throw new BadRequestException(

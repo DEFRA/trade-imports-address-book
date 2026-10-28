@@ -17,8 +17,8 @@ info:
 
     **Search:** `q` and `countryCode` combine with OR semantics when both are supplied.
 
-    **Pagination:** the page size is the optional `pageSize` request parameter, from 1 to 100,
-    defaulting to 25 when the request gives none. Any other value is a 400.
+    **Pagination:** the page size is the optional `pageSize` request parameter; a value outside
+    its schema's bounds is a 400.
 
     **Country codes:** `countryCode` is ISO 3166-1 alpha-2 (e.g. "GB"), stored as given with
     presence-only validation; consumers resolve it to a display name.

@@ -7,6 +7,7 @@ import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static uk.gov.defra.trade.imports.addressbook.address.OperatorService.DEFAULT_PAGE_SIZE;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -57,9 +58,9 @@ class OperatorListIT extends IntegrationBase {
     mockMvc
         .perform(get("/organisation/{orgId}/addresses", ORGANISATION_ID).header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.items.length()").value(25))
+        .andExpect(jsonPath("$.items.length()").value(DEFAULT_PAGE_SIZE))
         .andExpect(jsonPath("$.page").value(1))
-        .andExpect(jsonPath("$.pageSize").value(25))
+        .andExpect(jsonPath("$.pageSize").value(DEFAULT_PAGE_SIZE))
         .andExpect(jsonPath("$.totalItems").value(30))
         .andExpect(jsonPath("$.totalPages").value(2))
         .andExpect(jsonPath("$.items[0].name").value("Address 29"));
@@ -74,7 +75,7 @@ class OperatorListIT extends IntegrationBase {
         mockMvc
             .perform(get("/organisation/{orgId}/addresses", ORGANISATION_ID).header(ORG_HEADER, ORGANISATION_ID))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.items.length()").value(25))
+            .andExpect(jsonPath("$.items.length()").value(DEFAULT_PAGE_SIZE))
             .andReturn()
             .getResponse()
             .getContentAsString();

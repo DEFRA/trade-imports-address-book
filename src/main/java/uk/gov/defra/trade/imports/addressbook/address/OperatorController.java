@@ -58,14 +58,15 @@ public class OperatorController {
 
   /**
    * Lists the caller's live addresses, newest first, one page at a time. {@code page} is 1-based
-   * (default 1) and {@code pageSize} runs from 1 to 100 (default 25); an out-of-range or
-   * non-numeric value for either is a 400 bad-request problem with no {@code errors} map. The
+   * (default 1) and {@code pageSize} runs from {@link OperatorService#MIN_PAGE_SIZE} to {@link
+   * OperatorService#MAX_PAGE_SIZE} (default {@link OperatorService#DEFAULT_PAGE_SIZE}); an
+   * out-of-range or non-numeric value for either is a 400 bad-request problem with no {@code errors} map. The
    * response is a top-level object ({@code items} + pagination metadata), never a bare array.
    *
    * @param orgId the organisation scope from the path, authorised against the identity header
    * @param organisationId the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
    * @param page the 1-based page number (default 1)
-   * @param pageSize the number of addresses a page, from 1 to 100 (default 25)
+   * @param pageSize the number of addresses a page, or null for the default
    * @param q optional case-insensitive partial-word search over name, address line 1, address line
    *     2, town or city, county and postcode
    * @param countryCodes optional ISO alpha-2 country codes; an address in any of them matches
@@ -116,14 +117,21 @@ public class OperatorController {
           @RequestParam(defaultValue = "1")
           int page,
       @Parameter(
-              description = "Addresses a page, from 1 to 100 (default 25)",
+              description =
+                  "Addresses a page, from "
+                      + OperatorService.MIN_PAGE_SIZE
+                      + " to "
+                      + OperatorService.MAX_PAGE_SIZE
+                      + " (default "
+                      + OperatorService.DEFAULT_PAGE_SIZE
+                      + ")",
               schema =
                   @Schema(
                       type = "integer",
                       format = "int32",
                       minimum = "" + OperatorService.MIN_PAGE_SIZE,
                       maximum = "" + OperatorService.MAX_PAGE_SIZE,
-                      defaultValue = "25"))
+                      defaultValue = "" + OperatorService.DEFAULT_PAGE_SIZE))
           @RequestParam(required = false)
           Integer pageSize,
       @RequestParam(required = false) String q,

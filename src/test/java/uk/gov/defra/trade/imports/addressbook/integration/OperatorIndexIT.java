@@ -2,6 +2,7 @@ package uk.gov.defra.trade.imports.addressbook.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
+import static uk.gov.defra.trade.imports.addressbook.address.OperatorService.DEFAULT_PAGE_SIZE;
 
 import java.util.List;
 import org.bson.Document;
@@ -56,7 +57,7 @@ class OperatorIndexIT extends IntegrationBase {
                     new Document("organisationId", ORGANISATION_ID)
                         .append("status", AddressStatus.ACTIVE.name()))
                 .append("sort", new Document("createdAt", -1))
-                .append("limit", 25));
+                .append("limit", DEFAULT_PAGE_SIZE));
 
     Document explainResult =
         mongoTemplate.execute(

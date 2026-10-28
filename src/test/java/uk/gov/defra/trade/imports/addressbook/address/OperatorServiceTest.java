@@ -2,7 +2,7 @@ package uk.gov.defra.trade.imports.addressbook.address;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static uk.gov.defra.trade.imports.addressbook.address.OperatorTestSupport.DEFAULT_PAGE_SIZE;
+import static uk.gov.defra.trade.imports.addressbook.address.OperatorService.DEFAULT_PAGE_SIZE;
 import static uk.gov.defra.trade.imports.addressbook.address.OperatorTestSupport.NO_TTL;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -50,8 +50,7 @@ class OperatorServiceTest {
   @BeforeEach
   void setUp() {
     service =
-        new OperatorService(
-            repository, operatorMapper, meterRegistry, NO_TTL, DEFAULT_PAGE_SIZE);
+        new OperatorService(repository, operatorMapper, meterRegistry, NO_TTL);
   }
 
   private OperatorService serviceWithTtl(Integer days, String environment) {
@@ -59,8 +58,7 @@ class OperatorServiceTest {
         repository,
         operatorMapper,
         meterRegistry,
-        new AddressTtlConfig(days, environment),
-        DEFAULT_PAGE_SIZE);
+        new AddressTtlConfig(days, environment));
   }
 
   private AddressRequest request() {
@@ -436,24 +434,6 @@ class OperatorServiceTest {
     assertThat(pageable.getPageSize()).isEqualTo(DEFAULT_PAGE_SIZE);
     assertThat(pageable.getSort().getOrderFor("createdAt").getDirection())
         .isEqualTo(Sort.Direction.DESC);
-  }
-
-  @Test
-  void list_withNoRequestedPageSizeServesTheConfiguredPageSize() {
-    // Given
-    OperatorService configured =
-        new OperatorService(repository, operatorMapper, meterRegistry, NO_TTL, 10);
-    ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-    when(repository.findByOrganisationIdAndStatus(
-            eq(ORG), eq(AddressStatus.ACTIVE), pageableCaptor.capture()))
-        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
-
-    // When
-    OperatorPageResponse response = configured.list(ORG, 1, null, null, null);
-
-    // Then
-    assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(10);
-    assertThat(response.pageSize()).isEqualTo(10);
   }
 
   @ParameterizedTest
