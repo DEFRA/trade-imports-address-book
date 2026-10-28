@@ -40,7 +40,6 @@ class AddressCrudIT extends IntegrationBase {
 
   @Test
   void post_shouldReturn201WithLocationAndStampedOrganisation() throws Exception {
-    // Given
     String body =
         """
         {
@@ -56,7 +55,6 @@ class AddressCrudIT extends IntegrationBase {
         }
         """;
 
-    // When / Then
     mockMvc
         .perform(
             post("/organisation/{orgId}/addresses", ORGANISATION_ID)
@@ -94,7 +92,6 @@ class AddressCrudIT extends IntegrationBase {
 
   @Test
   void post_shouldReturn400ValidationProblemKeyedByCamelCaseFieldNames() throws Exception {
-    // Given
     String body =
         """
         {
@@ -108,7 +105,6 @@ class AddressCrudIT extends IntegrationBase {
         }
         """;
 
-    // When / Then
     mockMvc
         .perform(
             post("/organisation/{orgId}/addresses", ORGANISATION_ID)
@@ -129,7 +125,6 @@ class AddressCrudIT extends IntegrationBase {
 
   @Test
   void post_shouldReturn400BadRequestProblem_whenJsonBodyIsMalformed() throws Exception {
-    // When / Then
     mockMvc
         .perform(
             post("/organisation/{orgId}/addresses", ORGANISATION_ID)
@@ -143,10 +138,8 @@ class AddressCrudIT extends IntegrationBase {
 
   @Test
   void put_shouldReturn400BadRequestProblem_whenJsonBodyIsEmpty() throws Exception {
-    // Given
     Address saved = saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE));
 
-    // When / Then
     mockMvc
         .perform(
             put("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, saved.getId())
@@ -158,7 +151,6 @@ class AddressCrudIT extends IntegrationBase {
 
   @Test
   void post_shouldRejectStrayTypeOrRoleFieldsWithPerFieldErrors() throws Exception {
-    // Given
     String body =
         """
         {
@@ -174,7 +166,6 @@ class AddressCrudIT extends IntegrationBase {
         }
         """;
 
-    // When / Then
     mockMvc
         .perform(
             post("/organisation/{orgId}/addresses", ORGANISATION_ID)
@@ -192,7 +183,6 @@ class AddressCrudIT extends IntegrationBase {
 
   @Test
   void post_shouldIgnoreEchoedReadOnlyAndUnknownFields() throws Exception {
-    // Given
     String body =
         """
         {
@@ -210,7 +200,6 @@ class AddressCrudIT extends IntegrationBase {
         }
         """;
 
-    // When / Then
     mockMvc
         .perform(
             post("/organisation/{orgId}/addresses", ORGANISATION_ID)
@@ -233,7 +222,6 @@ class AddressCrudIT extends IntegrationBase {
 
   @Test
   void post_shouldAcceptCountryCodeAsGivenAndFreeStringPhone() throws Exception {
-    // Given
     String body =
         """
         {
@@ -247,7 +235,6 @@ class AddressCrudIT extends IntegrationBase {
         }
         """;
 
-    // When / Then
     mockMvc
         .perform(
             post("/organisation/{orgId}/addresses", ORGANISATION_ID)
@@ -265,7 +252,6 @@ class AddressCrudIT extends IntegrationBase {
 
   @Test
   void post_shouldReturn400_whenCountryCodeIsBlank() throws Exception {
-    // Given
     String body =
         """
         {
@@ -279,7 +265,6 @@ class AddressCrudIT extends IntegrationBase {
         }
         """;
 
-    // When / Then
     mockMvc
         .perform(
             post("/organisation/{orgId}/addresses", ORGANISATION_ID)
@@ -296,7 +281,6 @@ class AddressCrudIT extends IntegrationBase {
   @Test
   void post_shouldReturn400WithTheFieldMessages_whenNamePostcodeCountryAndPhoneAreBlank()
       throws Exception {
-    // Given
     String body =
         """
         {
@@ -310,7 +294,6 @@ class AddressCrudIT extends IntegrationBase {
         }
         """;
 
-    // When / Then
     mockMvc
         .perform(
             post("/organisation/{orgId}/addresses", ORGANISATION_ID)
@@ -329,7 +312,6 @@ class AddressCrudIT extends IntegrationBase {
 
   @Test
   void crudRoundTrip_shouldCreateGetPutDeleteAndIdempotentRepeatDelete() throws Exception {
-    // Given
     String body =
         """
         {
@@ -343,7 +325,6 @@ class AddressCrudIT extends IntegrationBase {
         }
         """;
 
-    // When — create
     String location =
         mockMvc
             .perform(
@@ -359,7 +340,6 @@ class AddressCrudIT extends IntegrationBase {
     assertThat(location).isNotNull();
     String id = location.substring(location.lastIndexOf('/') + 1);
 
-    // Then — get live
     mockMvc
         .perform(
             get("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, id)
@@ -367,7 +347,6 @@ class AddressCrudIT extends IntegrationBase {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.deleted").value(false));
 
-    // When — put
     mockMvc
         .perform(
             put("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, id)
@@ -377,7 +356,6 @@ class AddressCrudIT extends IntegrationBase {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.name").value("Lowland Cattle Co"));
 
-    // When — delete
     mockMvc
         .perform(
             delete("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, id)
@@ -387,7 +365,6 @@ class AddressCrudIT extends IntegrationBase {
     Instant modifiedAtAfterDelete =
         repository.findByIdAndOrganisationId(id, ORGANISATION_ID).orElseThrow().getModifiedAt();
 
-    // Then — tombstone still fetchable
     mockMvc
         .perform(
             get("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, id)
@@ -396,7 +373,6 @@ class AddressCrudIT extends IntegrationBase {
         .andExpect(jsonPath("$.id").value(id))
         .andExpect(jsonPath("$.deleted").value(true));
 
-    // When — put on tombstone
     mockMvc
         .perform(
             put("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, id)
@@ -405,14 +381,12 @@ class AddressCrudIT extends IntegrationBase {
                 .content(UPDATE_BODY))
         .andExpect(status().isNotFound());
 
-    // When — repeat delete
     mockMvc
         .perform(
             delete("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, id)
                 .header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isNoContent());
 
-    // Then — idempotent, no state change
     assertThat(repository.findByIdAndOrganisationId(id, ORGANISATION_ID))
         .get()
         .satisfies(
