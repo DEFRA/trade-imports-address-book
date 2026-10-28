@@ -11,8 +11,8 @@ on:
       - ready_for_review
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   sonarcloud:
@@ -20,8 +20,7 @@ jobs:
     uses: ./.github/workflows/sonarcloud.yml
     secrets: inherit
 
-  # Publish Branch Image builds the image for every other pull request.
-  docker-build:
+  docker-build-without-branch-image:
     name: Test Docker Image Build
     if: >
       github.actor == 'dependabot[bot]' ||
