@@ -195,7 +195,7 @@ class OperatorServiceTest {
   }
 
   @Test
-  void get_forADifferentOrganisationReturnsEmptySoTheControllerCan404() {
+  void get_forAnotherOrganisationsIdReturnsEmpty() {
     // Given
     when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", "org-other"))
         .thenReturn(Optional.empty());
@@ -308,7 +308,7 @@ class OperatorServiceTest {
   }
 
   @Test
-  void update_ofADeletedTombstoneIs404BecauseItIsOutsideTheCallersLiveSet() {
+  void update_ofADeletedAddressThrowsNotFound() {
     // Given
     Address tombstone = persistedAddress("665f1c2ab3e4d51a2c9d0e77", ORG, AddressStatus.DELETED);
     when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", ORG))
@@ -320,7 +320,7 @@ class OperatorServiceTest {
   }
 
   @Test
-  void update_ofACrossOrgIdIs404BecauseTheStoreReturnsEmpty() {
+  void update_ofAnotherOrganisationsIdThrowsNotFound() {
     // Given
     when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", "org-other"))
         .thenReturn(Optional.empty());
@@ -366,7 +366,7 @@ class OperatorServiceTest {
   }
 
   @Test
-  void delete_ofACrossOrgOrUnknownIdIs404BecauseTheStoreReturnsEmpty() {
+  void delete_ofAnUnknownOrAnotherOrganisationsIdThrowsNotFound() {
     // Given
     when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", "org-other"))
         .thenReturn(Optional.empty());
