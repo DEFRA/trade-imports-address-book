@@ -14,11 +14,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
-import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 
 class AddressSearchIT extends IntegrationBase {
 
-  @Autowired private OperatorRepository repository;
   @Autowired private ObjectMapper objectMapper;
 
   private Address save(
@@ -29,13 +27,13 @@ class AddressSearchIT extends IntegrationBase {
       String postcode,
       String countryCode,
       String addressLine1) {
-    return repository.save(
+    return operatorRepository.save(
         addressBuilder(org, status, name, townOrCity, postcode, countryCode, addressLine1).build());
   }
 
   private Address saveWithLineTwoAndCounty(
       String org, String name, String addressLine2, String county) {
-    return repository.save(
+    return operatorRepository.save(
         addressBuilder(org, AddressStatus.ACTIVE, name, "Inverness", "IV2 3JH", "GB", "14 Drover's Way")
             .addressLine2(addressLine2)
             .county(county)
