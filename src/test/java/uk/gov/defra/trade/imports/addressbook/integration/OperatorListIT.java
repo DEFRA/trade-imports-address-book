@@ -16,6 +16,7 @@ import java.util.HashSet;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -206,8 +207,9 @@ class OperatorListIT extends IntegrationBase {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"1", "100"})
-  void list_shouldServeTheRequestedPageSize_whenItIsAtABound(String pageSize) throws Exception {
+  @CsvSource({"1, 1, 3", "100, 3, 1"})
+  void list_shouldServeTheRequestedPageSize_whenItIsAtABound(
+      int pageSize, int expectedItems, int expectedTotalPages) throws Exception {
     // Given
     seedActiveWithDistinctCreatedAt(3);
 
@@ -216,9 +218,11 @@ class OperatorListIT extends IntegrationBase {
         .perform(
             get("/organisation/{orgId}/addresses", ORGANISATION_ID)
                 .header(ORG_HEADER, ORGANISATION_ID)
-                .param("pageSize", pageSize))
+                .param("pageSize", String.valueOf(pageSize)))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.pageSize").value(Integer.parseInt(pageSize)));
+        .andExpect(jsonPath("$.pageSize").value(pageSize))
+        .andExpect(jsonPath("$.items.length()").value(expectedItems))
+        .andExpect(jsonPath("$.totalPages").value(expectedTotalPages));
   }
 
   @Test
