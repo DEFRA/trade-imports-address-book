@@ -2,7 +2,6 @@ package uk.gov.defra.trade.imports.addressbook.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -229,8 +228,7 @@ class AddressSearchIT extends IntegrationBase {
     Address french =
         save(ORGANISATION_ID, AddressStatus.ACTIVE, "Paris Depot", "Paris", "75001", "FR", "1 Rue de Rivoli");
     save(ORGANISATION_ID, AddressStatus.ACTIVE, "London Depot", "London", "SW1A 1AA", "GB", "10 Downing Street");
-    Address otherOrgFrench =
-        save(OTHER_ORG, AddressStatus.ACTIVE, "Other FR", "Lyon", "69001", "FR", "2 Other Street");
+    save(OTHER_ORG, AddressStatus.ACTIVE, "Other FR", "Lyon", "69001", "FR", "2 Other Street");
 
     mockMvc
         .perform(
@@ -239,15 +237,14 @@ class AddressSearchIT extends IntegrationBase {
                 .param("countryCode", "FR"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[0].id").value(french.getId()))
-        .andExpect(jsonPath("$.items[*].id", not(hasItem(otherOrgFrench.getId()))));
+        .andExpect(jsonPath("$.items[0].id").value(french.getId()));
   }
 
   @Test
   void countryCodeSearchExcludesSoftDeletedRows() throws Exception {
-    save(ORGANISATION_ID, AddressStatus.ACTIVE, "Paris Depot", "Paris", "75001", "FR", "1 Rue de Rivoli");
-    Address deleted =
-        save(ORGANISATION_ID, AddressStatus.DELETED, "Deleted FR", "Paris", "75002", "FR", "9 Deleted Lane");
+    Address live =
+        save(ORGANISATION_ID, AddressStatus.ACTIVE, "Paris Depot", "Paris", "75001", "FR", "1 Rue de Rivoli");
+    save(ORGANISATION_ID, AddressStatus.DELETED, "Deleted FR", "Paris", "75002", "FR", "9 Deleted Lane");
 
     mockMvc
         .perform(
@@ -256,7 +253,7 @@ class AddressSearchIT extends IntegrationBase {
                 .param("countryCode", "FR"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[*].id", not(hasItem(deleted.getId()))));
+        .andExpect(jsonPath("$.items[0].id").value(live.getId()));
   }
 
   @Test
@@ -289,8 +286,7 @@ class AddressSearchIT extends IntegrationBase {
   void searchIsOrgScopedAndExcludesSoftDeletedForQueryPath() throws Exception {
     Address live =
         save(ORGANISATION_ID, AddressStatus.ACTIVE, "Green Farm", "Inverness", "IV2 3JH", "GB", "14 Drover's Way");
-    Address deleted =
-        save(ORGANISATION_ID, AddressStatus.DELETED, "Green Ghost", "Inverness", "IV2 3JH", "GB", "99 Deleted Lane");
+    save(ORGANISATION_ID, AddressStatus.DELETED, "Green Ghost", "Inverness", "IV2 3JH", "GB", "99 Deleted Lane");
     save(OTHER_ORG, AddressStatus.ACTIVE, "Green Other Org", "Glasgow", "G1 1AA", "GB", "1 Other Street");
 
     mockMvc
@@ -300,8 +296,7 @@ class AddressSearchIT extends IntegrationBase {
                 .param("q", "green"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[0].id").value(live.getId()))
-        .andExpect(jsonPath("$.items[*].id", not(hasItem(deleted.getId()))));
+        .andExpect(jsonPath("$.items[0].id").value(live.getId()));
   }
 
   @Test
