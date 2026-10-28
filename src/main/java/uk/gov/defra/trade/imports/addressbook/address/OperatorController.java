@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -49,41 +50,45 @@ public class OperatorController {
   private final OperatorService operatorService;
   private final OperatorMapper operatorMapper;
 
-  private static void authoriseOrg(String orgId, String sessionOrg) {
-    if (!sessionOrg.equals(orgId)) {
+  private static void authoriseOrg(String orgId, String organisationId) {
+    if (!organisationId.equals(orgId)) {
       throw new NotFoundException("Address not found");
     }
   }
 
   /**
-   * Lists the caller's ACTIVE addresses, newest first, one page at a time. DELETED tombstones are
-   * excluded. {@code page} is 1-based (default 1); an out-of-range or non-numeric value is a 400
-   * bad-request problem with no {@code errors} map. The page size is a server-side config,
-   * not a request parameter. The response is a top-level object ({@code items} + pagination
-   * metadata), never a bare array.
+   * Lists the caller's live addresses, newest first, one page at a time. {@code page} is 1-based
+   * (default 1) and {@code pageSize} runs from {@link OperatorService#MIN_PAGE_SIZE} to {@link
+   * OperatorService#MAX_PAGE_SIZE} (default {@link OperatorService#DEFAULT_PAGE_SIZE}); an
+   * out-of-range or non-numeric value for either is a 400 bad-request problem with no {@code errors} map. The
+   * response is a top-level object ({@code items} + pagination metadata), never a bare array.
    *
    * @param orgId the organisation scope from the path, authorised against the identity header
-   * @param sessionOrg the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
+   * @param organisationId the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
    * @param page the 1-based page number (default 1)
-   * @param q optional case-insensitive partial-word search over name/townOrCity/postcode
-   * @param countryCode optional ISO alpha-2 country code
-   * @return 200 with one page of ACTIVE addresses
+   * @param pageSize the number of addresses a page, or null for the default
+   * @param q optional case-insensitive partial-word search over name, address line 1, address line
+   *     2, town or city, county and postcode
+   * @param countryCodes optional ISO alpha-2 country codes; an address in any of them matches. With
+   *     {@code q}, an address matching either {@code q} or one of these codes is returned
+   * @return 200 with one page of live addresses
    */
   @GetMapping
   @Operation(
       operationId = "list-addresses",
-      summary = "List the caller's ACTIVE addresses (paginated, searchable)")
+      summary = "List the caller's live addresses (paginated, searchable)")
   @ApiResponses({
     @ApiResponse(
         responseCode = "200",
-        description = "One page of the caller's ACTIVE addresses",
+        description = "One page of the caller's live addresses",
         content =
             @Content(
                 mediaType = MediaType.APPLICATION_JSON_VALUE,
                 schema = @Schema(implementation = OperatorPageResponse.class))),
     @ApiResponse(
         responseCode = "400",
-        description = "An out-of-range or non-numeric page, or a missing org header",
+        description =
+            "An out-of-range or non-numeric page or page size, or a missing org header",
         content =
             @Content(
                 mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
@@ -106,17 +111,40 @@ public class OperatorController {
   @Timed("controller.listOperators.time")
   public OperatorPageResponse list(
       @PathVariable String orgId,
-      @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String sessionOrg,
+      @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
       @Parameter(
               description = "1-based page number",
               schema = @Schema(type = "integer", format = "int32", minimum = "1", defaultValue = "1"))
           @RequestParam(defaultValue = "1")
           int page,
+      @Parameter(
+              description =
+                  "Addresses a page, from "
+                      + OperatorService.MIN_PAGE_SIZE
+                      + " to "
+                      + OperatorService.MAX_PAGE_SIZE
+                      + " (default "
+                      + OperatorService.DEFAULT_PAGE_SIZE
+                      + ")",
+              schema =
+                  @Schema(
+                      type = "integer",
+                      format = "int32",
+                      minimum = "" + OperatorService.MIN_PAGE_SIZE,
+                      maximum = "" + OperatorService.MAX_PAGE_SIZE,
+                      defaultValue = "" + OperatorService.DEFAULT_PAGE_SIZE))
+          @RequestParam(required = false)
+          Integer pageSize,
       @RequestParam(required = false) String q,
-      @RequestParam(required = false) String countryCode) {
-    authoriseOrg(orgId, sessionOrg);
-    log.info("GET addresses - page {}, q present {}, countryCode {}", page, q != null, countryCode);
-    return operatorService.list(sessionOrg, page, q, countryCode);
+      @RequestParam(name = "countryCode", required = false) List<String> countryCodes) {
+    authoriseOrg(orgId, organisationId);
+    log.info(
+        "GET addresses - page {}, pageSize {}, q present {}, countryCodes {}",
+        page,
+        pageSize,
+        q != null,
+        countryCodes);
+    return operatorService.list(organisationId, page, pageSize, q, countryCodes);
   }
 
   /**
@@ -125,7 +153,7 @@ public class OperatorController {
    * not rejected.
    *
    * @param orgId the organisation scope from the path, authorised against the identity header
-   * @param sessionOrg the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
+   * @param organisationId the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
    * @param request the validated create body
    * @return 201 with the created address and a {@code Location} header
    */
@@ -174,11 +202,11 @@ public class OperatorController {
   @Timed("controller.createOperator.time")
   public ResponseEntity<OperatorResponse> create(
       @PathVariable String orgId,
-      @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String sessionOrg,
+      @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
       @Valid @RequestBody AddressRequest request) {
-    authoriseOrg(orgId, sessionOrg);
+    authoriseOrg(orgId, organisationId);
     log.info("POST addresses - creating address");
-    Address created = operatorService.create(request, sessionOrg);
+    Address created = operatorService.create(request, organisationId);
     URI location =
         ServletUriComponentsBuilder.fromCurrentRequest()
             .path("/{operator-id}")
@@ -195,7 +223,7 @@ public class OperatorController {
    * 404 is therefore NOT a deletion signal: only the tombstone is.
    *
    * @param orgId the organisation scope from the path, authorised against the identity header
-   * @param sessionOrg the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
+   * @param organisationId the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
    * @param operatorId the opaque address id from the path
    * @return 200 with the address (deleted false or true)
    */
@@ -227,13 +255,13 @@ public class OperatorController {
   @Timed("controller.getOperator.time")
   public OperatorResponse get(
       @PathVariable String orgId,
-      @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String sessionOrg,
+      @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
       @PathVariable("operator-id") String operatorId) {
-    authoriseOrg(orgId, sessionOrg);
+    authoriseOrg(orgId, organisationId);
     log.info("GET addresses/{}", operatorId);
     Address address =
         operatorService
-            .get(operatorId, sessionOrg)
+            .get(operatorId, organisationId)
             .orElseThrow(() -> new NotFoundException("Address not found"));
     return operatorMapper.toResponse(address);
   }
@@ -245,7 +273,7 @@ public class OperatorController {
    * existence is never leaked.
    *
    * @param orgId the organisation scope from the path, authorised against the identity header
-   * @param sessionOrg the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
+   * @param organisationId the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
    * @param operatorId the opaque address id from the path
    * @param request the validated update body
    * @return 200 with the updated address and its bumped {@code modifiedAt}
@@ -295,12 +323,12 @@ public class OperatorController {
   @Timed("controller.updateOperator.time")
   public OperatorResponse update(
       @PathVariable String orgId,
-      @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String sessionOrg,
+      @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
       @PathVariable("operator-id") String operatorId,
       @Valid @RequestBody AddressRequest request) {
-    authoriseOrg(orgId, sessionOrg);
+    authoriseOrg(orgId, organisationId);
     log.info("PUT addresses/{}", operatorId);
-    Address updated = operatorService.update(operatorId, request, sessionOrg);
+    Address updated = operatorService.update(operatorId, request, organisationId);
     return operatorMapper.toResponse(updated);
   }
 
@@ -311,7 +339,7 @@ public class OperatorController {
    * unknown id, or one outside the caller's organisation, is a 404 (existence is never leaked).
    *
    * @param orgId the organisation scope from the path, authorised against the identity header
-   * @param sessionOrg the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
+   * @param organisationId the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
    * @param operatorId the opaque address id from the path
    * @return 204 No Content (soft-deleted, or already deleted)
    */
@@ -344,11 +372,11 @@ public class OperatorController {
   @Timed("controller.deleteOperator.time")
   public ResponseEntity<Void> delete(
       @PathVariable String orgId,
-      @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String sessionOrg,
+      @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
       @PathVariable("operator-id") String operatorId) {
-    authoriseOrg(orgId, sessionOrg);
+    authoriseOrg(orgId, organisationId);
     log.info("DELETE addresses/{}", operatorId);
-    operatorService.delete(operatorId, sessionOrg);
+    operatorService.delete(operatorId, organisationId);
     return ResponseEntity.noContent().build();
   }
 }

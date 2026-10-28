@@ -2,6 +2,8 @@ package uk.gov.defra.trade.imports.addressbook.address;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static uk.gov.defra.trade.imports.addressbook.address.OperatorService.DEFAULT_PAGE_SIZE;
+import static uk.gov.defra.trade.imports.addressbook.address.OperatorTestSupport.NO_TTL;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -13,11 +15,14 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -34,7 +39,6 @@ import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
 class OperatorServiceTest {
 
   private static final String ORG = "org-uuid-1";
-  private static final AddressTtlConfig NO_TTL = new AddressTtlConfig(null, "dev");
 
   @Mock private OperatorRepository repository;
 
@@ -45,12 +49,16 @@ class OperatorServiceTest {
 
   @BeforeEach
   void setUp() {
-    service = new OperatorService(repository, operatorMapper, meterRegistry, NO_TTL, 25);
+    service =
+        new OperatorService(repository, operatorMapper, meterRegistry, NO_TTL);
   }
 
   private OperatorService serviceWithTtl(Integer days, String environment) {
     return new OperatorService(
-        repository, operatorMapper, meterRegistry, new AddressTtlConfig(days, environment), 25);
+        repository,
+        operatorMapper,
+        meterRegistry,
+        new AddressTtlConfig(days, environment));
   }
 
   private AddressRequest request() {
@@ -185,7 +193,7 @@ class OperatorServiceTest {
   }
 
   @Test
-  void get_forADifferentOrganisationReturnsEmptySoTheControllerCan404() {
+  void get_forAnotherOrganisationsIdReturnsEmpty() {
     // Given
     when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", "org-other"))
         .thenReturn(Optional.empty());
@@ -198,7 +206,7 @@ class OperatorServiceTest {
   }
 
   @Test
-  void get_ofADeletedAddressReturnsItWithStatusDeletedBecauseATombstoneIsFetchable() {
+  void get_ofADeletedAddressReturnsItWithStatusDeleted() {
     // Given
     Address tombstone = persistedAddress("665f1c2ab3e4d51a2c9d0e77", ORG, AddressStatus.DELETED);
     when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", ORG))
@@ -298,7 +306,7 @@ class OperatorServiceTest {
   }
 
   @Test
-  void update_ofADeletedTombstoneIs404BecauseItIsOutsideTheCallersLiveSet() {
+  void update_ofADeletedAddressThrowsNotFound() {
     // Given
     Address tombstone = persistedAddress("665f1c2ab3e4d51a2c9d0e77", ORG, AddressStatus.DELETED);
     when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", ORG))
@@ -310,7 +318,7 @@ class OperatorServiceTest {
   }
 
   @Test
-  void update_ofACrossOrgIdIs404BecauseTheStoreReturnsEmpty() {
+  void update_ofAnotherOrganisationsIdThrowsNotFound() {
     // Given
     when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", "org-other"))
         .thenReturn(Optional.empty());
@@ -356,7 +364,7 @@ class OperatorServiceTest {
   }
 
   @Test
-  void delete_ofACrossOrgOrUnknownIdIs404BecauseTheStoreReturnsEmpty() {
+  void delete_ofAnUnknownOrAnotherOrganisationsIdThrowsNotFound() {
     // Given
     when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", "org-other"))
         .thenReturn(Optional.empty());
@@ -375,19 +383,19 @@ class OperatorServiceTest {
   }
 
   @Test
-  void list_returnsAFullFirstPageOf25WithTotalPages2For30ActiveAddresses() {
+  void list_returnsAFullFirstPageWithTotalPages2For30ActiveAddresses() {
     // Given
     when(repository.findByOrganisationIdAndStatus(
             eq(ORG), eq(AddressStatus.ACTIVE), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(activeAddresses(25), PageRequest.of(0, 25), 30));
+        .thenReturn(new PageImpl<>(activeAddresses(DEFAULT_PAGE_SIZE), PageRequest.of(0, DEFAULT_PAGE_SIZE), 30));
 
     // When
-    OperatorPageResponse response = service.list(ORG, 1, null, null);
+    OperatorPageResponse response = service.list(ORG, 1, null, null, null);
 
     // Then
-    assertThat(response.items()).hasSize(25);
+    assertThat(response.items()).hasSize(DEFAULT_PAGE_SIZE);
     assertThat(response.page()).isEqualTo(1);
-    assertThat(response.pageSize()).isEqualTo(25);
+    assertThat(response.pageSize()).isEqualTo(DEFAULT_PAGE_SIZE);
     assertThat(response.totalItems()).isEqualTo(30);
     assertThat(response.totalPages()).isEqualTo(2);
   }
@@ -397,10 +405,10 @@ class OperatorServiceTest {
     // Given
     when(repository.findByOrganisationIdAndStatus(
             eq(ORG), eq(AddressStatus.ACTIVE), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(activeAddresses(5), PageRequest.of(1, 25), 30));
+        .thenReturn(new PageImpl<>(activeAddresses(5), PageRequest.of(1, DEFAULT_PAGE_SIZE), 30));
 
     // When
-    OperatorPageResponse response = service.list(ORG, 2, null, null);
+    OperatorPageResponse response = service.list(ORG, 2, null, null, null);
 
     // Then
     assertThat(response.items()).hasSize(5);
@@ -415,42 +423,64 @@ class OperatorServiceTest {
     ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
     when(repository.findByOrganisationIdAndStatus(
             eq(ORG), eq(AddressStatus.ACTIVE), pageableCaptor.capture()))
-        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(1, 25), 0));
+        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(1, DEFAULT_PAGE_SIZE), 0));
 
     // When
-    service.list(ORG, 2, null, null);
+    service.list(ORG, 2, null, null, null);
 
     // Then
     Pageable pageable = pageableCaptor.getValue();
     assertThat(pageable.getPageNumber()).isEqualTo(1);
-    assertThat(pageable.getPageSize()).isEqualTo(25);
+    assertThat(pageable.getPageSize()).isEqualTo(DEFAULT_PAGE_SIZE);
     assertThat(pageable.getSort().getOrderFor("createdAt").getDirection())
         .isEqualTo(Sort.Direction.DESC);
   }
 
-  @Test
-  void list_usesTheConfiguredPageSizeNotAValuePassedByTheCaller() {
+  @ParameterizedTest
+  @ValueSource(ints = {1, 8, 100})
+  void list_withARequestedPageSizeServesThatPageSize(int requestedPageSize) {
     // Given
-    OperatorService configured =
-        new OperatorService(repository, operatorMapper, meterRegistry, NO_TTL, 10);
     ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
     when(repository.findByOrganisationIdAndStatus(
             eq(ORG), eq(AddressStatus.ACTIVE), pageableCaptor.capture()))
-        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
+        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, requestedPageSize), 0));
 
     // When
-    OperatorPageResponse response = configured.list(ORG, 1, null, null);
+    OperatorPageResponse response = service.list(ORG, 1, requestedPageSize, null, null);
 
     // Then
-    assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(10);
-    assertThat(response.pageSize()).isEqualTo(10);
+    assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(requestedPageSize);
+    assertThat(response.pageSize()).isEqualTo(requestedPageSize);
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {0, -1, 101})
+  void list_withARequestedPageSizeOutside1To100IsABadRequest(int requestedPageSize) {
+    // When & Then
+    assertThatExceptionOfType(BadRequestException.class)
+        .isThrownBy(() -> service.list(ORG, 1, requestedPageSize, null, null));
+  }
+
+  @Test
+  void list_withSeveralCountryCodesTrimsEachAndDropsBlanksAndNullsBeforeSearching() {
+    // Given
+    Address matching = persistedAddress("matching-id", ORG, AddressStatus.ACTIVE);
+    when(repository.searchByAnyCountryCode(
+            eq(ORG), eq(AddressStatus.ACTIVE), eq(List.of("FR", "GB")), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of(matching), PageRequest.of(0, DEFAULT_PAGE_SIZE), 1));
+
+    // When
+    OperatorPageResponse response = service.list(ORG, 1, null, null, Arrays.asList(" FR ", " ", null, "GB"));
+
+    // Then
+    assertThat(response.items()).extracting(OperatorResponse::id).containsExactly("matching-id");
   }
 
   @Test
   void list_withAPageBelow1IsABadRequest() {
     // When & Then
     assertThatExceptionOfType(BadRequestException.class)
-        .isThrownBy(() -> service.list(ORG, 0, null, null));
+        .isThrownBy(() -> service.list(ORG, 0, null, null, null));
   }
 
   @Test
@@ -458,10 +488,10 @@ class OperatorServiceTest {
     // Given
     when(repository.searchByQuery(
             eq(ORG), eq(AddressStatus.ACTIVE), eq(".*\\Qfarm\\E.*"), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
+        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, DEFAULT_PAGE_SIZE), 0));
 
     // When
-    OperatorPageResponse response = service.list(ORG, 1, "farm", null);
+    OperatorPageResponse response = service.list(ORG, 1, null, "farm", null);
 
     // Then
     assertThat(response.totalItems()).isZero();
@@ -470,16 +500,16 @@ class OperatorServiceTest {
   @Test
   void list_withWhitespacePaddedQueryTrimsBeforeSearching() {
     // Given
+    Address matching = persistedAddress("matching-id", ORG, AddressStatus.ACTIVE);
     when(repository.searchByQuery(
             eq(ORG), eq(AddressStatus.ACTIVE), eq(".*\\Qfarm\\E.*"), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
+        .thenReturn(new PageImpl<>(List.of(matching), PageRequest.of(0, DEFAULT_PAGE_SIZE), 1));
 
     // When
-    service.list(ORG, 1, "  farm  ", null);
+    OperatorPageResponse response = service.list(ORG, 1, null, "  farm  ", null);
 
-    // Then — trim is applied before regex construction
-    verify(repository)
-        .searchByQuery(eq(ORG), eq(AddressStatus.ACTIVE), eq(".*\\Qfarm\\E.*"), any(Pageable.class));
+    // Then
+    assertThat(response.items()).extracting(OperatorResponse::id).containsExactly("matching-id");
   }
 
   @Test
@@ -487,10 +517,10 @@ class OperatorServiceTest {
     // Given
     when(repository.findByOrganisationIdAndStatus(
             eq(ORG), eq(AddressStatus.ACTIVE), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
+        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, DEFAULT_PAGE_SIZE), 0));
 
     // When
-    OperatorPageResponse response = service.list(ORG, 1, "   ", null);
+    OperatorPageResponse response = service.list(ORG, 1, null, "   ", null);
 
     // Then
     assertThat(response.totalItems()).isZero();
@@ -498,14 +528,14 @@ class OperatorServiceTest {
   }
 
   @Test
-  void list_withCountryCodeUsesTheCountrySearchRepository() {
+  void list_withCountryCodeSearchesByAnyCountryCode() {
     // Given
-    when(repository.searchByCountryCode(
-            eq(ORG), eq(AddressStatus.ACTIVE), eq("FR"), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
+    when(repository.searchByAnyCountryCode(
+            eq(ORG), eq(AddressStatus.ACTIVE), eq(List.of("FR")), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, DEFAULT_PAGE_SIZE), 0));
 
     // When
-    OperatorPageResponse response = service.list(ORG, 1, null, "FR");
+    OperatorPageResponse response = service.list(ORG, 1, null, null, List.of("FR"));
 
     // Then
     assertThat(response.totalItems()).isZero();
@@ -514,16 +544,16 @@ class OperatorServiceTest {
   @Test
   void list_withWhitespacePaddedCountryCodeTrimsBeforeSearching() {
     // Given
-    when(repository.searchByCountryCode(
-            eq(ORG), eq(AddressStatus.ACTIVE), eq("FR"), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
+    Address matching = persistedAddress("matching-id", ORG, AddressStatus.ACTIVE);
+    when(repository.searchByAnyCountryCode(
+            eq(ORG), eq(AddressStatus.ACTIVE), eq(List.of("FR")), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of(matching), PageRequest.of(0, DEFAULT_PAGE_SIZE), 1));
 
     // When
-    service.list(ORG, 1, null, " FR ");
+    OperatorPageResponse response = service.list(ORG, 1, null, null, List.of(" FR "));
 
     // Then
-    verify(repository)
-        .searchByCountryCode(eq(ORG), eq(AddressStatus.ACTIVE), eq("FR"), any(Pageable.class));
+    assertThat(response.items()).extracting(OperatorResponse::id).containsExactly("matching-id");
   }
 
   @Test
@@ -531,10 +561,10 @@ class OperatorServiceTest {
     // Given
     when(repository.findByOrganisationIdAndStatus(
             eq(ORG), eq(AddressStatus.ACTIVE), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
+        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, DEFAULT_PAGE_SIZE), 0));
 
     // When
-    OperatorPageResponse response = service.list(ORG, 1, null, "  ");
+    OperatorPageResponse response = service.list(ORG, 1, null, null, List.of("  "));
 
     // Then
     assertThat(response.totalItems()).isZero();
@@ -542,14 +572,14 @@ class OperatorServiceTest {
   }
 
   @Test
-  void list_withQueryAndCountryCodeUsesTheCombinedSearchRepository() {
+  void list_withQueryAndCountryCodeSearchesByQueryOrAnyCountryCode() {
     // Given
-    when(repository.searchByQueryAndCountryCode(
-            eq(ORG), eq(AddressStatus.ACTIVE), eq(".*\\QFrance\\E.*"), eq("FR"), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
+    when(repository.searchByQueryOrAnyCountryCode(
+            eq(ORG), eq(AddressStatus.ACTIVE), eq(".*\\QFrance\\E.*"), eq(List.of("FR")), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, DEFAULT_PAGE_SIZE), 0));
 
     // When
-    OperatorPageResponse response = service.list(ORG, 1, "France", "FR");
+    OperatorPageResponse response = service.list(ORG, 1, null, "France", List.of("FR"));
 
     // Then
     assertThat(response.totalItems()).isZero();

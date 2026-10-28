@@ -163,7 +163,7 @@ paths:
     get:
       tags:
       - addresses
-      summary: List the caller's ACTIVE addresses (paginated, searchable)
+      summary: List the caller's live addresses (paginated, searchable)
       operationId: list-addresses
       parameters:
       - name: orgId
@@ -185,6 +185,16 @@ paths:
           format: int32
           default: 1
           minimum: 1
+      - name: pageSize
+        in: query
+        description: Addresses a page, from 1 to 100 (default 25)
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 25
+          maximum: 100
+          minimum: 1
       - name: q
         in: query
         required: false
@@ -194,16 +204,18 @@ paths:
         in: query
         required: false
         schema:
-          type: string
+          type: array
+          items:
+            type: string
       responses:
         '200':
-          description: One page of the caller's ACTIVE addresses
+          description: One page of the caller's live addresses
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/OperatorPageResponse'
         '400':
-          description: An out-of-range or non-numeric page, or a missing org header
+          description: An out-of-range or non-numeric page or page size, or a missing org header
           content:
             application/problem+json:
               schema:
@@ -450,7 +462,7 @@ components:
       - title
       - type
     OperatorPageResponse:
-      description: Paginated list of ACTIVE addresses (never a bare array)
+      description: Paginated list of live addresses (never a bare array)
       properties:
         items:
           type: array
@@ -465,7 +477,7 @@ components:
         pageSize:
           type: integer
           format: int32
-          description: Server-configured page size
+          description: 'Page size served: the requested one, else the default'
           minimum: 1
         totalItems:
           type: integer

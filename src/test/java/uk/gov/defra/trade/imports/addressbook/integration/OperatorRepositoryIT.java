@@ -3,23 +3,21 @@ package uk.gov.defra.trade.imports.addressbook.integration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.data.domain.PageRequest.of;
 
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
-import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 
 class OperatorRepositoryIT extends IntegrationBase {
 
   private static final String ORG_A = "ORG-A";
   private static final String ORG_B = "ORG-B";
 
-  @Autowired private OperatorRepository operatorRepository;
-
   @Test
   void findByIdAndOrganisationId_returnsAddress_whenOrganisationMatches() {
-    Address saved = saveAddress("Acme Farms", ORG_A);
+    Address saved = saveAddress(addressBuilder(ORG_A, AddressStatus.ACTIVE).name("Acme Farms"));
 
     assertThat(operatorRepository.findByIdAndOrganisationId(saved.getId(), ORG_A))
         .isPresent()
@@ -30,56 +28,71 @@ class OperatorRepositoryIT extends IntegrationBase {
 
   @Test
   void findByIdAndOrganisationId_returnsEmpty_whenOrganisationDiffers() {
-    Address orgA1 = saveAddress("Org A One", ORG_A);
-    saveAddress("Org A Two", ORG_A);
-    saveAddress("Org B One", ORG_B);
+    Address orgA1 = saveAddress(addressBuilder(ORG_A, AddressStatus.ACTIVE).name("Org A One"));
+    saveAddress(addressBuilder(ORG_A, AddressStatus.ACTIVE).name("Org A Two"));
+    saveAddress(addressBuilder(ORG_B, AddressStatus.ACTIVE).name("Org B One"));
 
     assertThat(operatorRepository.findByIdAndOrganisationId(orgA1.getId(), ORG_B)).isEmpty();
   }
 
   @Test
-  void searchByCountryCode_isOrgScopedAndExcludesDeleted() {
-    saveAddress("Org A FR", ORG_A, AddressStatus.ACTIVE, "FR");
-    saveAddress("Org B FR", ORG_B, AddressStatus.ACTIVE, "FR");
-    saveAddress("Org A deleted FR", ORG_A, AddressStatus.DELETED, "FR");
+  void searchByAnyCountryCode_isOrgScopedAndExcludesDeleted() {
+    saveAddress(addressBuilder(ORG_A, AddressStatus.ACTIVE).name("Org A FR").countryCode("FR"));
+    saveAddress(addressBuilder(ORG_B, AddressStatus.ACTIVE).name("Org B FR").countryCode("FR"));
+    saveAddress(addressBuilder(ORG_A, AddressStatus.DELETED).name("Org A deleted FR").countryCode("FR"));
 
     Page<Address> page =
-        operatorRepository.searchByCountryCode(ORG_A, AddressStatus.ACTIVE, "FR", of(0, 10));
+        operatorRepository.searchByAnyCountryCode(ORG_A, AddressStatus.ACTIVE, List.of("FR"), of(0, 10));
 
     assertThat(page.getTotalElements()).isEqualTo(1);
     assertThat(page.getContent()).singleElement().extracting(Address::getOrganisationId).isEqualTo(ORG_A);
   }
 
   @Test
-  void searchByQueryAndCountryCode_isOrgScoped() {
-    saveAddress("Paris", ORG_A, AddressStatus.ACTIVE, "FR");
-    saveAddress("Other Paris", ORG_B, AddressStatus.ACTIVE, "FR");
+  void searchByQueryOrAnyCountryCode_isOrgScoped() {
+    saveAddress(addressBuilder(ORG_A, AddressStatus.ACTIVE).name("Paris").countryCode("FR"));
+    saveAddress(addressBuilder(ORG_B, AddressStatus.ACTIVE).name("Other Paris").countryCode("FR"));
 
     Page<Address> page =
-        operatorRepository.searchByQueryAndCountryCode(
-            ORG_A, AddressStatus.ACTIVE, ".*\\QParis\\E.*", "FR", of(0, 10));
+        operatorRepository.searchByQueryOrAnyCountryCode(
+            ORG_A, AddressStatus.ACTIVE, ".*\\QParis\\E.*", List.of("FR"), of(0, 10));
 
     assertThat(page.getTotalElements()).isEqualTo(1);
     assertThat(page.getContent()).singleElement().extracting(Address::getOrganisationId).isEqualTo(ORG_A);
   }
 
-  private Address saveAddress(String name, String organisationId) {
-    return saveAddress(name, organisationId, AddressStatus.ACTIVE, "GB");
+  @Test
+  void searchByAnyCountryCode_matchesAnyOfSeveralCountryCodes() {
+    Map<String, Address> depotsByCountryCode = saveDepotsInFranceIrelandAndGermany();
+
+    Page<Address> page =
+        operatorRepository.searchByAnyCountryCode(
+            ORG_A, AddressStatus.ACTIVE, List.of("FR", "IE"), of(0, 10));
+
+    assertThat(page.getContent())
+        .extracting(Address::getId)
+        .containsExactlyInAnyOrder(
+            depotsByCountryCode.get("FR").getId(), depotsByCountryCode.get("IE").getId());
   }
 
-  private Address saveAddress(
-      String name, String organisationId, AddressStatus status, String countryCode) {
-    return operatorRepository.save(
-        Address.builder()
-            .name(name)
-            .addressLine1("1 Farm Lane")
-            .townOrCity("Exeter")
-            .postcode("EX1 1AA")
-            .countryCode(countryCode)
-            .phone("01234567890")
-            .email("acme@example.com")
-            .organisationId(organisationId)
-            .status(status)
-            .build());
+  @Test
+  void searchByQueryOrAnyCountryCode_matchesAnyOfSeveralCountryCodes() {
+    Map<String, Address> depotsByCountryCode = saveDepotsInFranceIrelandAndGermany();
+
+    Page<Address> page =
+        operatorRepository.searchByQueryOrAnyCountryCode(
+            ORG_A, AddressStatus.ACTIVE, ".*\\QNoSuchText\\E.*", List.of("FR", "IE"), of(0, 10));
+
+    assertThat(page.getContent())
+        .extracting(Address::getId)
+        .containsExactlyInAnyOrder(
+            depotsByCountryCode.get("FR").getId(), depotsByCountryCode.get("IE").getId());
+  }
+
+  private Map<String, Address> saveDepotsInFranceIrelandAndGermany() {
+    return Map.of(
+        "FR", saveAddress(addressBuilder(ORG_A, AddressStatus.ACTIVE).name("Paris Depot").countryCode("FR")),
+        "IE", saveAddress(addressBuilder(ORG_A, AddressStatus.ACTIVE).name("Dublin Depot").countryCode("IE")),
+        "DE", saveAddress(addressBuilder(ORG_A, AddressStatus.ACTIVE).name("Berlin Depot").countryCode("DE")));
   }
 }

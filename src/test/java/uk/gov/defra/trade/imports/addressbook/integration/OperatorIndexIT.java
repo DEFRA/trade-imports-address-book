@@ -2,6 +2,7 @@ package uk.gov.defra.trade.imports.addressbook.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
+import static uk.gov.defra.trade.imports.addressbook.address.OperatorService.DEFAULT_PAGE_SIZE;
 
 import java.util.List;
 import org.bson.Document;
@@ -14,13 +15,6 @@ import org.springframework.data.mongodb.core.index.IndexInfo;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
 
-/**
- * Pins the single compound index on the addresses collection. A lost index is a silent production
- * incident that no functional test catches, so it is asserted directly against {@code listIndexes}
- * and verified with an explain plan. Re-keyed org-for-crn: the old {@code crn_status_type_created}
- * index is gone and the org-scoped, status-bounded, newest-first {@code org_status_created} index
- * serves every production read.
- */
 class OperatorIndexIT extends IntegrationBase {
 
   @Autowired private MongoTemplate mongoTemplate;
@@ -56,7 +50,7 @@ class OperatorIndexIT extends IntegrationBase {
                     new Document("organisationId", ORGANISATION_ID)
                         .append("status", AddressStatus.ACTIVE.name()))
                 .append("sort", new Document("createdAt", -1))
-                .append("limit", 25));
+                .append("limit", DEFAULT_PAGE_SIZE));
 
     Document explainResult =
         mongoTemplate.execute(

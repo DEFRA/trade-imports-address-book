@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static uk.gov.defra.trade.imports.addressbook.address.OperatorService.DEFAULT_PAGE_SIZE;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
@@ -101,7 +102,7 @@ class OperatorComplianceIT extends IntegrationBase {
         .andExpect(jsonPath("$").isMap())
         .andExpect(jsonPath("$.items").isArray())
         .andExpect(jsonPath("$.page").value(1))
-        .andExpect(jsonPath("$.pageSize").value(25))
+        .andExpect(jsonPath("$.pageSize").value(DEFAULT_PAGE_SIZE))
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.totalPages").value(1))
         .andExpect(jsonPath("$.items[0].name").value("Highland Livestock Ltd"));

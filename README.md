@@ -97,6 +97,11 @@ isolation relies entirely on a trusted-forwarded-header contract:
 reads this header on every `/organisation/**` request and scopes all reads and writes to that
 organisation id.
 
+`OperatorRepository` extends Spring Data's bare `Repository`, not `CrudRepository`, so it
+inherits no unscoped `findById`, `deleteById` or `deleteAll`. It declares `save` and queries that
+take an organisation id, so no code path reads or deletes another organisation's addresses by
+address id alone.
+
 **Filter behaviour**
 
 - Missing, blank or malformed header → **400** bad-request
@@ -116,7 +121,7 @@ returns **404** (no existence disclosure).
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `GET` | `/organisation/{orgId}/addresses` | Paginated list of ACTIVE addresses (newest first) |
+| `GET` | `/organisation/{orgId}/addresses` | Paginated list of live addresses (newest first) |
 | `POST` | `/organisation/{orgId}/addresses` | Create an address |
 | `GET` | `/organisation/{orgId}/addresses/{operator-id}` | Fetch one address (tombstones included) |
 | `PUT` | `/organisation/{orgId}/addresses/{operator-id}` | Full replace of mutable fields |
@@ -127,8 +132,9 @@ returns **404** (no existence disclosure).
 | Parameter | Description |
 | --- | --- |
 | `page` | 1-based page number (default `1`) |
-| `q` | Case-insensitive partial search over `name`, `townOrCity`, and `postcode` |
-| `countryCode` | When combined with `q`, matches addresses where **either** the search term appears in `name`/`townOrCity`/`postcode` **or** the stored `countryCode` equals this value (OR semantics, not AND) |
+| `pageSize` | Addresses a page, from `1` to `100` (default `25`); any other value is a `400` |
+| `q` | Case-insensitive partial search over `name`, `addressLine1`, `addressLine2`, `townOrCity`, `county` and `postcode` |
+| `countryCode` | One or more ISO country codes (repeat the parameter). Alone, it lists the addresses in any of them. With `q`, an address matches when the search term appears in a searched field **or** its stored `countryCode` is one of them (OR semantics, not AND) |
 
 **Wire conventions**
 
@@ -139,7 +145,6 @@ returns **404** (no existence disclosure).
   never a bare array.
 - Soft-deleted addresses expose `deleted: true` on read; the internal `status` enum is not on the wire.
 - Validation failures return **400** `application/problem+json` with a camelCase `errors` map.
-- Page size is server-configured (default **25** via `address-book.list.page-size`), not a request parameter.
 
 **Example — create an address**
 
@@ -242,6 +247,11 @@ fetchable by id with `deleted: true` on the wire.
 - Tombstones are excluded from list results.
 - Deleting an already-deleted address is idempotent (**204**, no state change).
 
+Why soft delete: a hard delete would make a deleted address look the same as an unknown one (both
+404), so a consumer could never tell that an address had been deleted. An id owned by another
+organisation is reported exactly like an unknown id, so a 404 never reveals that an address exists
+in another organisation.
+
 In prod, addresses and tombstones are retained indefinitely (~1 KB each).
 
 ## Address expiry (non-prod only)
@@ -265,7 +275,8 @@ Both default to the prod-safe value. Prod is protected by two independent safegu
 ## Indexes
 
 The list read path is served by the `org_status_created` compound index on
-`{ organisationId, status, createdAt }` (`OperatorIndexIT` pins its presence). Datasets are one
+`{ organisationId, status, createdAt }`. A lost index fails no functional test, so `OperatorIndexIT`
+pins it twice: by name and key order from `listIndexes`, and as the explain plan's choice. Datasets are one
 user's address book today (tens to hundreds of rows), so a bounded scan is acceptable. Reassess any
 future index against real collection size before adding it.
 

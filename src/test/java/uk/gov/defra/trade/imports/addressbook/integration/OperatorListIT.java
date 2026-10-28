@@ -5,9 +5,9 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static uk.gov.defra.trade.imports.addressbook.address.OperatorService.DEFAULT_PAGE_SIZE;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -16,45 +16,23 @@ import java.util.HashSet;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
-import org.springframework.http.MediaType;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
-import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 
-/**
- * Full-stack list integration test for {@code GET /organisation/{orgId}/addresses}. Pins the
- * paginated, newest-first, organisation-scoped, ACTIVE-only listing: 30 seeded addresses paginate
- * 25 + 5 across two pages at the server-config page size, DELETED tombstones are excluded,
- * another organisation's addresses are invisible, an out-of-range or non-numeric {@code page} is a
- * 400 bad-request problem with no {@code errors} map, and a supplied page-size request parameter is
- * never honoured (locked contract: pagination size is server-configured, not a request parameter).
- */
 class OperatorListIT extends IntegrationBase {
 
-  @Autowired private OperatorRepository repository;
   @Autowired private MongoTemplate mongoTemplate;
   @Autowired private ObjectMapper objectMapper;
 
   private Address saveWithCreatedAt(String org, AddressStatus status, String name, Instant createdAt) {
-    Address address =
-        Address.builder()
-            .name(name)
-            .addressLine1("14 Drover's Way")
-            .townOrCity("Inverness")
-            .postcode("IV2 3JH")
-            .countryCode("GB")
-            .phone("+44 1463 234567")
-            .email("exports@highlandlivestock.example.com")
-            .organisationId(org)
-            .status(status)
-            .build();
-    Address saved = repository.save(address);
+    Address saved = saveAddress(addressBuilder(org, status).name(name));
     mongoTemplate.updateFirst(
         Query.query(Criteria.where("_id").is(saved.getId())),
         Update.update("createdAt", createdAt),
@@ -66,14 +44,13 @@ class OperatorListIT extends IntegrationBase {
   private void seedActiveWithDistinctCreatedAt(int count) {
     Instant base = Instant.parse("2026-01-01T00:00:00Z");
     for (int i = 0; i < count; i++) {
-      // Higher suffix ⇒ newer createdAt so list (createdAt DESC) returns Address {count-1} first.
       saveWithCreatedAt(
           ORGANISATION_ID, AddressStatus.ACTIVE, "Address " + i, base.plusSeconds(i + 1L));
     }
   }
 
   @Test
-  void list_shouldReturn25ItemsAcross2Pages_when30AddressesSeeded() throws Exception {
+  void list_shouldReturn25ItemsAcross2Pages_whenNoPageSizeIsRequested() throws Exception {
     // Given
     seedActiveWithDistinctCreatedAt(30);
 
@@ -81,9 +58,9 @@ class OperatorListIT extends IntegrationBase {
     mockMvc
         .perform(get("/organisation/{orgId}/addresses", ORGANISATION_ID).header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.items.length()").value(25))
+        .andExpect(jsonPath("$.items.length()").value(DEFAULT_PAGE_SIZE))
         .andExpect(jsonPath("$.page").value(1))
-        .andExpect(jsonPath("$.pageSize").value(25))
+        .andExpect(jsonPath("$.pageSize").value(DEFAULT_PAGE_SIZE))
         .andExpect(jsonPath("$.totalItems").value(30))
         .andExpect(jsonPath("$.totalPages").value(2))
         .andExpect(jsonPath("$.items[0].name").value("Address 29"));
@@ -98,7 +75,7 @@ class OperatorListIT extends IntegrationBase {
         mockMvc
             .perform(get("/organisation/{orgId}/addresses", ORGANISATION_ID).header(ORG_HEADER, ORGANISATION_ID))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.items.length()").value(25))
+            .andExpect(jsonPath("$.items.length()").value(DEFAULT_PAGE_SIZE))
             .andReturn()
             .getResponse()
             .getContentAsString();
@@ -171,30 +148,57 @@ class OperatorListIT extends IntegrationBase {
             get("/organisation/{orgId}/addresses", ORGANISATION_ID)
                 .header(ORG_HEADER, ORGANISATION_ID)
                 .param("page", page))
-        .andExpect(status().isBadRequest())
-        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
-        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/bad-request"))
-        .andExpect(jsonPath("$.title").value("Bad Request"))
-        .andExpect(jsonPath("$.status").value(400))
-        .andExpect(jsonPath("$.errors").doesNotExist());
+        .andExpect(badRequestProblemWithNoErrors());
   }
 
   @Test
-  void list_shouldIgnorePageSizeRequestParams_whenServerConfigSizeApplies() throws Exception {
+  void list_shouldReturn8ItemsAcross4Pages_whenPageSizeIs8() throws Exception {
     // Given
     seedActiveWithDistinctCreatedAt(30);
 
-    // When / Then — locked contract: page size is server-configured, not a request parameter
+    // When / Then
     mockMvc
         .perform(
             get("/organisation/{orgId}/addresses", ORGANISATION_ID)
                 .header(ORG_HEADER, ORGANISATION_ID)
-                .param("page_size", "5")
-                .param("pageSize", "5"))
+                .param("pageSize", "8"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.items.length()").value(25))
-        .andExpect(jsonPath("$.pageSize").value(25))
-        .andExpect(jsonPath("$.totalItems").value(30));
+        .andExpect(jsonPath("$.items.length()").value(8))
+        .andExpect(jsonPath("$.pageSize").value(8))
+        .andExpect(jsonPath("$.totalItems").value(30))
+        .andExpect(jsonPath("$.totalPages").value(4));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"0", "101", "-1", "abc"})
+  void list_shouldReturn400BadRequestProblemWithNoErrorsMap_whenPageSizeIsOutOfRangeOrNonNumeric(
+      String pageSize) throws Exception {
+    // When / Then
+    mockMvc
+        .perform(
+            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
+                .header(ORG_HEADER, ORGANISATION_ID)
+                .param("pageSize", pageSize))
+        .andExpect(badRequestProblemWithNoErrors());
+  }
+
+  @ParameterizedTest
+  @CsvSource({"1, 1, 3", "100, 3, 1"})
+  void list_shouldServeTheRequestedPageSize_whenItIsAtABound(
+      int pageSize, int expectedItems, int expectedTotalPages) throws Exception {
+    // Given
+    seedActiveWithDistinctCreatedAt(3);
+
+    // When / Then
+    mockMvc
+        .perform(
+            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
+                .header(ORG_HEADER, ORGANISATION_ID)
+                .param("pageSize", String.valueOf(pageSize)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.pageSize").value(pageSize))
+        .andExpect(jsonPath("$.items.length()").value(expectedItems))
+        .andExpect(jsonPath("$.totalPages").value(expectedTotalPages));
   }
 
   @Test
@@ -205,11 +209,7 @@ class OperatorListIT extends IntegrationBase {
             get("/organisation/{orgId}/addresses", ORGANISATION_ID)
                 .header(ORG_HEADER, ORGANISATION_ID)
                 .param("page", "abc"))
-        .andExpect(status().isBadRequest())
-        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
-        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/bad-request"))
-        .andExpect(jsonPath("$.status").value(400))
-        .andExpect(jsonPath("$.errors").doesNotExist());
+        .andExpect(badRequestProblemWithNoErrors());
   }
 
   @Test
@@ -217,11 +217,7 @@ class OperatorListIT extends IntegrationBase {
     // When / Then
     mockMvc
         .perform(get("/organisation/{orgId}/addresses", ORGANISATION_ID))
-        .andExpect(status().isBadRequest())
-        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
-        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/bad-request"))
-        .andExpect(jsonPath("$.status").value(400))
-        .andExpect(jsonPath("$.errors").doesNotExist());
+        .andExpect(badRequestProblemWithNoErrors());
   }
 
   @Test

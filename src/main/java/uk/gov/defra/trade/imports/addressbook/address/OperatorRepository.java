@@ -1,49 +1,46 @@
 package uk.gov.defra.trade.imports.addressbook.address;
 
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.Query;
 import org.springframework.data.repository.Repository;
 
-/**
- * Organisation-scoped address persistence. Only declares org-scoped finders and {@code save} — no
- * unscoped {@code findById} / {@code deleteById}.
- */
 @org.springframework.stereotype.Repository
 public interface OperatorRepository extends Repository<Address, String> {
 
   Address save(Address address);
-
-  void deleteAll();
 
   Optional<Address> findByIdAndOrganisationId(String id, String organisationId);
 
   Page<Address> findByOrganisationIdAndStatus(
       String organisationId, AddressStatus status, Pageable pageable);
 
-  @Query(
-      "{ 'organisationId': ?0, 'status': ?1, '$or': [ "
-          + "{ 'name': { '$regex': ?2, '$options': 'i' } }, "
+  String TEXT_SEARCH_CLAUSES =
+      "{ 'name': { '$regex': ?2, '$options': 'i' } }, "
+          + "{ 'addressLine1': { '$regex': ?2, '$options': 'i' } }, "
+          + "{ 'addressLine2': { '$regex': ?2, '$options': 'i' } }, "
           + "{ 'townOrCity': { '$regex': ?2, '$options': 'i' } }, "
-          + "{ 'postcode': { '$regex': ?2, '$options': 'i' } } ] }")
+          + "{ 'county': { '$regex': ?2, '$options': 'i' } }, "
+          + "{ 'postcode': { '$regex': ?2, '$options': 'i' } }";
+
+  @Query("{ 'organisationId': ?0, 'status': ?1, '$or': [ " + TEXT_SEARCH_CLAUSES + " ] }")
   Page<Address> searchByQuery(
       String organisationId, AddressStatus status, String regex, Pageable pageable);
 
-  @Query("{ 'organisationId': ?0, 'status': ?1, 'countryCode': ?2 }")
-  Page<Address> searchByCountryCode(
-      String organisationId, AddressStatus status, String countryCode, Pageable pageable);
+  @Query("{ 'organisationId': ?0, 'status': ?1, 'countryCode': { '$in': ?2 } }")
+  Page<Address> searchByAnyCountryCode(
+      String organisationId, AddressStatus status, List<String> countryCodes, Pageable pageable);
 
   @Query(
       "{ 'organisationId': ?0, 'status': ?1, '$or': [ "
-          + "{ 'name': { '$regex': ?2, '$options': 'i' } }, "
-          + "{ 'townOrCity': { '$regex': ?2, '$options': 'i' } }, "
-          + "{ 'postcode': { '$regex': ?2, '$options': 'i' } }, "
-          + "{ 'countryCode': ?3 } ] }")
-  Page<Address> searchByQueryAndCountryCode(
+          + TEXT_SEARCH_CLAUSES
+          + ", { 'countryCode': { '$in': ?3 } } ] }")
+  Page<Address> searchByQueryOrAnyCountryCode(
       String organisationId,
       AddressStatus status,
       String regex,
-      String countryCode,
+      List<String> countryCodes,
       Pageable pageable);
 }
