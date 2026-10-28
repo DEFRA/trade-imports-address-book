@@ -3,7 +3,7 @@ info:
   title: trade-imports-address-book
   version: 1.0.0
   description: |
-    Locked address-book API contract for EUDPA-58 (M0–M2).
+    Address-book API contract.
 
     **Wire conventions:** camelCase JSON properties and query params; RFC 9457
     `application/problem+json` errors with camelCase `traceId` and (on validation
@@ -20,11 +20,8 @@ info:
     **Pagination:** the page size is the optional `pageSize` request parameter, from 1 to 100,
     defaulting to 25 when the request gives none. Any other value is a 400.
 
-    **Deviations from earlier design drafts:**
-    - **D1 — `countryCode` is ISO 3166-1 alpha-2** (e.g. "GB"), NOT an MDM display-name
-      string. Supersedes the earlier D1 ruling (display name such as "United Kingdom").
-      Stored as-given with presence-only validation (cv-011); consumers resolve alpha-2 to a
-      display name in the frontend.
+    **Country codes:** `countryCode` is ISO 3166-1 alpha-2 (e.g. "GB"), stored as given with
+    presence-only validation; consumers resolve it to a display name.
 
     OperatorComplianceIT compares paths, HTTP methods, operationIds and component schema
     property names against this file.
