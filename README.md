@@ -275,7 +275,8 @@ Both default to the prod-safe value. Prod is protected by two independent safegu
 ## Indexes
 
 The list read path is served by the `org_status_created` compound index on
-`{ organisationId, status, createdAt }` (`OperatorIndexIT` pins its presence). Datasets are one
+`{ organisationId, status, createdAt }`. A lost index fails no functional test, so `OperatorIndexIT`
+pins it twice: by name and key order from `listIndexes`, and as the explain plan's choice. Datasets are one
 user's address book today (tens to hundreds of rows), so a bounded scan is acceptable. Reassess any
 future index against real collection size before adding it.
 
