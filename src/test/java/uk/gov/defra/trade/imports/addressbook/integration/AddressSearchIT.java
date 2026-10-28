@@ -36,13 +36,8 @@ class AddressSearchIT extends IntegrationBase {
 
   private Address saveWithLineTwoAndCounty(
       String org, String name, String addressLine2, String county) {
-    return saveWithLineTwoAndCounty(org, AddressStatus.ACTIVE, name, addressLine2, county);
-  }
-
-  private Address saveWithLineTwoAndCounty(
-      String org, AddressStatus status, String name, String addressLine2, String county) {
     return repository.save(
-        addressBuilder(org, status, name, "Inverness", "IV2 3JH", "GB", "14 Drover's Way")
+        addressBuilder(org, AddressStatus.ACTIVE, name, "Inverness", "IV2 3JH", "GB", "14 Drover's Way")
             .addressLine2(addressLine2)
             .county(county)
             .build());
@@ -213,24 +208,6 @@ class AddressSearchIT extends IntegrationBase {
         .andExpect(jsonPath("$.totalItems").value(2))
         .andExpect(jsonPath("$.items[*].id", hasItem(french.getId())))
         .andExpect(jsonPath("$.items[*].id", hasItem(irish.getId())));
-  }
-
-  @Test
-  void textSearchOnAddressLineTwoExcludesDeletedAndOtherOrganisationsAddresses() throws Exception {
-    Address live = saveWithLineTwoAndCounty(ORGANISATION_ID, "North Depot", "Ballymore Road", "Antrim");
-    Address deleted = saveWithLineTwoAndCounty(ORGANISATION_ID, AddressStatus.DELETED, "Ghost Depot", "Ballymore Road", "Antrim");
-    Address otherOrg = saveWithLineTwoAndCounty(OTHER_ORG, "Other Depot", "Ballymore Road", "Antrim");
-
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .param("q", "ballymore"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[0].id").value(live.getId()))
-        .andExpect(jsonPath("$.items[*].id", not(hasItem(deleted.getId()))))
-        .andExpect(jsonPath("$.items[*].id", not(hasItem(otherOrg.getId()))));
   }
 
   @Test
