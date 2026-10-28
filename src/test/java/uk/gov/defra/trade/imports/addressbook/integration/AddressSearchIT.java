@@ -19,52 +19,10 @@ class AddressSearchIT extends IntegrationBase {
 
   @Autowired private ObjectMapper objectMapper;
 
-  private Address save(
-      String org,
-      AddressStatus status,
-      String name,
-      String townOrCity,
-      String postcode,
-      String countryCode,
-      String addressLine1) {
-    return operatorRepository.save(
-        addressBuilder(org, status, name, townOrCity, postcode, countryCode, addressLine1).build());
-  }
-
-  private Address saveWithLineTwoAndCounty(
-      String org, String name, String addressLine2, String county) {
-    return operatorRepository.save(
-        addressBuilder(org, AddressStatus.ACTIVE, name, "Inverness", "IV2 3JH", "GB", "14 Drover's Way")
-            .addressLine2(addressLine2)
-            .county(county)
-            .build());
-  }
-
-  private Address.AddressBuilder addressBuilder(
-      String org,
-      AddressStatus status,
-      String name,
-      String townOrCity,
-      String postcode,
-      String countryCode,
-      String addressLine1) {
-    return Address.builder()
-        .name(name)
-        .addressLine1(addressLine1)
-        .townOrCity(townOrCity)
-        .postcode(postcode)
-        .countryCode(countryCode)
-        .phone("+44 1463 234567")
-        .email("exports@highlandlivestock.example.com")
-        .organisationId(org)
-        .status(status);
-  }
-
   @Test
   void partialWordSearchMatchesNameCaseInsensitively() throws Exception {
-    Address match =
-        save(ORGANISATION_ID, AddressStatus.ACTIVE, "Green Farm", "Inverness", "IV2 3JH", "GB", "14 Drover's Way");
-    save(ORGANISATION_ID, AddressStatus.ACTIVE, "Blue Barn", "Perth", "PH1 5AA", "GB", "2 Market Street");
+    Address match = saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE).name("Green Farm"));
+    saveAddress(perthAddress("Blue Barn"));
 
     mockMvc
         .perform(
@@ -78,9 +36,8 @@ class AddressSearchIT extends IntegrationBase {
 
   @Test
   void partialWordSearchMatchesTownOrCityCaseInsensitively() throws Exception {
-    Address match =
-        save(ORGANISATION_ID, AddressStatus.ACTIVE, "North Depot", "Inverness", "IV2 3JH", "GB", "14 Drover's Way");
-    save(ORGANISATION_ID, AddressStatus.ACTIVE, "South Depot", "Perth", "PH1 5AA", "GB", "2 Market Street");
+    Address match = saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE).name("North Depot"));
+    saveAddress(perthAddress("South Depot"));
 
     mockMvc
         .perform(
@@ -95,15 +52,9 @@ class AddressSearchIT extends IntegrationBase {
   @Test
   void multiWordSearchMatchesNameCaseInsensitively() throws Exception {
     Address match =
-        save(
-            ORGANISATION_ID,
-            AddressStatus.ACTIVE,
-            "Green Valley Livestock Farm",
-            "Inverness",
-            "IV2 3JH",
-            "GB",
-            "14 Drover's Way");
-    save(ORGANISATION_ID, AddressStatus.ACTIVE, "Blue Barn", "Perth", "PH1 5AA", "GB", "2 Market Street");
+        saveAddress(
+            addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE).name("Green Valley Livestock Farm"));
+    saveAddress(perthAddress("Blue Barn"));
 
     mockMvc
         .perform(
@@ -127,8 +78,8 @@ class AddressSearchIT extends IntegrationBase {
   @Test
   void partialWordSearchMatchesPostcodeCaseInsensitively() throws Exception {
     Address match =
-        save(ORGANISATION_ID, AddressStatus.ACTIVE, "Highland Livestock", "Inverness", "IV2 3JH", "GB", "14 Drover's Way");
-    save(ORGANISATION_ID, AddressStatus.ACTIVE, "Lowland Cattle", "Perth", "PH1 5AA", "GB", "2 Market Street");
+        saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE).name("Highland Livestock"));
+    saveAddress(perthAddress("Lowland Cattle"));
 
     mockMvc
         .perform(
@@ -142,9 +93,8 @@ class AddressSearchIT extends IntegrationBase {
 
   @Test
   void partialWordSearchMatchesAddressLineOneCaseInsensitively() throws Exception {
-    Address match =
-        save(ORGANISATION_ID, AddressStatus.ACTIVE, "North Depot", "Perth", "PH1 5AA", "GB", "Green Lane");
-    save(ORGANISATION_ID, AddressStatus.ACTIVE, "South Depot", "Perth", "PH1 5AA", "GB", "2 Market Street");
+    Address match = saveAddress(perthAddress("North Depot").addressLine1("Green Lane"));
+    saveAddress(perthAddress("South Depot"));
 
     mockMvc
         .perform(
@@ -159,8 +109,16 @@ class AddressSearchIT extends IntegrationBase {
   @Test
   void partialWordSearchMatchesAddressLineTwoCaseInsensitively() throws Exception {
     Address match =
-        saveWithLineTwoAndCounty(ORGANISATION_ID, "North Depot", "Ballymore Road", "Antrim");
-    saveWithLineTwoAndCounty(ORGANISATION_ID, "South Depot", "Station Road", "Down");
+        saveAddress(
+            addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE)
+                .name("North Depot")
+                .addressLine2("Ballymore Road")
+                .county("Antrim"));
+    saveAddress(
+        addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE)
+            .name("South Depot")
+            .addressLine2("Station Road")
+            .county("Down"));
 
     mockMvc
         .perform(
@@ -175,8 +133,16 @@ class AddressSearchIT extends IntegrationBase {
   @Test
   void partialWordSearchMatchesCountyCaseInsensitively() throws Exception {
     Address match =
-        saveWithLineTwoAndCounty(ORGANISATION_ID, "North Depot", "Ballymore Road", "County Antrim");
-    saveWithLineTwoAndCounty(ORGANISATION_ID, "South Depot", "Station Road", "County Down");
+        saveAddress(
+            addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE)
+                .name("North Depot")
+                .addressLine2("Ballymore Road")
+                .county("County Antrim"));
+    saveAddress(
+        addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE)
+            .name("South Depot")
+            .addressLine2("Station Road")
+            .county("County Down"));
 
     mockMvc
         .perform(
@@ -190,11 +156,16 @@ class AddressSearchIT extends IntegrationBase {
 
   @Test
   void severalCountryCodesMatchTheAddressesInAnyOfThem() throws Exception {
-    Address french =
-        save(ORGANISATION_ID, AddressStatus.ACTIVE, "Paris Depot", "Paris", "75001", "FR", "1 Rue de Rivoli");
+    Address french = saveAddress(parisDepot());
     Address irish =
-        save(ORGANISATION_ID, AddressStatus.ACTIVE, "Dublin Depot", "Dublin", "D01 F5P2", "IE", "1 Main Street");
-    save(ORGANISATION_ID, AddressStatus.ACTIVE, "London Depot", "London", "SW1A 1AA", "GB", "10 Downing Street");
+        saveAddress(
+            addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE)
+                .name("Dublin Depot")
+                .addressLine1("1 Main Street")
+                .townOrCity("Dublin")
+                .postcode("D01 F5P2")
+                .countryCode("IE"));
+    saveAddress(londonDepot());
 
     mockMvc
         .perform(
@@ -209,8 +180,8 @@ class AddressSearchIT extends IntegrationBase {
 
   @Test
   void searchTermIsTreatedAsLiteralNotRegex() throws Exception {
-    save(ORGANISATION_ID, AddressStatus.ACTIVE, "Green Farm", "Inverness", "IV2 3JH", "GB", "14 Drover's Way");
-    save(ORGANISATION_ID, AddressStatus.ACTIVE, "Blue Barn", "Perth", "PH1 5AA", "GB", "2 Market Street");
+    saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE).name("Green Farm"));
+    saveAddress(perthAddress("Blue Barn"));
 
     mockMvc
         .perform(
@@ -223,10 +194,15 @@ class AddressSearchIT extends IntegrationBase {
 
   @Test
   void countryCodeParamMatchesStoredAlpha2CodeAndExcludesOtherOrgs() throws Exception {
-    Address french =
-        save(ORGANISATION_ID, AddressStatus.ACTIVE, "Paris Depot", "Paris", "75001", "FR", "1 Rue de Rivoli");
-    save(ORGANISATION_ID, AddressStatus.ACTIVE, "London Depot", "London", "SW1A 1AA", "GB", "10 Downing Street");
-    save(OTHER_ORG, AddressStatus.ACTIVE, "Other FR", "Lyon", "69001", "FR", "2 Other Street");
+    Address french = saveAddress(parisDepot());
+    saveAddress(londonDepot());
+    saveAddress(
+        addressBuilder(OTHER_ORG, AddressStatus.ACTIVE)
+            .name("Other FR")
+            .addressLine1("2 Other Street")
+            .townOrCity("Lyon")
+            .postcode("69001")
+            .countryCode("FR"));
 
     mockMvc
         .perform(
@@ -240,9 +216,14 @@ class AddressSearchIT extends IntegrationBase {
 
   @Test
   void countryCodeSearchExcludesSoftDeletedRows() throws Exception {
-    Address live =
-        save(ORGANISATION_ID, AddressStatus.ACTIVE, "Paris Depot", "Paris", "75001", "FR", "1 Rue de Rivoli");
-    save(ORGANISATION_ID, AddressStatus.DELETED, "Deleted FR", "Paris", "75002", "FR", "9 Deleted Lane");
+    Address live = saveAddress(parisDepot());
+    saveAddress(
+        addressBuilder(ORGANISATION_ID, AddressStatus.DELETED)
+            .name("Deleted FR")
+            .addressLine1("9 Deleted Lane")
+            .townOrCity("Paris")
+            .postcode("75002")
+            .countryCode("FR"));
 
     mockMvc
         .perform(
@@ -256,17 +237,9 @@ class AddressSearchIT extends IntegrationBase {
 
   @Test
   void combinedQueryAndCountryCodeMatchesTextOrCountryCode() throws Exception {
-    Address french =
-        save(ORGANISATION_ID, AddressStatus.ACTIVE, "Paris Depot", "Paris", "75001", "FR", "1 Rue de Rivoli");
+    Address french = saveAddress(parisDepot());
     Address textOnly =
-        save(
-            ORGANISATION_ID,
-            AddressStatus.ACTIVE,
-            "France Freight",
-            "London",
-            "SW1A 1AA",
-            "GB",
-            "1 France Yard");
+        saveAddress(londonDepot().name("France Freight").addressLine1("1 France Yard"));
 
     mockMvc
         .perform(
@@ -282,10 +255,17 @@ class AddressSearchIT extends IntegrationBase {
 
   @Test
   void searchIsOrgScopedAndExcludesSoftDeletedForQueryPath() throws Exception {
-    Address live =
-        save(ORGANISATION_ID, AddressStatus.ACTIVE, "Green Farm", "Inverness", "IV2 3JH", "GB", "14 Drover's Way");
-    save(ORGANISATION_ID, AddressStatus.DELETED, "Green Ghost", "Inverness", "IV2 3JH", "GB", "99 Deleted Lane");
-    save(OTHER_ORG, AddressStatus.ACTIVE, "Green Other Org", "Glasgow", "G1 1AA", "GB", "1 Other Street");
+    Address live = saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE).name("Green Farm"));
+    saveAddress(
+        addressBuilder(ORGANISATION_ID, AddressStatus.DELETED)
+            .name("Green Ghost")
+            .addressLine1("99 Deleted Lane"));
+    saveAddress(
+        addressBuilder(OTHER_ORG, AddressStatus.ACTIVE)
+            .name("Green Other Org")
+            .addressLine1("1 Other Street")
+            .townOrCity("Glasgow")
+            .postcode("G1 1AA"));
 
     mockMvc
         .perform(
@@ -302,14 +282,7 @@ class AddressSearchIT extends IntegrationBase {
     Set<String> allIds = new HashSet<>();
     for (int i = 0; i < 30; i++) {
       allIds.add(
-          save(
-                  ORGANISATION_ID,
-                  AddressStatus.ACTIVE,
-                  "Green Farm " + i,
-                  "Inverness",
-                  "IV2 3JH",
-                  "GB",
-                  "14 Drover's Way")
+          saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE).name("Green Farm " + i))
               .getId());
     }
 
@@ -345,6 +318,31 @@ class AddressSearchIT extends IntegrationBase {
     pageIds.addAll(readIds(page1Body));
     pageIds.addAll(readIds(page2Body));
     assertThat(pageIds).containsExactlyInAnyOrderElementsOf(allIds);
+  }
+
+  private static Address.AddressBuilder perthAddress(String name) {
+    return addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE)
+        .name(name)
+        .addressLine1("2 Market Street")
+        .townOrCity("Perth")
+        .postcode("PH1 5AA");
+  }
+
+  private static Address.AddressBuilder parisDepot() {
+    return addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE)
+        .name("Paris Depot")
+        .addressLine1("1 Rue de Rivoli")
+        .townOrCity("Paris")
+        .postcode("75001")
+        .countryCode("FR");
+  }
+
+  private static Address.AddressBuilder londonDepot() {
+    return addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE)
+        .name("London Depot")
+        .addressLine1("10 Downing Street")
+        .townOrCity("London")
+        .postcode("SW1A 1AA");
   }
 
   private Set<String> readIds(String body) throws Exception {

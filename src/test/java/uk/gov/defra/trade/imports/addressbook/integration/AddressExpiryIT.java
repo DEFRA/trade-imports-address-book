@@ -130,18 +130,8 @@ class AddressExpiryIT extends IntegrationBase {
   }
 
   private String save(String name, AddressStatus status, Instant expireAt) {
-    Address address =
-        Address.builder()
-            .name(name)
-            .addressLine1("14 Drover's Way")
-            .townOrCity("Inverness")
-            .postcode("IV2 3JH")
-            .countryCode("GB")
-            .organisationId(ORGANISATION_ID)
-            .status(status)
-            .expireAt(expireAt)
-            .build();
-    return operatorRepository.save(address).getId();
+    return saveAddress(addressBuilder(ORGANISATION_ID, status).name(name).expireAt(expireAt))
+        .getId();
   }
 
   private void setTtlMonitorSleepSecs(int seconds) {

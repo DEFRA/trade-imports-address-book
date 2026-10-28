@@ -51,6 +51,24 @@ abstract class IntegrationBase {
   @Autowired
   protected OperatorRepository operatorRepository;
 
+  protected static Address.AddressBuilder addressBuilder(
+      String organisationId, AddressStatus status) {
+    return Address.builder()
+        .name("Highland Livestock Ltd")
+        .addressLine1("14 Drover's Way")
+        .townOrCity("Inverness")
+        .postcode("IV2 3JH")
+        .countryCode("GB")
+        .phone("+44 1463 234567")
+        .email("exports@highlandlivestock.example.com")
+        .organisationId(organisationId)
+        .status(status);
+  }
+
+  protected Address saveAddress(Address.AddressBuilder address) {
+    return operatorRepository.save(address.build());
+  }
+
   protected List<Address> activeAddressesFor(String organisationId) {
     return operatorRepository
         .findByOrganisationIdAndStatus(

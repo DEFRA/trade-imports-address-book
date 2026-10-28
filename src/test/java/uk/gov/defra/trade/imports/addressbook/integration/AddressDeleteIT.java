@@ -30,26 +30,10 @@ class AddressDeleteIT extends IntegrationBase {
 
   @SpyBean private OperatorRepository repository;
 
-  private Address saveActive() {
-    Address address =
-        Address.builder()
-            .name("Highland Livestock Ltd")
-            .addressLine1("14 Drover's Way")
-            .townOrCity("Inverness")
-            .postcode("IV2 3JH")
-            .countryCode("GB")
-            .phone("+44 1463 234567")
-            .email("exports@highlandlivestock.example.com")
-            .organisationId(ORGANISATION_ID)
-            .status(AddressStatus.ACTIVE)
-            .build();
-    return repository.save(address);
-  }
-
   @Test
   void delete_shouldReturn204AndTombstoneRow_whenAddressIsLive() throws Exception {
     // Given
-    Address saved = saveActive();
+    Address saved = saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE));
     Instant createdAt = saved.getCreatedAt();
     Instant modifiedAtBeforeDelete = saved.getModifiedAt();
 
@@ -74,7 +58,7 @@ class AddressDeleteIT extends IntegrationBase {
   @Test
   void delete_shouldExcludeFromListAndFlagDeletedOnGet_whenAddressIsTombstoned() throws Exception {
     // Given
-    Address saved = saveActive();
+    Address saved = saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE));
     String id = saved.getId();
 
     // When
@@ -103,7 +87,7 @@ class AddressDeleteIT extends IntegrationBase {
   @Test
   void delete_shouldBeIdempotent204WithNoSecondSave_whenAlreadyDeleted() throws Exception {
     // Given
-    Address saved = saveActive();
+    Address saved = saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE));
     String id = saved.getId();
 
     mockMvc
@@ -149,7 +133,7 @@ class AddressDeleteIT extends IntegrationBase {
   @Test
   void delete_shouldReturn404AndLeaveRowActive_whenCrossOrgPathUsed() throws Exception {
     // Given
-    Address saved = saveActive();
+    Address saved = saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE));
 
     // When
     mockMvc
@@ -168,7 +152,7 @@ class AddressDeleteIT extends IntegrationBase {
   @Test
   void delete_shouldReturn404AndLeaveRowActive_whenHeaderOrgMismatchesPath() throws Exception {
     // Given
-    Address saved = saveActive();
+    Address saved = saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE));
 
     // When
     mockMvc
@@ -187,7 +171,7 @@ class AddressDeleteIT extends IntegrationBase {
   @Test
   void delete_shouldPreventTombstoneResurrection_whenStaleSaveFollowsDelete() throws Exception {
     // Given
-    Address saved = saveActive();
+    Address saved = saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE));
     Address stale =
         repository.findByIdAndOrganisationId(saved.getId(), ORGANISATION_ID).orElseThrow();
 

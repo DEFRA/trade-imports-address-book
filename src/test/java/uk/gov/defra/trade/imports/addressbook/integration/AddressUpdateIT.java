@@ -42,21 +42,10 @@ class AddressUpdateIT extends IntegrationBase {
   @SpyBean private OperatorRepository repository;
 
   private Address saveActiveWithOptionals() {
-    Address address =
-        Address.builder()
-            .name("Highland Livestock Ltd")
-            .addressLine1("14 Drover's Way")
+    return saveAddress(
+        addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE)
             .addressLine2("Unit 3")
-            .townOrCity("Inverness")
-            .county("Highland")
-            .postcode("IV2 3JH")
-            .countryCode("GB")
-            .phone("+44 1463 234567")
-            .email("exports@highlandlivestock.example.com")
-            .organisationId(ORGANISATION_ID)
-            .status(AddressStatus.ACTIVE)
-            .build();
-    return repository.save(address);
+            .county("Highland"));
   }
 
   @Test
@@ -150,19 +139,7 @@ class AddressUpdateIT extends IntegrationBase {
   @Test
   void put_shouldReturn404_whenTargetIsTombstone() throws Exception {
     // Given
-    Address tombstone =
-        Address.builder()
-            .name("Highland Livestock Ltd")
-            .addressLine1("14 Drover's Way")
-            .townOrCity("Inverness")
-            .postcode("IV2 3JH")
-            .countryCode("GB")
-            .phone("+44 1463 234567")
-            .email("exports@highlandlivestock.example.com")
-            .organisationId(ORGANISATION_ID)
-            .status(AddressStatus.DELETED)
-            .build();
-    tombstone = repository.save(tombstone);
+    Address tombstone = saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.DELETED));
 
     // When / Then
     mockMvc

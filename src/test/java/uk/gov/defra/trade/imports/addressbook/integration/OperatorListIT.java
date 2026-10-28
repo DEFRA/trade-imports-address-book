@@ -24,28 +24,14 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
-import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 
 class OperatorListIT extends IntegrationBase {
 
-  @Autowired private OperatorRepository repository;
   @Autowired private MongoTemplate mongoTemplate;
   @Autowired private ObjectMapper objectMapper;
 
   private Address saveWithCreatedAt(String org, AddressStatus status, String name, Instant createdAt) {
-    Address address =
-        Address.builder()
-            .name(name)
-            .addressLine1("14 Drover's Way")
-            .townOrCity("Inverness")
-            .postcode("IV2 3JH")
-            .countryCode("GB")
-            .phone("+44 1463 234567")
-            .email("exports@highlandlivestock.example.com")
-            .organisationId(org)
-            .status(status)
-            .build();
-    Address saved = repository.save(address);
+    Address saved = saveAddress(addressBuilder(org, status).name(name));
     mongoTemplate.updateFirst(
         Query.query(Criteria.where("_id").is(saved.getId())),
         Update.update("createdAt", createdAt),

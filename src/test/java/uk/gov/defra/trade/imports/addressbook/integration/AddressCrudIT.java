@@ -150,19 +150,7 @@ class AddressCrudIT extends IntegrationBase {
   @Test
   void put_shouldReturn400BadRequestProblem_whenJsonBodyIsEmpty() throws Exception {
     // Given
-    Address saved =
-        Address.builder()
-            .name("Highland Livestock Ltd")
-            .addressLine1("14 Drover's Way")
-            .townOrCity("Inverness")
-            .postcode("IV2 3JH")
-            .countryCode("GB")
-            .phone("+44 1463 234567")
-            .email("exports@highlandlivestock.example.com")
-            .organisationId(ORGANISATION_ID)
-            .status(AddressStatus.ACTIVE)
-            .build();
-    saved = repository.save(saved);
+    Address saved = saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE));
 
     // When / Then
     mockMvc
