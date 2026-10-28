@@ -520,16 +520,16 @@ class OperatorServiceTest {
   @Test
   void list_withWhitespacePaddedQueryTrimsBeforeSearching() {
     // Given
+    Address matching = persistedAddress("matching-id", ORG, AddressStatus.ACTIVE);
     when(repository.searchByQuery(
             eq(ORG), eq(AddressStatus.ACTIVE), eq(".*\\Qfarm\\E.*"), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
+        .thenReturn(new PageImpl<>(List.of(matching), PageRequest.of(0, 25), 1));
 
     // When
-    service.list(ORG, 1, null, "  farm  ", null);
+    OperatorPageResponse response = service.list(ORG, 1, null, "  farm  ", null);
 
-    // Then — trim is applied before regex construction
-    verify(repository)
-        .searchByQuery(eq(ORG), eq(AddressStatus.ACTIVE), eq(".*\\Qfarm\\E.*"), any(Pageable.class));
+    // Then
+    assertThat(response.items()).extracting(OperatorResponse::id).containsExactly("matching-id");
   }
 
   @Test
@@ -564,16 +564,16 @@ class OperatorServiceTest {
   @Test
   void list_withWhitespacePaddedCountryCodeTrimsBeforeSearching() {
     // Given
+    Address matching = persistedAddress("matching-id", ORG, AddressStatus.ACTIVE);
     when(repository.searchByCountryCode(
             eq(ORG), eq(AddressStatus.ACTIVE), eq(List.of("FR")), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
+        .thenReturn(new PageImpl<>(List.of(matching), PageRequest.of(0, 25), 1));
 
     // When
-    service.list(ORG, 1, null, null, List.of(" FR "));
+    OperatorPageResponse response = service.list(ORG, 1, null, null, List.of(" FR "));
 
     // Then
-    verify(repository)
-        .searchByCountryCode(eq(ORG), eq(AddressStatus.ACTIVE), eq(List.of("FR")), any(Pageable.class));
+    assertThat(response.items()).extracting(OperatorResponse::id).containsExactly("matching-id");
   }
 
   @Test
