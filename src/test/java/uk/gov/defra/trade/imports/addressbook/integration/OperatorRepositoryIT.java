@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.data.domain.PageRequest.of;
 
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.Page;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
@@ -62,9 +63,7 @@ class OperatorRepositoryIT extends IntegrationBase {
 
   @Test
   void searchByAnyCountryCode_matchesAnyOfSeveralCountryCodes() {
-    Address french = saveAddress(addressBuilder(ORG_A, AddressStatus.ACTIVE).name("Paris Depot").countryCode("FR"));
-    Address irish = saveAddress(addressBuilder(ORG_A, AddressStatus.ACTIVE).name("Dublin Depot").countryCode("IE"));
-    saveAddress(addressBuilder(ORG_A, AddressStatus.ACTIVE).name("Berlin Depot").countryCode("DE"));
+    Map<String, Address> depotsByCountryCode = saveDepotsInFranceIrelandAndGermany();
 
     Page<Address> page =
         operatorRepository.searchByAnyCountryCode(
@@ -72,14 +71,13 @@ class OperatorRepositoryIT extends IntegrationBase {
 
     assertThat(page.getContent())
         .extracting(Address::getId)
-        .containsExactlyInAnyOrder(french.getId(), irish.getId());
+        .containsExactlyInAnyOrder(
+            depotsByCountryCode.get("FR").getId(), depotsByCountryCode.get("IE").getId());
   }
 
   @Test
   void searchByQueryOrAnyCountryCode_matchesAnyOfSeveralCountryCodes() {
-    Address french = saveAddress(addressBuilder(ORG_A, AddressStatus.ACTIVE).name("Paris Depot").countryCode("FR"));
-    Address irish = saveAddress(addressBuilder(ORG_A, AddressStatus.ACTIVE).name("Dublin Depot").countryCode("IE"));
-    saveAddress(addressBuilder(ORG_A, AddressStatus.ACTIVE).name("Berlin Depot").countryCode("DE"));
+    Map<String, Address> depotsByCountryCode = saveDepotsInFranceIrelandAndGermany();
 
     Page<Address> page =
         operatorRepository.searchByQueryOrAnyCountryCode(
@@ -87,6 +85,14 @@ class OperatorRepositoryIT extends IntegrationBase {
 
     assertThat(page.getContent())
         .extracting(Address::getId)
-        .containsExactlyInAnyOrder(french.getId(), irish.getId());
+        .containsExactlyInAnyOrder(
+            depotsByCountryCode.get("FR").getId(), depotsByCountryCode.get("IE").getId());
+  }
+
+  private Map<String, Address> saveDepotsInFranceIrelandAndGermany() {
+    return Map.of(
+        "FR", saveAddress(addressBuilder(ORG_A, AddressStatus.ACTIVE).name("Paris Depot").countryCode("FR")),
+        "IE", saveAddress(addressBuilder(ORG_A, AddressStatus.ACTIVE).name("Dublin Depot").countryCode("IE")),
+        "DE", saveAddress(addressBuilder(ORG_A, AddressStatus.ACTIVE).name("Berlin Depot").countryCode("DE")));
   }
 }
