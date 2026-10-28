@@ -30,14 +30,14 @@ public interface OperatorRepository extends Repository<Address, String> {
       String organisationId, AddressStatus status, String regex, Pageable pageable);
 
   @Query("{ 'organisationId': ?0, 'status': ?1, 'countryCode': { '$in': ?2 } }")
-  Page<Address> searchByCountryCode(
+  Page<Address> searchByAnyCountryCode(
       String organisationId, AddressStatus status, List<String> countryCodes, Pageable pageable);
 
   @Query(
       "{ 'organisationId': ?0, 'status': ?1, '$or': [ "
           + TEXT_SEARCH_CLAUSES
           + ", { 'countryCode': { '$in': ?3 } } ] }")
-  Page<Address> searchByQueryAndCountryCode(
+  Page<Address> searchByQueryOrAnyCountryCode(
       String organisationId,
       AddressStatus status,
       String regex,

@@ -103,15 +103,15 @@ public class OperatorService {
       String organisationId, String q, List<String> countryCodes, Pageable pageable) {
     List<String> searchedCountryCodes = nonBlankTrimmed(countryCodes);
     boolean hasQuery = q != null && !q.isBlank();
-    boolean hasCountryCode = !searchedCountryCodes.isEmpty();
+    boolean hasCountryCodes = !searchedCountryCodes.isEmpty();
 
-    if (!hasQuery && !hasCountryCode) {
+    if (!hasQuery && !hasCountryCodes) {
       return repository.findByOrganisationIdAndStatus(
           organisationId, AddressStatus.ACTIVE, pageable);
     }
 
-    if (hasQuery && hasCountryCode) {
-      return repository.searchByQueryAndCountryCode(
+    if (hasQuery && hasCountryCodes) {
+      return repository.searchByQueryOrAnyCountryCode(
           organisationId,
           AddressStatus.ACTIVE,
           toPartialMatchRegex(q),
@@ -124,7 +124,7 @@ public class OperatorService {
           organisationId, AddressStatus.ACTIVE, toPartialMatchRegex(q), pageable);
     }
 
-    return repository.searchByCountryCode(
+    return repository.searchByAnyCountryCode(
         organisationId, AddressStatus.ACTIVE, searchedCountryCodes, pageable);
   }
 

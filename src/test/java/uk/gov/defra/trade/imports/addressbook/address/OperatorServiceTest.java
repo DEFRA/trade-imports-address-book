@@ -485,7 +485,7 @@ class OperatorServiceTest {
   void list_withSeveralCountryCodesTrimsEachAndDropsBlanksAndNullsBeforeSearching() {
     // Given
     Address matching = persistedAddress("matching-id", ORG, AddressStatus.ACTIVE);
-    when(repository.searchByCountryCode(
+    when(repository.searchByAnyCountryCode(
             eq(ORG), eq(AddressStatus.ACTIVE), eq(List.of("FR", "GB")), any(Pageable.class)))
         .thenReturn(new PageImpl<>(List.of(matching), PageRequest.of(0, DEFAULT_PAGE_SIZE), 1));
 
@@ -548,9 +548,9 @@ class OperatorServiceTest {
   }
 
   @Test
-  void list_withCountryCodeUsesTheCountrySearchRepository() {
+  void list_withCountryCodeSearchesByAnyCountryCode() {
     // Given
-    when(repository.searchByCountryCode(
+    when(repository.searchByAnyCountryCode(
             eq(ORG), eq(AddressStatus.ACTIVE), eq(List.of("FR")), any(Pageable.class)))
         .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, DEFAULT_PAGE_SIZE), 0));
 
@@ -565,7 +565,7 @@ class OperatorServiceTest {
   void list_withWhitespacePaddedCountryCodeTrimsBeforeSearching() {
     // Given
     Address matching = persistedAddress("matching-id", ORG, AddressStatus.ACTIVE);
-    when(repository.searchByCountryCode(
+    when(repository.searchByAnyCountryCode(
             eq(ORG), eq(AddressStatus.ACTIVE), eq(List.of("FR")), any(Pageable.class)))
         .thenReturn(new PageImpl<>(List.of(matching), PageRequest.of(0, DEFAULT_PAGE_SIZE), 1));
 
@@ -592,9 +592,9 @@ class OperatorServiceTest {
   }
 
   @Test
-  void list_withQueryAndCountryCodeUsesTheCombinedSearchRepository() {
+  void list_withQueryAndCountryCodeSearchesByQueryOrAnyCountryCode() {
     // Given
-    when(repository.searchByQueryAndCountryCode(
+    when(repository.searchByQueryOrAnyCountryCode(
             eq(ORG), eq(AddressStatus.ACTIVE), eq(".*\\QFrance\\E.*"), eq(List.of("FR")), any(Pageable.class)))
         .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, DEFAULT_PAGE_SIZE), 0));
 

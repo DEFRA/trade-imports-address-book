@@ -39,25 +39,25 @@ class OperatorRepositoryIT extends IntegrationBase {
   }
 
   @Test
-  void searchByCountryCode_isOrgScopedAndExcludesDeleted() {
+  void searchByAnyCountryCode_isOrgScopedAndExcludesDeleted() {
     saveAddress("Org A FR", ORG_A, AddressStatus.ACTIVE, "FR");
     saveAddress("Org B FR", ORG_B, AddressStatus.ACTIVE, "FR");
     saveAddress("Org A deleted FR", ORG_A, AddressStatus.DELETED, "FR");
 
     Page<Address> page =
-        operatorRepository.searchByCountryCode(ORG_A, AddressStatus.ACTIVE, List.of("FR"), of(0, 10));
+        operatorRepository.searchByAnyCountryCode(ORG_A, AddressStatus.ACTIVE, List.of("FR"), of(0, 10));
 
     assertThat(page.getTotalElements()).isEqualTo(1);
     assertThat(page.getContent()).singleElement().extracting(Address::getOrganisationId).isEqualTo(ORG_A);
   }
 
   @Test
-  void searchByQueryAndCountryCode_isOrgScoped() {
+  void searchByQueryOrAnyCountryCode_isOrgScoped() {
     saveAddress("Paris", ORG_A, AddressStatus.ACTIVE, "FR");
     saveAddress("Other Paris", ORG_B, AddressStatus.ACTIVE, "FR");
 
     Page<Address> page =
-        operatorRepository.searchByQueryAndCountryCode(
+        operatorRepository.searchByQueryOrAnyCountryCode(
             ORG_A, AddressStatus.ACTIVE, ".*\\QParis\\E.*", List.of("FR"), of(0, 10));
 
     assertThat(page.getTotalElements()).isEqualTo(1);
@@ -65,13 +65,13 @@ class OperatorRepositoryIT extends IntegrationBase {
   }
 
   @Test
-  void searchByCountryCode_matchesAnyOfSeveralCountryCodes() {
+  void searchByAnyCountryCode_matchesAnyOfSeveralCountryCodes() {
     Address french = saveAddress("Paris Depot", ORG_A, AddressStatus.ACTIVE, "FR");
     Address irish = saveAddress("Dublin Depot", ORG_A, AddressStatus.ACTIVE, "IE");
     saveAddress("Berlin Depot", ORG_A, AddressStatus.ACTIVE, "DE");
 
     Page<Address> page =
-        operatorRepository.searchByCountryCode(
+        operatorRepository.searchByAnyCountryCode(
             ORG_A, AddressStatus.ACTIVE, List.of("FR", "IE"), of(0, 10));
 
     assertThat(page.getContent())
@@ -80,13 +80,13 @@ class OperatorRepositoryIT extends IntegrationBase {
   }
 
   @Test
-  void searchByQueryAndCountryCode_matchesAnyOfSeveralCountryCodesWhenTheQueryMatchesNothing() {
+  void searchByQueryOrAnyCountryCode_matchesAnyOfSeveralCountryCodes() {
     Address french = saveAddress("Paris Depot", ORG_A, AddressStatus.ACTIVE, "FR");
     Address irish = saveAddress("Dublin Depot", ORG_A, AddressStatus.ACTIVE, "IE");
     saveAddress("Berlin Depot", ORG_A, AddressStatus.ACTIVE, "DE");
 
     Page<Address> page =
-        operatorRepository.searchByQueryAndCountryCode(
+        operatorRepository.searchByQueryOrAnyCountryCode(
             ORG_A, AddressStatus.ACTIVE, ".*\\QNoSuchText\\E.*", List.of("FR", "IE"), of(0, 10));
 
     assertThat(page.getContent())
