@@ -385,19 +385,19 @@ class OperatorServiceTest {
   }
 
   @Test
-  void list_returnsAFullFirstPageOf25WithTotalPages2For30ActiveAddresses() {
+  void list_returnsAFullFirstPageWithTotalPages2For30ActiveAddresses() {
     // Given
     when(repository.findByOrganisationIdAndStatus(
             eq(ORG), eq(AddressStatus.ACTIVE), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(activeAddresses(25), PageRequest.of(0, 25), 30));
+        .thenReturn(new PageImpl<>(activeAddresses(DEFAULT_PAGE_SIZE), PageRequest.of(0, DEFAULT_PAGE_SIZE), 30));
 
     // When
     OperatorPageResponse response = service.list(ORG, 1, null, null, null);
 
     // Then
-    assertThat(response.items()).hasSize(25);
+    assertThat(response.items()).hasSize(DEFAULT_PAGE_SIZE);
     assertThat(response.page()).isEqualTo(1);
-    assertThat(response.pageSize()).isEqualTo(25);
+    assertThat(response.pageSize()).isEqualTo(DEFAULT_PAGE_SIZE);
     assertThat(response.totalItems()).isEqualTo(30);
     assertThat(response.totalPages()).isEqualTo(2);
   }
@@ -407,7 +407,7 @@ class OperatorServiceTest {
     // Given
     when(repository.findByOrganisationIdAndStatus(
             eq(ORG), eq(AddressStatus.ACTIVE), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(activeAddresses(5), PageRequest.of(1, 25), 30));
+        .thenReturn(new PageImpl<>(activeAddresses(5), PageRequest.of(1, DEFAULT_PAGE_SIZE), 30));
 
     // When
     OperatorPageResponse response = service.list(ORG, 2, null, null, null);
@@ -425,7 +425,7 @@ class OperatorServiceTest {
     ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
     when(repository.findByOrganisationIdAndStatus(
             eq(ORG), eq(AddressStatus.ACTIVE), pageableCaptor.capture()))
-        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(1, 25), 0));
+        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(1, DEFAULT_PAGE_SIZE), 0));
 
     // When
     service.list(ORG, 2, null, null, null);
@@ -433,7 +433,7 @@ class OperatorServiceTest {
     // Then
     Pageable pageable = pageableCaptor.getValue();
     assertThat(pageable.getPageNumber()).isEqualTo(1);
-    assertThat(pageable.getPageSize()).isEqualTo(25);
+    assertThat(pageable.getPageSize()).isEqualTo(DEFAULT_PAGE_SIZE);
     assertThat(pageable.getSort().getOrderFor("createdAt").getDirection())
         .isEqualTo(Sort.Direction.DESC);
   }
@@ -487,7 +487,7 @@ class OperatorServiceTest {
     Address matching = persistedAddress("matching-id", ORG, AddressStatus.ACTIVE);
     when(repository.searchByCountryCode(
             eq(ORG), eq(AddressStatus.ACTIVE), eq(List.of("FR", "GB")), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(List.of(matching), PageRequest.of(0, 25), 1));
+        .thenReturn(new PageImpl<>(List.of(matching), PageRequest.of(0, DEFAULT_PAGE_SIZE), 1));
 
     // When
     OperatorPageResponse response = service.list(ORG, 1, null, null, Arrays.asList(" FR ", " ", null, "GB"));
@@ -508,7 +508,7 @@ class OperatorServiceTest {
     // Given
     when(repository.searchByQuery(
             eq(ORG), eq(AddressStatus.ACTIVE), eq(".*\\Qfarm\\E.*"), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
+        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, DEFAULT_PAGE_SIZE), 0));
 
     // When
     OperatorPageResponse response = service.list(ORG, 1, null, "farm", null);
@@ -523,7 +523,7 @@ class OperatorServiceTest {
     Address matching = persistedAddress("matching-id", ORG, AddressStatus.ACTIVE);
     when(repository.searchByQuery(
             eq(ORG), eq(AddressStatus.ACTIVE), eq(".*\\Qfarm\\E.*"), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(List.of(matching), PageRequest.of(0, 25), 1));
+        .thenReturn(new PageImpl<>(List.of(matching), PageRequest.of(0, DEFAULT_PAGE_SIZE), 1));
 
     // When
     OperatorPageResponse response = service.list(ORG, 1, null, "  farm  ", null);
@@ -537,7 +537,7 @@ class OperatorServiceTest {
     // Given
     when(repository.findByOrganisationIdAndStatus(
             eq(ORG), eq(AddressStatus.ACTIVE), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
+        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, DEFAULT_PAGE_SIZE), 0));
 
     // When
     OperatorPageResponse response = service.list(ORG, 1, null, "   ", null);
@@ -552,7 +552,7 @@ class OperatorServiceTest {
     // Given
     when(repository.searchByCountryCode(
             eq(ORG), eq(AddressStatus.ACTIVE), eq(List.of("FR")), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
+        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, DEFAULT_PAGE_SIZE), 0));
 
     // When
     OperatorPageResponse response = service.list(ORG, 1, null, null, List.of("FR"));
@@ -567,7 +567,7 @@ class OperatorServiceTest {
     Address matching = persistedAddress("matching-id", ORG, AddressStatus.ACTIVE);
     when(repository.searchByCountryCode(
             eq(ORG), eq(AddressStatus.ACTIVE), eq(List.of("FR")), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(List.of(matching), PageRequest.of(0, 25), 1));
+        .thenReturn(new PageImpl<>(List.of(matching), PageRequest.of(0, DEFAULT_PAGE_SIZE), 1));
 
     // When
     OperatorPageResponse response = service.list(ORG, 1, null, null, List.of(" FR "));
@@ -581,7 +581,7 @@ class OperatorServiceTest {
     // Given
     when(repository.findByOrganisationIdAndStatus(
             eq(ORG), eq(AddressStatus.ACTIVE), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
+        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, DEFAULT_PAGE_SIZE), 0));
 
     // When
     OperatorPageResponse response = service.list(ORG, 1, null, null, List.of("  "));
@@ -596,7 +596,7 @@ class OperatorServiceTest {
     // Given
     when(repository.searchByQueryAndCountryCode(
             eq(ORG), eq(AddressStatus.ACTIVE), eq(".*\\QFrance\\E.*"), eq(List.of("FR")), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 25), 0));
+        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, DEFAULT_PAGE_SIZE), 0));
 
     // When
     OperatorPageResponse response = service.list(ORG, 1, null, "France", List.of("FR"));
