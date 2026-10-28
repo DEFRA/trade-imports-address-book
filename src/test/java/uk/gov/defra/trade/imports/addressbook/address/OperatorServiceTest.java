@@ -206,7 +206,7 @@ class OperatorServiceTest {
   }
 
   @Test
-  void get_ofADeletedAddressReturnsItWithStatusDeletedBecauseATombstoneIsFetchable() {
+  void get_ofADeletedAddressReturnsItWithStatusDeleted() {
     // Given
     Address tombstone = persistedAddress("665f1c2ab3e4d51a2c9d0e77", ORG, AddressStatus.DELETED);
     when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", ORG))
