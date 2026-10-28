@@ -69,7 +69,8 @@ public class OperatorController {
    * @param pageSize the number of addresses a page, or null for the default
    * @param q optional case-insensitive partial-word search over name, address line 1, address line
    *     2, town or city, county and postcode
-   * @param countryCodes optional ISO alpha-2 country codes; an address in any of them matches
+   * @param countryCodes optional ISO alpha-2 country codes; an address in any of them matches. With
+   *     {@code q}, an address matching either {@code q} or one of these codes is returned
    * @return 200 with one page of live addresses
    */
   @GetMapping
