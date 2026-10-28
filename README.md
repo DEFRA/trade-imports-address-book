@@ -97,6 +97,11 @@ isolation relies entirely on a trusted-forwarded-header contract:
 reads this header on every `/organisation/**` request and scopes all reads and writes to that
 organisation id.
 
+`OperatorRepository` extends Spring Data's bare `Repository`, not `CrudRepository`, so it
+inherits no unscoped `findById`, `deleteById` or `deleteAll`. It declares `save` and queries that
+take an organisation id, so no code path reads or deletes another organisation's addresses by
+address id alone.
+
 **Filter behaviour**
 
 - Missing, blank or malformed header → **400** bad-request

@@ -7,16 +7,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.Query;
 import org.springframework.data.repository.Repository;
 
-/**
- * Organisation-scoped address persistence. Only declares org-scoped finders and {@code save} — no
- * unscoped {@code findById} / {@code deleteById}.
- */
 @org.springframework.stereotype.Repository
 public interface OperatorRepository extends Repository<Address, String> {
 
   Address save(Address address);
-
-  void deleteAll();
 
   Optional<Address> findByIdAndOrganisationId(String id, String organisationId);
 
