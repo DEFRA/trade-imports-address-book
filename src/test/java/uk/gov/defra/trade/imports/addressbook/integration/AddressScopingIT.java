@@ -5,7 +5,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -152,20 +151,14 @@ class AddressScopingIT extends IntegrationBase {
   void missingOrgHeaderIsAPlatformAuthRejection400WithNoErrorsMap() throws Exception {
     mockMvc
         .perform(get("/organisation/{orgId}/addresses", ORG_A))
-        .andExpect(status().isBadRequest())
-        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
-        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/bad-request"))
-        .andExpect(jsonPath("$.errors").doesNotExist());
+        .andExpect(badRequestProblemWithNoErrors());
   }
 
   @Test
   void blankOrgHeaderIsAPlatformAuthRejection400WithNoErrorsMap() throws Exception {
     mockMvc
         .perform(get("/organisation/{orgId}/addresses", ORG_A).header(ORG_HEADER, "   "))
-        .andExpect(status().isBadRequest())
-        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
-        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/bad-request"))
-        .andExpect(jsonPath("$.errors").doesNotExist());
+        .andExpect(badRequestProblemWithNoErrors());
   }
 
   @Test
@@ -175,10 +168,7 @@ class AddressScopingIT extends IntegrationBase {
             post("/organisation/{orgId}/addresses", ORG_A)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(CREATE_BODY))
-        .andExpect(status().isBadRequest())
-        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
-        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/bad-request"))
-        .andExpect(jsonPath("$.errors").doesNotExist());
+        .andExpect(badRequestProblemWithNoErrors());
 
     assertThat(activeAddressesFor(ORG_A)).isEmpty();
   }

@@ -142,10 +142,7 @@ class AddressCrudIT extends IntegrationBase {
                 .header(ORG_HEADER, ORGANISATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"name\":"))
-        .andExpect(status().isBadRequest())
-        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
-        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/bad-request"))
-        .andExpect(jsonPath("$.errors").doesNotExist());
+        .andExpect(badRequestProblemWithNoErrors());
 
     assertThat(activeAddressesFor(ORGANISATION_ID)).isEmpty();
   }
@@ -174,10 +171,7 @@ class AddressCrudIT extends IntegrationBase {
                 .header(ORG_HEADER, ORGANISATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(""))
-        .andExpect(status().isBadRequest())
-        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
-        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/bad-request"))
-        .andExpect(jsonPath("$.errors").doesNotExist());
+        .andExpect(badRequestProblemWithNoErrors());
   }
 
   @Test

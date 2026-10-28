@@ -5,7 +5,6 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -23,7 +22,6 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
-import org.springframework.http.MediaType;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
 import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
@@ -163,12 +161,7 @@ class OperatorListIT extends IntegrationBase {
             get("/organisation/{orgId}/addresses", ORGANISATION_ID)
                 .header(ORG_HEADER, ORGANISATION_ID)
                 .param("page", page))
-        .andExpect(status().isBadRequest())
-        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
-        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/bad-request"))
-        .andExpect(jsonPath("$.title").value("Bad Request"))
-        .andExpect(jsonPath("$.status").value(400))
-        .andExpect(jsonPath("$.errors").doesNotExist());
+        .andExpect(badRequestProblemWithNoErrors());
   }
 
   @Test
@@ -199,11 +192,7 @@ class OperatorListIT extends IntegrationBase {
             get("/organisation/{orgId}/addresses", ORGANISATION_ID)
                 .header(ORG_HEADER, ORGANISATION_ID)
                 .param("pageSize", pageSize))
-        .andExpect(status().isBadRequest())
-        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
-        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/bad-request"))
-        .andExpect(jsonPath("$.status").value(400))
-        .andExpect(jsonPath("$.errors").doesNotExist());
+        .andExpect(badRequestProblemWithNoErrors());
   }
 
   @ParameterizedTest
@@ -233,11 +222,7 @@ class OperatorListIT extends IntegrationBase {
             get("/organisation/{orgId}/addresses", ORGANISATION_ID)
                 .header(ORG_HEADER, ORGANISATION_ID)
                 .param("page", "abc"))
-        .andExpect(status().isBadRequest())
-        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
-        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/bad-request"))
-        .andExpect(jsonPath("$.status").value(400))
-        .andExpect(jsonPath("$.errors").doesNotExist());
+        .andExpect(badRequestProblemWithNoErrors());
   }
 
   @Test
@@ -245,11 +230,7 @@ class OperatorListIT extends IntegrationBase {
     // When / Then
     mockMvc
         .perform(get("/organisation/{orgId}/addresses", ORGANISATION_ID))
-        .andExpect(status().isBadRequest())
-        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
-        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/bad-request"))
-        .andExpect(jsonPath("$.status").value(400))
-        .andExpect(jsonPath("$.errors").doesNotExist());
+        .andExpect(badRequestProblemWithNoErrors());
   }
 
   @Test

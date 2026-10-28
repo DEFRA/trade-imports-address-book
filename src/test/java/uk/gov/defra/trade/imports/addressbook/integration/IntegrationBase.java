@@ -1,5 +1,9 @@
 package uk.gov.defra.trade.imports.addressbook.integration;
 
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import java.util.List;
 import org.bson.Document;
 import org.junit.jupiter.api.BeforeEach;
@@ -9,10 +13,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultMatcher;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.mongodb.MongoDBContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -50,6 +56,16 @@ abstract class IntegrationBase {
         .findByOrganisationIdAndStatus(
             organisationId, AddressStatus.ACTIVE, PageRequest.of(0, 100))
         .getContent();
+  }
+
+  protected static ResultMatcher badRequestProblemWithNoErrors() {
+    return ResultMatcher.matchAll(
+        status().isBadRequest(),
+        header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE),
+        jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/bad-request"),
+        jsonPath("$.title").value("Bad Request"),
+        jsonPath("$.status").value(400),
+        jsonPath("$.errors").doesNotExist());
   }
 
   static MongoDBContainer MONGO_CONTAINER = new MongoDBContainer(
