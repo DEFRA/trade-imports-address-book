@@ -60,7 +60,8 @@ public class OperatorService {
    * @param requestedPageSize the page size from 1 to 100, or null for the configured default
    * @param q optional case-insensitive partial-word search over name, address line 1, address line
    *     2, town or city, county and postcode
-   * @param countryCodes optional ISO alpha-2 country codes; an address in any of them matches
+   * @param countryCodes optional ISO alpha-2 country codes; an address in any of them matches. With
+   *     {@code q}, an address matching either {@code q} or one of these codes is returned
    * @return one page of live addresses with pagination metadata
    * @throws BadRequestException if {@code page} is less than 1 or {@code requestedPageSize} is
    *     outside 1 to 100
