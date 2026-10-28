@@ -248,6 +248,11 @@ fetchable by id with `deleted: true` on the wire.
 - Tombstones are excluded from list results.
 - Deleting an already-deleted address is idempotent (**204**, no state change).
 
+Why soft delete: a hard delete would make a deleted address look the same as an unknown one (both
+404), so a consumer could never tell that an address had been deleted. An id owned by another
+organisation is reported exactly like an unknown id, so a 404 never reveals that an address exists
+in another organisation.
+
 In prod, addresses and tombstones are retained indefinitely (~1 KB each).
 
 ## Address expiry (non-prod only)

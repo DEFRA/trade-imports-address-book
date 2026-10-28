@@ -18,14 +18,7 @@ import uk.gov.defra.trade.imports.addressbook.configuration.AddressTtlConfig;
 import uk.gov.defra.trade.imports.addressbook.exceptions.BadRequestException;
 import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
 
-/**
- * Application service for addresses. Owns the create/read/update/delete business rules; the wire
- * contract lives on the response records and the persistence shape on the {@link Address} entity.
- *
- * <p>On create the owning {@code organisationId} is stamped from the trusted forwarded header
- * and never taken from the body, and the address starts {@code ACTIVE}. {@code id} is left for
- * Mongo and the timestamps for auditing.
- */
+/** Lists, creates, reads, updates and soft-deletes an organisation's addresses. */
 @Service
 @Slf4j
 public class OperatorService {
@@ -150,13 +143,13 @@ public class OperatorService {
   }
 
   /**
-   * Persists a new address owned by the calling organisation. Outside prod, when a TTL is
+   * Saves a new {@code ACTIVE} address owned by {@code organisationId}. Outside prod, when a TTL is
    * configured, it is given an {@code expireAt} counted from now, which a later update or soft
    * delete leaves as is.
    *
    * @param request the validated create body (client-supplied fields only)
-   * @param organisationId the owning organisation id, from the identity header
-   * @return the persisted address, with its Mongo-assigned id and audited timestamps
+   * @param organisationId the owning organisation id
+   * @return the saved address, with its assigned id and timestamps
    */
   public Address create(AddressRequest request, String organisationId) {
     Address address = operatorMapper.toEntity(request);
@@ -178,32 +171,28 @@ public class OperatorService {
   }
 
   /**
-   * Fetches one address by id within the caller's organisation scope, tombstones included. A
-   * soft-deleted address is returned WITH {@code status DELETED} so a consumer can tell "deleted"
-   * (present, DELETED) from "unknown or not yours" (empty &rarr; 404). An id outside the caller's
-   * organisation is indistinguishable from an unknown id: both are empty, so 404 leaks no existence
-   * across organisations.
+   * Fetches one address by id within the caller's organisation, soft-deleted addresses included.
    *
    * @param id the address id
-   * @param organisationId the caller's organisation id, from the identity header
-   * @return the address if it exists in the caller's scope, otherwise empty
+   * @param organisationId the caller's organisation id
+   * @return the address, with {@code status DELETED} if it was soft-deleted; empty if the id is
+   *     unknown or belongs to another organisation
    */
   public Optional<Address> get(String id, String organisationId) {
     return repository.findByIdAndOrganisationId(id, organisationId);
   }
 
   /**
-   * Replaces an address's mutable fields within the caller's organisation scope (full replace). The
-   * wire can never move the server-owned fields: {@code id}, {@code organisationId}, {@code status}
-   * and {@code createdAt} are all preserved from the stored entity; {@code modifiedAt} is bumped by
-   * auditing on save (audit only). An unknown id, an id owned by another organisation, or a
-   * soft-deleted tombstone are all outside the caller's live set and yield a 404.
+   * Replaces every client-supplied field of a live address in the caller's organisation. Its {@code
+   * id}, {@code organisationId}, {@code status} and {@code createdAt} are kept, and {@code
+   * modifiedAt} is bumped.
    *
    * @param id the address id
    * @param request the validated update body (client-supplied fields only)
-   * @param organisationId the caller's organisation id, from the identity header
-   * @return the updated address, with its bumped {@code modifiedAt}
-   * @throws NotFoundException if the id is unknown, out of scope, or a tombstone
+   * @param organisationId the caller's organisation id
+   * @return the updated address
+   * @throws NotFoundException if the id is unknown, belongs to another organisation, or is
+   *     soft-deleted
    */
   public Address update(String id, AddressRequest request, String organisationId) {
     Address existing =
@@ -220,19 +209,12 @@ public class OperatorService {
   }
 
   /**
-   * Soft-deletes an address within the caller's organisation scope. The document is
-   * <strong>not</strong> removed: its {@code status} flips to {@code DELETED} and {@code modifiedAt}
-   * is bumped on save. The tombstone stays fetchable by id so a consumer can tell "deleted" (200 +
-   * DELETED) from "unknown or not yours" (404); a hard delete would collapse both into a 404 and
-   * make deletion undetectable.
-   *
-   * <p>Idempotent: deleting an address that is already a tombstone is a no-op — no re-save, so
-   * {@code modifiedAt} is not bumped a second time and the state is unchanged. An unknown id, or an
-   * id owned by another organisation, is empty in the caller's scope and yields a 404.
+   * Sets an address in the caller's organisation to {@code status DELETED} and bumps its {@code
+   * modifiedAt}; the address is kept. An address that is already {@code DELETED} is left unchanged.
    *
    * @param id the address id
-   * @param organisationId the caller's organisation id, from the identity header
-   * @throws NotFoundException if the id is unknown or out of the caller's organisation scope
+   * @param organisationId the caller's organisation id
+   * @throws NotFoundException if the id is unknown or belongs to another organisation
    */
   public void delete(String id, String organisationId) {
     Address existing =
