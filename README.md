@@ -121,7 +121,7 @@ returns **404** (no existence disclosure).
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `GET` | `/organisation/{orgId}/addresses` | Paginated list of ACTIVE addresses (newest first) |
+| `GET` | `/organisation/{orgId}/addresses` | Paginated list of live addresses (newest first) |
 | `POST` | `/organisation/{orgId}/addresses` | Create an address |
 | `GET` | `/organisation/{orgId}/addresses/{operator-id}` | Fetch one address (tombstones included) |
 | `PUT` | `/organisation/{orgId}/addresses/{operator-id}` | Full replace of mutable fields |

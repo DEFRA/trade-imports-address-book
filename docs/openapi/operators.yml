@@ -462,7 +462,7 @@ components:
       - title
       - type
     OperatorPageResponse:
-      description: Paginated list of ACTIVE addresses (never a bare array)
+      description: Paginated list of live addresses (never a bare array)
       properties:
         items:
           type: array

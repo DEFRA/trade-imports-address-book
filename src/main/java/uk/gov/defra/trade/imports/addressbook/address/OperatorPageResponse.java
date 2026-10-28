@@ -4,7 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 
 /** {@code items} is copied and never null. */
-@Schema(description = "Paginated list of ACTIVE addresses (never a bare array)")
+@Schema(description = "Paginated list of live addresses (never a bare array)")
 public record OperatorPageResponse(
     @Schema(
             description = "Addresses on this page",
