@@ -6,37 +6,30 @@ on:
       - main
     types:
       - opened
-      - edited
       - reopened
       - synchronize
       - ready_for_review
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref }}
+  cancel-in-progress: true
+
 jobs:
-  pr-validator:
-    name: Run Pull Request Checks
+  sonarcloud:
+    name: SonarCloud Scan
+    uses: ./.github/workflows/sonarcloud.yml
+    secrets: inherit
+
+  # Publish Branch Image builds the image for every other pull request.
+  docker-build:
+    name: Test Docker Image Build
+    if: >
+      github.actor == 'dependabot[bot]' ||
+      github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'corretto'
-          java-version: 25
-          cache: 'maven'
-
-      - name: Run tests with Testcontainers
-        run: mvn clean verify
 
       - name: Test Docker Image Build
-        run: |
-          set +e
-          docker build --no-cache --tag trade-imports-address-book .
-          exit $?
-
-  sonarcloud:
-    name: SonarCloud Scan
-    needs: pr-validator
-    if: github.actor != 'dependabot[bot]'
-    uses: ./.github/workflows/sonarcloud.yml
-    secrets: inherit
+        run: docker build --no-cache --tag trade-imports-address-book .
