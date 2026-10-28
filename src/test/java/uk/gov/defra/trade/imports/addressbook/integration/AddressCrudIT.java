@@ -21,12 +21,6 @@ import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
 import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 
-/**
- * Full-stack create integration test for {@code POST /organisation/{orgId}/addresses}. Covers the
- * create leg (201 + {@code Location} + the server-stamped organisationId), the camelCase wire, the
- * derived {@code deleted} boolean tombstone signal, and the 400 validation problem whose {@code errors}
- * map is keyed by the camelCase wire field names.
- */
 class AddressCrudIT extends IntegrationBase {
 
   private static final String UPDATE_BODY =
