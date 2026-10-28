@@ -3,12 +3,7 @@ package uk.gov.defra.trade.imports.addressbook.address;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 
-/**
- * Top-level list response, never a bare array. Wire fields are {@code items}, {@code page},
- * {@code pageSize}, {@code totalItems} and {@code totalPages}.
- *
- * <p>{@code items} is copied and never null.
- */
+/** {@code items} is copied and never null. */
 @Schema(description = "Paginated list of ACTIVE addresses (never a bare array)")
 public record OperatorPageResponse(
     @Schema(
