@@ -145,6 +145,11 @@ returns **404** (no existence disclosure).
   never a bare array.
 - Soft-deleted addresses expose `deleted: true` on read; the internal `status` enum is not on the wire.
 - Validation failures return **400** `application/problem+json` with a camelCase `errors` map.
+- `addressType` (one value) and `uses` (a list) are optional and take values from fixed UPPER_SNAKE
+  lists: `ORIGIN_OR_CONSIGNOR`, `DESTINATION_CONSIGNEE_OR_IMPORTER` or `BRANCH` for the type;
+  `PLACE_OF_ORIGIN`, `CONSIGNOR`, `PLACE_OF_DESTINATION`, `CONSIGNEE`, `IMPORTER` or
+  `BRANCH_ADDRESS` for the uses. A value outside its list is a **400** validation problem keyed by
+  `addressType` or `uses`, and nothing is saved. An update replaces both.
 
 **Example — create an address**
 
@@ -159,7 +164,9 @@ curl -s -X POST "http://localhost:8089/organisation/{orgId}/addresses" \
     "postcode": "IV2 3JH",
     "countryCode": "GB",
     "phone": "+44 1463 234567",
-    "email": "exports@example.com"
+    "email": "exports@example.com",
+    "addressType": "ORIGIN_OR_CONSIGNOR",
+    "uses": ["PLACE_OF_ORIGIN", "CONSIGNOR"]
   }'
 ```
 
@@ -217,11 +224,12 @@ The API surface is locked and tested on every `mvn verify`:
 
 | File | Role |
 | --- | --- |
-| [`docs/openapi/api-contract.locked.yaml`](docs/openapi/api-contract.locked.yaml) | Human-authored source of truth (paths, operationIds, 400 `anyOf` shapes) |
+| [`docs/openapi/api-contract.locked.yaml`](docs/openapi/api-contract.locked.yaml) | Human-authored source of truth (paths, operationIds, 400 `anyOf` shapes, allowed values of enum properties) |
 | [`docs/openapi/operators.yml`](docs/openapi/operators.yml) | springdoc-generated spec, committed for downstream consumers |
 
 `OperatorComplianceIT` fails the build if `operators.yml` is stale against live `/v3/api-docs`, or
-if paths, HTTP methods, operationIds, or component schema property names diverge from the locked contract.
+if paths, HTTP methods, operationIds, component schema property names, or the allowed values of
+`addressType` and `uses` diverge from the locked contract.
 
 Regenerate the committed artifact after an intentional API change (no Testcontainers required):
 
@@ -230,6 +238,8 @@ mvn verify -Dopenapi.generate=true -Dit.test=OpenApiArtifactGeneratorIT
 ```
 
 `OperatorComplianceIT` still byte-checks the artifact on every full `mvn verify`.
+The generator IT lives in the `openapi` package rather than `integration` so a nested
+`@SpringBootApplication` does not shadow `Application`.
 
 `/v3/api-docs` and Swagger UI are enabled only under the `local` profile
 (see [application-local.yml](src/main/resources/application-local.yml)); they are disabled in the
@@ -288,6 +298,8 @@ future index against real collection size before adding it.
 - `IdentityHeaderFilter` writes its own problem bodies, because `@RestControllerAdvice` does not handle exceptions thrown from servlet filters. It reads the path from `servletPath`, falling back to `requestURI` when a proxy or MockMvc leaves `servletPath` empty.
 - springdoc resolves schemas through the application `ObjectMapper`. Otherwise swagger-core would use its own mapper and the generated document could drift from the camelCase wire.
 - `OperatorResponse` null-guards every required field, so a null is a server fault that fails loudly. `AddressRequest` has no null guards, so Bean Validation can report every missing field at once.
+- `AddressRequest` carries `addressType` and `uses` as strings, checked by `@EnumConstantName`, rather than binding the enums. An unknown enum constant would make Jackson throw before validation, which answers as a `bad-request` problem with no `errors` map and hides every other field error. A string component fails Bean Validation, so the `validation-error` problem names `addressType` or `uses` beside the other field errors. `@Pattern` would write each list a second time, and a constraint on each list element would key the error `uses[1]`.
+- `OperatorMapper.updateEntity` assigns a new `uses` list (`CollectionMappingStrategy.TARGET_IMMUTABLE`). MapStruct's default clears and refills the stored list in place, which throws when that list is immutable.
 - The `org_status_created` index was created while the collection was empty, so no later index build runs on a populated collection.
 - An address's `expireAt` is counted from the moment of creation rather than from `createdAt`, which auditing only fills in during the save.
 

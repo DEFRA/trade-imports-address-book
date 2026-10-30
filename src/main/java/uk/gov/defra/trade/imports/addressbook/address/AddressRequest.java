@@ -1,10 +1,12 @@
 package uk.gov.defra.trade.imports.addressbook.address;
 
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Null;
 import jakarta.validation.constraints.Size;
+import java.util.List;
 import lombok.Builder;
 
 /**
@@ -14,10 +16,10 @@ import lombok.Builder;
  * not components, so a body that echoes them is accepted and they are dropped.
  *
  * <p>{@code type} and {@code role} must be absent: a supplied value fails {@code @Null} and is
- * reported as a per-field validation error. Both are hidden from the OpenAPI schema and never
- * mapped onto the entity.
+ * reported as a per-field validation error. Both are hidden from the OpenAPI schema.
  *
- * <p>The record has no null guards, so Bean Validation can report every missing field at once.
+ * <p>{@code addressType} and {@code uses} are optional. A value that is not the name of an {@link
+ * AddressType} or {@link AddressUse} constant is a validation error on that field.
  *
  * <p>{@code countryCode} is validated for presence only and stored exactly as given.
  */
@@ -91,6 +93,12 @@ public record AddressRequest(
             maxLength = 254,
             example = "exports@highlandlivestock.example.com")
         String email,
+    @EnumConstantName(of = AddressType.class, message = "Select a valid address type")
+        @Schema(implementation = AddressType.class)
+        String addressType,
+    @EnumConstantName(of = AddressUse.class, message = "Select valid address uses")
+        @ArraySchema(schema = @Schema(implementation = AddressUse.class))
+        List<String> uses,
     @Null(message = "type is not a supported field")
         @Schema(hidden = true)
         Object type,

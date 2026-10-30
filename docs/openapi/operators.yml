@@ -348,6 +348,25 @@ components:
           example: exports@highlandlivestock.example.com
           maxLength: 254
           minLength: 1
+        addressType:
+          type: string
+          description: The kind of address an entry is
+          enum:
+          - ORIGIN_OR_CONSIGNOR
+          - DESTINATION_CONSIGNEE_OR_IMPORTER
+          - BRANCH
+        uses:
+          type: array
+          items:
+            type: string
+            description: What an address can be used for
+            enum:
+            - PLACE_OF_ORIGIN
+            - CONSIGNOR
+            - PLACE_OF_DESTINATION
+            - CONSIGNEE
+            - IMPORTER
+            - BRANCH_ADDRESS
       required:
       - addressLine1
       - countryCode
@@ -391,6 +410,25 @@ components:
         email:
           type: string
           description: Contact email address
+        addressType:
+          type: string
+          description: The kind of address an entry is
+          enum:
+          - ORIGIN_OR_CONSIGNOR
+          - DESTINATION_CONSIGNEE_OR_IMPORTER
+          - BRANCH
+        uses:
+          type: array
+          items:
+            type: string
+            description: What an address can be used for
+            enum:
+            - PLACE_OF_ORIGIN
+            - CONSIGNOR
+            - PLACE_OF_DESTINATION
+            - CONSIGNEE
+            - IMPORTER
+            - BRANCH_ADDRESS
         organisationId:
           type: string
           description: Organisation that owns this address

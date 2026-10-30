@@ -6,6 +6,8 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterAll;
@@ -13,21 +15,9 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
-/**
- * Field-table validation matrix for {@link AddressRequest}. Pins the Bean Validation contract of
- * the create/update body against the Standard Address Block field table: every mandatory field,
- * every max-length, and the email format leg.
- *
- * <p>{@code countryCode} is stored as-given with presence-only validation.
- *
- * <p>{@code type} and {@code role} are {@code @Null}: the book is untyped/unroled, so a supplied
- * value is a violation on that field, while their absence (the normal case) is valid.
- *
- * <p>Keys here are the Java property paths (e.g. {@code addressLine1}); the wire keys are identical
- * (camelCase).
- */
 class AddressRequestValidationTest {
 
   private static ValidatorFactory factory;
@@ -59,12 +49,10 @@ class AddressRequestValidationTest {
     return "a".repeat(length);
   }
 
-  /** Format-valid email one character over the 254-char @Size limit (local part within RFC 64). */
   private static String overLengthValidEmail() {
     return repeat(64) + "@" + repeat(63) + "." + repeat(63) + "." + repeat(62);
   }
 
-  /** Format-valid email at exactly the 254-char @Size limit. */
   private static String maxLengthValidEmail() {
     return repeat(64) + "@" + repeat(63) + "." + repeat(63) + "." + repeat(61);
   }
@@ -78,7 +66,6 @@ class AddressRequestValidationTest {
 
   static Stream<Arguments> invalidFields() {
     return Stream.of(
-        // missing mandatory
         Arguments.of(
             "blank name",
             validRequest().name("").build(),
@@ -108,7 +95,6 @@ class AddressRequestValidationTest {
             "blank phone", validRequest().phone("").build(), "phone", "Enter a phone number"),
         Arguments.of(
             "blank email", validRequest().email("").build(), "email", "Enter an email address"),
-        // over max length
         Arguments.of(
             "over-length name",
             validRequest().name(repeat(256)).build(),
@@ -149,13 +135,36 @@ class AddressRequestValidationTest {
             validRequest().email(overLengthValidEmail()).build(),
             "email",
             "Email address must be 254 characters or less"),
-        // format
         Arguments.of(
             "malformed email",
             validRequest().email("not-an-email").build(),
             "email",
             "Enter an email address in the correct format"),
-        // untyped/unroled — a stray type/role is a per-field violation
+        Arguments.of(
+            "unknown addressType",
+            validRequest().addressType("TRANSPORTER").build(),
+            "addressType",
+            "Select a valid address type"),
+        Arguments.of(
+            "lower-case addressType",
+            validRequest().addressType("branch").build(),
+            "addressType",
+            "Select a valid address type"),
+        Arguments.of(
+            "unknown use",
+            validRequest().uses(List.of("CONSIGNOR", "TRANSPORTER")).build(),
+            "uses",
+            "Select valid address uses"),
+        Arguments.of(
+            "lower-case use",
+            validRequest().uses(List.of("importer")).build(),
+            "uses",
+            "Select valid address uses"),
+        Arguments.of(
+            "null use",
+            validRequest().uses(Arrays.asList("CONSIGNOR", null)).build(),
+            "uses",
+            "Select valid address uses"),
         Arguments.of(
             "stray type",
             validRequest().type("IMPORTER").build(),
@@ -209,9 +218,24 @@ class AddressRequestValidationTest {
     assertThat(validator.validate(request)).isEmpty();
   }
 
+  @ParameterizedTest
+  @EnumSource(AddressType.class)
+  void everyAddressTypeWithEveryUseHasNoViolations(AddressType addressType) {
+    List<String> allUses = Arrays.stream(AddressUse.values()).map(Enum::name).toList();
+    AddressRequest request = validRequest().addressType(addressType.name()).uses(allUses).build();
+
+    assertThat(validator.validate(request)).isEmpty();
+  }
+
+  @Test
+  void emptyUsesHasNoViolations() {
+    AddressRequest request = validRequest().uses(List.of()).build();
+
+    assertThat(validator.validate(request)).isEmpty();
+  }
+
   @Test
   void phoneIsNotFormatValidatedSoAFreeStringIsAccepted() {
-    // Phone keeps @NotBlank/@Size only — no format check.
     AddressRequest request = validRequest().phone("call the office").build();
 
     assertThat(validator.validate(request)).isEmpty();

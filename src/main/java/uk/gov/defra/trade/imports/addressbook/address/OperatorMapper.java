@@ -1,19 +1,16 @@
 package uk.gov.defra.trade.imports.addressbook.address;
 
 import org.mapstruct.BeanMapping;
+import org.mapstruct.CollectionMappingStrategy;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 import org.mapstruct.ReportingPolicy;
 
-/**
- * Entity ↔ DTO mapping. The wire contract is owned here, decoupled from the {@code @Document}
- * entity which is never serialised.
- *
- * <p>{@code unmappedTargetPolicy = ERROR} ensures a compile-time failure if a field is added to
- * {@link OperatorResponse} or {@link Address} without a corresponding mapping being wired up here.
- */
-@Mapper(unmappedTargetPolicy = ReportingPolicy.ERROR, unmappedSourcePolicy = ReportingPolicy.ERROR)
+@Mapper(
+    unmappedTargetPolicy = ReportingPolicy.ERROR,
+    unmappedSourcePolicy = ReportingPolicy.ERROR,
+    collectionMappingStrategy = CollectionMappingStrategy.TARGET_IMMUTABLE)
 public interface OperatorMapper {
 
   /**
@@ -23,11 +20,7 @@ public interface OperatorMapper {
   @Mapping(target = "deleted", expression = "java(address.getStatus() == AddressStatus.DELETED)")
   OperatorResponse toResponse(Address address);
 
-  /**
-   * Maps a client request onto a new entity carrying only the client-supplied fields. Server-owned
-   * fields ({@code id}, {@code organisationId}, {@code status}, timestamps) are set by the service
-   * on create/update, not here.
-   */
+  /** Maps the client-supplied fields of a request onto a new entity. */
   @BeanMapping(ignoreUnmappedSourceProperties = {"type", "role"})
   @Mapping(target = "id", ignore = true)
   @Mapping(target = "organisationId", ignore = true)
@@ -38,10 +31,7 @@ public interface OperatorMapper {
   @Mapping(target = "expireAt", ignore = true)
   Address toEntity(AddressRequest request);
 
-  /**
-   * Applies a full replace of client-supplied fields onto an existing entity. Server-owned fields
-   * are preserved by the caller after this mapping runs.
-   */
+  /** Replaces every client-supplied field of an existing entity with the request's value. */
   @BeanMapping(ignoreUnmappedSourceProperties = {"type", "role"})
   @Mapping(target = "id", ignore = true)
   @Mapping(target = "organisationId", ignore = true)

@@ -1,7 +1,9 @@
 package uk.gov.defra.trade.imports.addressbook.address;
 
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 import lombok.Builder;
 
@@ -11,8 +13,8 @@ import lombok.Builder;
  * <p>The soft-delete tombstone is a derived {@code deleted} boolean, never the internal status
  * enum.
  *
- * <p>Every field except {@code addressLine2} and {@code county} is required: the compact
- * constructor throws {@link NullPointerException} when one is null.
+ * <p>Every field except {@code addressLine2}, {@code county}, {@code addressType} and {@code uses}
+ * is required: the compact constructor throws {@link NullPointerException} when one is null.
  */
 @Builder
 @Schema(description = "An address in the caller's organisation-scoped address book")
@@ -41,6 +43,8 @@ public record OperatorResponse(
         String phone,
     @Schema(description = "Contact email address", requiredMode = Schema.RequiredMode.REQUIRED)
         String email,
+    @Schema(implementation = AddressType.class) AddressType addressType,
+    @ArraySchema(schema = @Schema(implementation = AddressUse.class)) List<AddressUse> uses,
     @Schema(
             description = "Organisation that owns this address",
             requiredMode = Schema.RequiredMode.REQUIRED)
