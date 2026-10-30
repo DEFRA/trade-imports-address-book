@@ -1,6 +1,7 @@
 package uk.gov.defra.trade.imports.addressbook.address;
 
 import java.time.Instant;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,17 +16,11 @@ import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 /**
- * An untyped, organisation-owned address-book entry. The field set is flat — the Standard Address
- * Block is one flat form, so there is no nested {@code Address} value object.
+ * An organisation-owned address-book entry that can carry its address type and uses.
  *
- * <p>{@code countryCode} is stored as an ISO 3166-1 alpha-2 code, exactly as supplied — the
- * service does not convert it to or from a display name.
+ * <p>{@code countryCode} is stored as an ISO 3166-1 alpha-2 code, exactly as supplied.
  *
- * <p>{@code modifiedAt} is bumped by auditing on every write (PUT and soft delete) and is for audit
- * only.
- *
- * <p>The compound index {@code org_status_created} serves org-scoped, status-bounded, newest-first
- * reads.
+ * <p>{@code modifiedAt} is bumped by auditing on every write and is for audit only.
  */
 @Document(collection = "addresses")
 @CompoundIndex(
@@ -59,6 +54,10 @@ public class Address {
   private String phone;
 
   private String email;
+
+  private AddressType addressType;
+
+  private List<AddressUse> uses;
 
   private String organisationId;
 

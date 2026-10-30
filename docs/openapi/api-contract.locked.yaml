@@ -22,6 +22,13 @@ info:
 
     **Country codes:** `countryCode` is ISO 3166-1 alpha-2 (e.g. "GB"), stored as given with
     presence-only validation; consumers resolve it to a display name.
+
+    **Address type and uses:** `addressType` and `uses` are optional on create and update and
+    are returned on read. `addressType` is one of ORIGIN_OR_CONSIGNOR,
+    DESTINATION_CONSIGNEE_OR_IMPORTER or BRANCH. `uses` is a list of PLACE_OF_ORIGIN, CONSIGNOR,
+    PLACE_OF_DESTINATION, CONSIGNEE, IMPORTER or BRANCH_ADDRESS. A value outside those lists is a
+    400 validation problem keyed by `addressType` or `uses`, and nothing is saved. An update
+    replaces both.
 servers:
   - url: http://localhost:8089
     description: Local dev
@@ -306,7 +313,7 @@ components:
       type: apiKey
       in: header
       name: Trade-Imports-Organisation-Id
-      description: Caller organisation id from the trusted forwarded header; must match path orgId (cv-010)
+      description: Caller organisation id from the trusted forwarded header; must match path orgId
   schemas:
     AddressRequest:
       properties:
@@ -346,6 +353,23 @@ components:
           type: string
           maxLength: 254
           minLength: 1
+        addressType:
+          type: string
+          enum:
+          - ORIGIN_OR_CONSIGNOR
+          - DESTINATION_CONSIGNEE_OR_IMPORTER
+          - BRANCH
+        uses:
+          type: array
+          items:
+            type: string
+            enum:
+            - PLACE_OF_ORIGIN
+            - CONSIGNOR
+            - PLACE_OF_DESTINATION
+            - CONSIGNEE
+            - IMPORTER
+            - BRANCH_ADDRESS
       required:
       - addressLine1
       - countryCode
@@ -417,6 +441,23 @@ components:
           type: string
         email:
           type: string
+        addressType:
+          type: string
+          enum:
+          - ORIGIN_OR_CONSIGNOR
+          - DESTINATION_CONSIGNEE_OR_IMPORTER
+          - BRANCH
+        uses:
+          type: array
+          items:
+            type: string
+            enum:
+            - PLACE_OF_ORIGIN
+            - CONSIGNOR
+            - PLACE_OF_DESTINATION
+            - CONSIGNEE
+            - IMPORTER
+            - BRANCH_ADDRESS
         organisationId:
           type: string
         deleted:

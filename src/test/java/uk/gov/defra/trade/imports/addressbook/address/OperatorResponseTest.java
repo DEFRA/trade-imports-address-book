@@ -14,63 +14,36 @@ class OperatorResponseTest {
 
   private static final Instant NOW = Instant.parse("2026-07-01T09:00:00Z");
 
-  private static OperatorResponse response(
-      String id,
-      String name,
-      String addressLine1,
-      String townOrCity,
-      String postcode,
-      String countryCode,
-      String phone,
-      String email,
-      String organisationId,
-      Instant createdAt,
-      Instant modifiedAt) {
-    return new OperatorResponse(
-        id,
-        name,
-        addressLine1,
-        null,
-        townOrCity,
-        null,
-        postcode,
-        countryCode,
-        phone,
-        email,
-        organisationId,
-        false,
-        createdAt,
-        modifiedAt);
-  }
-
-  private static OperatorResponse validResponse() {
-    return response(
-        "665f1c2ab3e4d51a2c9d0e77",
-        "Acme Livestock",
-        "1 Market Street",
-        "Hull",
-        "HU1 1AA",
-        "GB",
-        "+441482000000",
-        "ops@acme.example",
-        "ORG-001",
-        NOW,
-        NOW);
+  private static OperatorResponse.OperatorResponseBuilder validResponse() {
+    return OperatorResponse.builder()
+        .id("665f1c2ab3e4d51a2c9d0e77")
+        .name("Acme Livestock")
+        .addressLine1("1 Market Street")
+        .townOrCity("Hull")
+        .postcode("HU1 1AA")
+        .countryCode("GB")
+        .phone("+441482000000")
+        .email("ops@acme.example")
+        .organisationId("ORG-001")
+        .createdAt(NOW)
+        .modifiedAt(NOW);
   }
 
   static Stream<Arguments> guardedFieldsRejectNull() {
     return Stream.of(
-        Arguments.of("id", (Runnable) () -> response(null, "Acme", "line1", "Hull", "HU1", "GB", "phone", "email", "ORG", NOW, NOW)),
-        Arguments.of("name", (Runnable) () -> response("id", null, "line1", "Hull", "HU1", "GB", "phone", "email", "ORG", NOW, NOW)),
-        Arguments.of("addressLine1", (Runnable) () -> response("id", "Acme", null, "Hull", "HU1", "GB", "phone", "email", "ORG", NOW, NOW)),
-        Arguments.of("townOrCity", (Runnable) () -> response("id", "Acme", "line1", null, "HU1", "GB", "phone", "email", "ORG", NOW, NOW)),
-        Arguments.of("postcode", (Runnable) () -> response("id", "Acme", "line1", "Hull", null, "GB", "phone", "email", "ORG", NOW, NOW)),
-        Arguments.of("countryCode", (Runnable) () -> response("id", "Acme", "line1", "Hull", "HU1", null, "phone", "email", "ORG", NOW, NOW)),
-        Arguments.of("phone", (Runnable) () -> response("id", "Acme", "line1", "Hull", "HU1", "GB", null, "email", "ORG", NOW, NOW)),
-        Arguments.of("email", (Runnable) () -> response("id", "Acme", "line1", "Hull", "HU1", "GB", "phone", null, "ORG", NOW, NOW)),
-        Arguments.of("organisationId", (Runnable) () -> response("id", "Acme", "line1", "Hull", "HU1", "GB", "phone", "email", null, NOW, NOW)),
-        Arguments.of("createdAt", (Runnable) () -> response("id", "Acme", "line1", "Hull", "HU1", "GB", "phone", "email", "ORG", null, NOW)),
-        Arguments.of("modifiedAt", (Runnable) () -> response("id", "Acme", "line1", "Hull", "HU1", "GB", "phone", "email", "ORG", NOW, null)));
+        Arguments.of("id", (Runnable) () -> validResponse().id(null).build()),
+        Arguments.of("name", (Runnable) () -> validResponse().name(null).build()),
+        Arguments.of(
+            "addressLine1", (Runnable) () -> validResponse().addressLine1(null).build()),
+        Arguments.of("townOrCity", (Runnable) () -> validResponse().townOrCity(null).build()),
+        Arguments.of("postcode", (Runnable) () -> validResponse().postcode(null).build()),
+        Arguments.of("countryCode", (Runnable) () -> validResponse().countryCode(null).build()),
+        Arguments.of("phone", (Runnable) () -> validResponse().phone(null).build()),
+        Arguments.of("email", (Runnable) () -> validResponse().email(null).build()),
+        Arguments.of(
+            "organisationId", (Runnable) () -> validResponse().organisationId(null).build()),
+        Arguments.of("createdAt", (Runnable) () -> validResponse().createdAt(null).build()),
+        Arguments.of("modifiedAt", (Runnable) () -> validResponse().modifiedAt(null).build()));
   }
 
   @ParameterizedTest
@@ -84,23 +57,11 @@ class OperatorResponseTest {
   @Test
   void compactConstructor_allowsNullOptionalFields() {
     OperatorResponse response =
-        new OperatorResponse(
-            "665f1c2ab3e4d51a2c9d0e77",
-            "Acme Livestock",
-            "1 Market Street",
-            null,
-            "Hull",
-            null,
-            "HU1 1AA",
-            "GB",
-            "+441482000000",
-            "ops@acme.example",
-            "ORG-001",
-            false,
-            NOW,
-            NOW);
+        validResponse().addressLine2(null).county(null).addressType(null).uses(null).build();
 
     assertThat(response.addressLine2()).isNull();
     assertThat(response.county()).isNull();
+    assertThat(response.addressType()).isNull();
+    assertThat(response.uses()).isNull();
   }
 }
