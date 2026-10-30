@@ -1,5 +1,7 @@
 package uk.gov.defra.trade.imports.addressbook.openapi;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import org.junit.jupiter.api.Test;
@@ -38,8 +40,11 @@ class OpenApiArtifactGeneratorIT {
 
   @Test
   void regenerateCommittedOpenApiArtifact() throws IOException {
-    Files.writeString(
-        ApiDocs.COMMITTED_ARTIFACT, ApiDocs.renderCommittedForm(ApiDocs.fetchLive(port)));
+    String committedForm = ApiDocs.renderCommittedForm(ApiDocs.fetchLive(port));
+
+    Files.writeString(ApiDocs.COMMITTED_ARTIFACT, committedForm);
+
+    assertThat(Files.readString(ApiDocs.COMMITTED_ARTIFACT)).isEqualTo(committedForm);
   }
 
   @SpringBootApplication(
