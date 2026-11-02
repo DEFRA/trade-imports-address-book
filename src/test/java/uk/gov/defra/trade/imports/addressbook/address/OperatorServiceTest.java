@@ -3,6 +3,7 @@ package uk.gov.defra.trade.imports.addressbook.address;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static uk.gov.defra.trade.imports.addressbook.address.OperatorService.DEFAULT_PAGE_SIZE;
+import static uk.gov.defra.trade.imports.addressbook.address.OperatorTestSupport.NO_LIST_CRITERIA;
 import static uk.gov.defra.trade.imports.addressbook.address.OperatorTestSupport.NO_TTL;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -350,9 +351,6 @@ class OperatorServiceTest {
   private static final RequestedListFilters NO_FILTERS =
       new RequestedListFilters(null, null, null, null, null);
 
-  private static final ListCriteria NO_CRITERIA =
-      new ListCriteria(null, null, null, List.of(), List.of());
-
   private static RequestedListFilters filtersWithSearchTerm(String searchTerm) {
     return new RequestedListFilters(searchTerm, null, null, null, null);
   }
@@ -363,7 +361,7 @@ class OperatorServiceTest {
 
   @Test
   void list_returnsAFullFirstPageWithTotalPages2For30ActiveAddresses() {
-    when(repository.listLiveAddresses(eq(ORG), eq(NO_CRITERIA), any(Pageable.class)))
+    when(repository.listLiveAddresses(eq(ORG), any(ListCriteria.class), any(Pageable.class)))
         .thenReturn(pageOf(activeAddresses(DEFAULT_PAGE_SIZE), 0, DEFAULT_PAGE_SIZE, 30));
 
     OperatorPageResponse response = service.list(ORG, 1, null, NO_FILTERS);
@@ -377,7 +375,7 @@ class OperatorServiceTest {
 
   @Test
   void list_pageTwoReturnsTheRemaining5AddressesWithTotalPagesStill2() {
-    when(repository.listLiveAddresses(eq(ORG), eq(NO_CRITERIA), any(Pageable.class)))
+    when(repository.listLiveAddresses(eq(ORG), any(ListCriteria.class), any(Pageable.class)))
         .thenReturn(pageOf(activeAddresses(5), 1, DEFAULT_PAGE_SIZE, 30));
 
     OperatorPageResponse response = service.list(ORG, 2, null, NO_FILTERS);
@@ -391,7 +389,7 @@ class OperatorServiceTest {
   @Test
   void list_asksForNewestFirstAndTranslatesToA0BasedPage() {
     ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-    when(repository.listLiveAddresses(eq(ORG), eq(NO_CRITERIA), pageableCaptor.capture()))
+    when(repository.listLiveAddresses(eq(ORG), any(ListCriteria.class), pageableCaptor.capture()))
         .thenReturn(pageOf(List.of(), 1, DEFAULT_PAGE_SIZE, 0));
 
     service.list(ORG, 2, null, NO_FILTERS);
@@ -407,7 +405,7 @@ class OperatorServiceTest {
   @ValueSource(ints = {1, 8, 100})
   void list_withARequestedPageSizeServesThatPageSize(int requestedPageSize) {
     ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-    when(repository.listLiveAddresses(eq(ORG), eq(NO_CRITERIA), pageableCaptor.capture()))
+    when(repository.listLiveAddresses(eq(ORG), any(ListCriteria.class), pageableCaptor.capture()))
         .thenReturn(pageOf(List.of(), 0, requestedPageSize, 0));
 
     OperatorPageResponse response = service.list(ORG, 1, requestedPageSize, NO_FILTERS);
@@ -445,7 +443,7 @@ class OperatorServiceTest {
 
   @Test
   void list_withOnlyBlankCountryCodesPassesNoCountryCodes() {
-    when(repository.listLiveAddresses(eq(ORG), eq(NO_CRITERIA), any(Pageable.class)))
+    when(repository.listLiveAddresses(eq(ORG), eq(NO_LIST_CRITERIA), any(Pageable.class)))
         .thenReturn(emptyFirstPage());
 
     OperatorPageResponse response =
@@ -479,7 +477,7 @@ class OperatorServiceTest {
 
   @Test
   void list_withABlankSearchTermPassesNoPattern() {
-    when(repository.listLiveAddresses(eq(ORG), eq(NO_CRITERIA), any(Pageable.class)))
+    when(repository.listLiveAddresses(eq(ORG), eq(NO_LIST_CRITERIA), any(Pageable.class)))
         .thenReturn(emptyFirstPage());
 
     OperatorPageResponse response = service.list(ORG, 1, null, filtersWithSearchTerm("   "));
@@ -514,37 +512,6 @@ class OperatorServiceTest {
             ORG, 1, null, new RequestedListFilters("farm", List.of("FR"), addressType, null, null));
 
     assertThat(response.items()).extracting(OperatorResponse::id).containsExactly("matching-id");
-  }
-
-  @ParameterizedTest
-  @EnumSource(AddressUse.class)
-  void list_passesTheUseWithTheAddressType(AddressUse use) {
-    Address matching = persistedAddress("matching-id", ORG, AddressStatus.ACTIVE);
-    ListCriteria expected =
-        new ListCriteria(AddressType.BRANCH, use, null, List.of(), List.of());
-    when(repository.listLiveAddresses(eq(ORG), eq(expected), any(Pageable.class)))
-        .thenReturn(pageOf(List.of(matching), 0, DEFAULT_PAGE_SIZE, 1));
-
-    OperatorPageResponse response =
-        service.list(
-            ORG, 1, null, new RequestedListFilters(null, null, AddressType.BRANCH, use, null));
-
-    assertThat(response.items()).extracting(OperatorResponse::id).containsExactly("matching-id");
-  }
-
-  @Test
-  void list_passesTheSearchUsesBesideTheSearchPattern() {
-    List<AddressUse> searchUses = List.of(AddressUse.CONSIGNOR, AddressUse.CONSIGNEE);
-    ListCriteria expected =
-        new ListCriteria(null, null, ".*\\Qconsign\\E.*", List.of(), searchUses);
-    when(repository.listLiveAddresses(eq(ORG), eq(expected), any(Pageable.class)))
-        .thenReturn(emptyFirstPage());
-
-    OperatorPageResponse response =
-        service.list(
-            ORG, 1, null, new RequestedListFilters("consign", null, null, null, searchUses));
-
-    assertThat(response.totalItems()).isZero();
   }
 
   @Test

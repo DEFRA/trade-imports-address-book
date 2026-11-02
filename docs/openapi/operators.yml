@@ -209,7 +209,7 @@ paths:
             type: string
       - name: addressType
         in: query
-        description: The address type to list. The listing returns addresses holding any of the type's uses; ORIGIN_OR_CONSIGNOR also lists an address with no uses. Combines with q and countryCode. An unknown value is refused with 400.
+        description: The address type to list. The listing returns addresses holding any of the type's uses; ORIGIN_OR_CONSIGNOR also lists an address with no uses. Narrows the search (q, countryCode and searchUse) and combines with use (AND). An unknown value is refused with 400.
         required: false
         schema:
           type: string
@@ -220,7 +220,7 @@ paths:
           - BRANCH
       - name: use
         in: query
-        description: Keeps only addresses holding this use. Combines with addressType, q and countryCode; an address with no uses never matches. An unknown value is refused with 400.
+        description: Keeps only addresses holding this use. Narrows the search (q, countryCode and searchUse) and combines with addressType (AND); an address with no uses never matches. An unknown value is refused with 400.
         required: false
         schema:
           type: string

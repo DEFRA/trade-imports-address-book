@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static uk.gov.defra.trade.imports.addressbook.address.OperatorTestSupport.NO_LIST_CRITERIA;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -35,7 +36,6 @@ import org.testcontainers.utility.DockerImageName;
 import uk.gov.defra.trade.imports.addressbook.Application;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
-import uk.gov.defra.trade.imports.addressbook.address.ListCriteria;
 import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 
 @SpringBootTest(
@@ -49,8 +49,6 @@ abstract class IntegrationBase {
   protected static final String ORGANISATION_ID = "5a8d2b19-6f4e-4d21-9c1b-7e3f0a2d5c88";
   protected static final String OTHER_ORG = "9c1b7e3f-0a2d-5c88-5a8d-2b196f4e4d21";
   protected static final String UNKNOWN_ID = "665f1c2ab3e4d51a2c9d0e77";
-  protected static final ListCriteria NO_LIST_CRITERIA =
-      new ListCriteria(null, null, null, List.of(), List.of());
 
   protected static final String VALIDATION_ERROR_TYPE =
       "https://api.cdp.defra.cloud/problems/validation-error";

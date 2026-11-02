@@ -71,12 +71,15 @@ public class OperatorController {
    * @param q optional case-insensitive partial-word search over name, address line 1, address line
    *     2, town or city, county and postcode
    * @param countryCodes optional ISO alpha-2 country codes; an address in any of them matches. With
-   *     {@code q}, an address matching either {@code q} or one of these codes is returned
+   *     {@code q} or the search uses, an address matching {@code q}, one of these codes or one of
+   *     the search uses is returned
    * @param addressType the address type whose uses the listing filters by; {@code
-   *     ORIGIN_OR_CONSIGNOR} also lists an address with no uses; an unknown value is refused with
-   *     400
-   * @param use optional use an address must hold; combines with the address type and the search; an
-   *     unknown value is refused with 400
+   *     ORIGIN_OR_CONSIGNOR} also lists an address with no uses; narrows the search ({@code q},
+   *     {@code countryCode} and {@code searchUse}) and combines with {@code use}; an unknown value
+   *     is refused with 400
+   * @param use optional use an address must hold; narrows the search ({@code q}, {@code
+   *     countryCode} and {@code searchUse}) and combines with the address type; an unknown value
+   *     is refused with 400
    * @param searchUses optional uses that make an address match the search, as {@code q} and the
    *     country codes do; an unknown value is refused with 400
    * @return 200 with one page of live addresses
@@ -150,15 +153,16 @@ public class OperatorController {
               description =
                   "The address type to list. The listing returns addresses holding any of the"
                       + " type's uses; ORIGIN_OR_CONSIGNOR also lists an address with no uses."
-                      + " Combines with q and countryCode. An unknown value is refused with 400.",
+                      + " Narrows the search (q, countryCode and searchUse) and combines with use"
+                      + " (AND). An unknown value is refused with 400.",
               schema = @Schema(implementation = AddressType.class))
           @RequestParam(required = false)
           AddressType addressType,
       @Parameter(
               description =
-                  "Keeps only addresses holding this use. Combines with addressType, q and"
-                      + " countryCode; an address with no uses never matches. An unknown value is"
-                      + " refused with 400.",
+                  "Keeps only addresses holding this use. Narrows the search (q, countryCode and"
+                      + " searchUse) and combines with addressType (AND); an address with no uses"
+                      + " never matches. An unknown value is refused with 400.",
               schema = @Schema(implementation = AddressUse.class))
           @RequestParam(required = false)
           AddressUse use,
