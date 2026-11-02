@@ -162,17 +162,19 @@ class OperatorComplianceIT extends IntegrationBase {
   }
 
   @Test
-  void liveApiDocsHaveTheLockedAllowedValuesForAddressTypeUsesAndTheListAddressTypeParameter()
+  void liveApiDocsHaveTheLockedAllowedValuesForAddressTypeUsesAndTheListFilterParameters()
       throws IOException {
     Map<String, Object> live = ApiDocs.fetchLive(port);
     Map<String, Object> locked = lockedContract();
 
-    assertThat(listAddressTypeParameterValues(locked))
-        .as("locked list addressType parameter must list its allowed values")
-        .isNotEmpty();
-    assertThat(listAddressTypeParameterValues(live))
-        .as("allowed values of the list addressType parameter must match the locked contract")
-        .isEqualTo(listAddressTypeParameterValues(locked));
+    for (String parameter : List.of("addressType", "use", "searchUse")) {
+      assertThat(listParameterAllowedValues(locked, parameter))
+          .as("locked list %s parameter must list its allowed values", parameter)
+          .isNotEmpty();
+      assertThat(listParameterAllowedValues(live, parameter))
+          .as("allowed values of the list %s parameter must match the locked contract", parameter)
+          .isEqualTo(listParameterAllowedValues(locked, parameter));
+    }
 
     for (String schema : List.of("AddressRequest", "OperatorResponse")) {
       for (String property : List.of("addressType", "uses")) {
@@ -187,14 +189,20 @@ class OperatorComplianceIT extends IntegrationBase {
   }
 
   @SuppressWarnings("unchecked")
-  private static List<Object> listAddressTypeParameterValues(Map<String, Object> doc) {
+  private static List<Object> listParameterAllowedValues(
+      Map<String, Object> doc, String parameterName) {
     Map<String, Object> listOperation =
         (Map<String, Object>) nested(doc, "paths", "/organisation/{orgId}/addresses", "get");
     return ((List<Map<String, Object>>) listOperation.get("parameters"))
         .stream()
-            .filter(parameter -> "addressType".equals(parameter.get("name")))
+            .filter(parameter -> parameterName.equals(parameter.get("name")))
             .map(parameter -> (Map<String, Object>) parameter.get("schema"))
-            .map(schema -> (List<Object>) schema.get("enum"))
+            .map(
+                schema ->
+                    "array".equals(schema.get("type"))
+                        ? (Map<String, Object>) schema.get("items")
+                        : schema)
+            .map(valueSchema -> (List<Object>) valueSchema.get("enum"))
             .findFirst()
             .orElseThrow();
   }

@@ -218,6 +218,36 @@ paths:
           - ORIGIN_OR_CONSIGNOR
           - DESTINATION_CONSIGNEE_OR_IMPORTER
           - BRANCH
+      - name: use
+        in: query
+        description: Keeps only addresses holding this use. Combines with addressType, q and countryCode; an address with no uses never matches. An unknown value is refused with 400.
+        required: false
+        schema:
+          type: string
+          description: What an address can be used for
+          enum:
+          - PLACE_OF_ORIGIN
+          - CONSIGNOR
+          - PLACE_OF_DESTINATION
+          - CONSIGNEE
+          - IMPORTER
+          - BRANCH_ADDRESS
+      - name: searchUse
+        in: query
+        description: 'Uses that make an address match the search: an address holding any of them matches, as one matching q or countryCode does. Repeatable. An unknown value is refused with 400.'
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+            description: What an address can be used for
+            enum:
+            - PLACE_OF_ORIGIN
+            - CONSIGNOR
+            - PLACE_OF_DESTINATION
+            - CONSIGNEE
+            - IMPORTER
+            - BRANCH_ADDRESS
       responses:
         '200':
           description: One page of the caller's live addresses
@@ -226,7 +256,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/OperatorPageResponse'
         '400':
-          description: An out-of-range or non-numeric page or page size, an unknown address type, or a missing org header
+          description: An out-of-range or non-numeric page or page size, an unknown address type, use or search use, or a missing org header
           content:
             application/problem+json:
               schema:

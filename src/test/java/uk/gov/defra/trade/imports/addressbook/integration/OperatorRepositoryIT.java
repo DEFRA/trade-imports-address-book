@@ -5,22 +5,24 @@ import static org.springframework.data.domain.PageRequest.of;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.data.domain.Page;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
 import uk.gov.defra.trade.imports.addressbook.address.AddressType;
 import uk.gov.defra.trade.imports.addressbook.address.AddressUse;
+import uk.gov.defra.trade.imports.addressbook.address.ListCriteria;
 
 class OperatorRepositoryIT extends IntegrationBase {
 
   private static final String ORG_A = "ORG-A";
   private static final String ORG_B = "ORG-B";
 
-  private Page<Address> listLive(
-      String organisationId, AddressType addressType, String searchPattern, List<String> countryCodes) {
-    return operatorRepository.listLiveAddresses(
-        organisationId, addressType, searchPattern, countryCodes, of(0, 10));
+  private Page<Address> listLive(String organisationId, ListCriteria criteria) {
+    return operatorRepository.listLiveAddresses(organisationId, criteria, of(0, 10));
   }
 
   @Test
@@ -49,7 +51,7 @@ class OperatorRepositoryIT extends IntegrationBase {
     saveAddress(addressBuilder(ORG_B, AddressStatus.ACTIVE).name("Org B FR").countryCode("FR"));
     saveAddress(addressBuilder(ORG_A, AddressStatus.DELETED).name("Org A deleted FR").countryCode("FR"));
 
-    Page<Address> page = listLive(ORG_A, null, null, List.of("FR"));
+    Page<Address> page = listLive(ORG_A, new ListCriteria(null, null, null, List.of("FR"), List.of()));
 
     assertThat(page.getTotalElements()).isEqualTo(1);
     assertThat(page.getContent()).singleElement().extracting(Address::getName).isEqualTo("Org A FR");
@@ -60,7 +62,7 @@ class OperatorRepositoryIT extends IntegrationBase {
     saveAddress(addressBuilder(ORG_A, AddressStatus.ACTIVE).name("Paris").countryCode("FR"));
     saveAddress(addressBuilder(ORG_B, AddressStatus.ACTIVE).name("Other Paris").countryCode("FR"));
 
-    Page<Address> page = listLive(ORG_A, null, ".*\\QParis\\E.*", List.of("FR"));
+    Page<Address> page = listLive(ORG_A, new ListCriteria(null, null, ".*\\QParis\\E.*", List.of("FR"), List.of()));
 
     assertThat(page.getTotalElements()).isEqualTo(1);
     assertThat(page.getContent()).singleElement().extracting(Address::getOrganisationId).isEqualTo(ORG_A);
@@ -70,7 +72,7 @@ class OperatorRepositoryIT extends IntegrationBase {
   void listLiveAddresses_matchesAnyOfSeveralCountryCodes() {
     Map<String, Address> depotsByCountryCode = saveDepotsInFranceIrelandAndGermany();
 
-    Page<Address> page = listLive(ORG_A, null, null, List.of("FR", "IE"));
+    Page<Address> page = listLive(ORG_A, new ListCriteria(null, null, null, List.of("FR", "IE"), List.of()));
 
     assertThat(page.getContent())
         .extracting(Address::getId)
@@ -82,7 +84,7 @@ class OperatorRepositoryIT extends IntegrationBase {
   void listLiveAddresses_withASearchPatternAndSeveralCountryCodes_matchesTheCodesWhenTheTextMatchesNothing() {
     Map<String, Address> depotsByCountryCode = saveDepotsInFranceIrelandAndGermany();
 
-    Page<Address> page = listLive(ORG_A, null, ".*\\QNoSuchText\\E.*", List.of("FR", "IE"));
+    Page<Address> page = listLive(ORG_A, new ListCriteria(null, null, ".*\\QNoSuchText\\E.*", List.of("FR", "IE"), List.of()));
 
     assertThat(page.getContent())
         .extracting(Address::getId)
@@ -105,9 +107,41 @@ class OperatorRepositoryIT extends IntegrationBase {
             .name("Org A deleted branch")
             .uses(List.of(AddressUse.BRANCH_ADDRESS)));
 
-    Page<Address> page = listLive(ORG_A, AddressType.BRANCH, null, List.of());
+    Page<Address> page = listLive(ORG_A, new ListCriteria(AddressType.BRANCH, null, null, List.of(), List.of()));
 
     assertThat(page.getContent()).singleElement().extracting(Address::getName).isEqualTo("Org A branch");
+  }
+
+  @ParameterizedTest
+  @MethodSource("criteriaMatchingTheConsignorAddress")
+  void listLiveAddresses_withAUseOrASearchUse_isOrgScopedAndExcludesDeletedAndOtherUses(
+      ListCriteria criteria) {
+    saveAddress(
+        addressBuilder(ORG_A, AddressStatus.ACTIVE)
+            .name("Org A consignor")
+            .uses(List.of(AddressUse.CONSIGNOR)));
+    saveAddress(
+        addressBuilder(ORG_A, AddressStatus.ACTIVE)
+            .name("Org A importer")
+            .uses(List.of(AddressUse.IMPORTER)));
+    saveAddress(
+        addressBuilder(ORG_B, AddressStatus.ACTIVE)
+            .name("Org B consignor")
+            .uses(List.of(AddressUse.CONSIGNOR)));
+    saveAddress(
+        addressBuilder(ORG_A, AddressStatus.DELETED)
+            .name("Org A deleted consignor")
+            .uses(List.of(AddressUse.CONSIGNOR)));
+
+    Page<Address> page = listLive(ORG_A, criteria);
+
+    assertThat(page.getContent()).singleElement().extracting(Address::getName).isEqualTo("Org A consignor");
+  }
+
+  private static Stream<ListCriteria> criteriaMatchingTheConsignorAddress() {
+    return Stream.of(
+        new ListCriteria(null, AddressUse.CONSIGNOR, null, List.of(), List.of()),
+        new ListCriteria(null, null, null, List.of(), List.of(AddressUse.CONSIGNOR)));
   }
 
   private Map<String, Address> saveDepotsInFranceIrelandAndGermany() {

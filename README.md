@@ -135,8 +135,10 @@ returns **404** (no existence disclosure).
 | `page` | 1-based page number (default `1`) |
 | `pageSize` | Addresses a page, from `1` to `100` (default `25`); any other value is a `400` |
 | `q` | Case-insensitive partial search over `name`, `addressLine1`, `addressLine2`, `townOrCity`, `county` and `postcode` |
-| `countryCode` | One or more ISO country codes (repeat the parameter). Alone, it lists the addresses in any of them. With `q`, an address matches when the search term appears in a searched field **or** its stored `countryCode` is one of them (OR semantics, not AND) |
+| `countryCode` | One or more ISO country codes (repeat the parameter). Alone, it lists the addresses in any of them. With `q` or `searchUse`, an address matches when the search term appears in a searched field, its stored `countryCode` is one of them **or** it holds a search use (OR semantics, not AND) |
 | `addressType` | One of `ORIGIN_OR_CONSIGNOR`, `DESTINATION_CONSIGNEE_OR_IMPORTER` or `BRANCH`. Lists only the addresses holding one of that type's uses: `ORIGIN_OR_CONSIGNOR` holds `PLACE_OF_ORIGIN` and `CONSIGNOR`, `DESTINATION_CONSIGNEE_OR_IMPORTER` holds `PLACE_OF_DESTINATION`, `CONSIGNEE` and `IMPORTER`, `BRANCH` holds `BRANCH_ADDRESS`. `ORIGIN_OR_CONSIGNOR` also lists an address with no uses. It narrows the result with `q` and `countryCode` (AND with the type), and an unknown value is a `400`. Without it, every live address is listed |
+| `use` | One of `PLACE_OF_ORIGIN`, `CONSIGNOR`, `PLACE_OF_DESTINATION`, `CONSIGNEE`, `IMPORTER` or `BRANCH_ADDRESS`. Lists only the addresses holding that use, across every page. It narrows the result with `addressType`, `q`, `countryCode` and `searchUse` (AND), an address with no uses never matches it, and an unknown value is a `400` |
+| `searchUse` | One or more uses (repeat the parameter), with the same values as `use`. An address holding any of them matches the search, as one matching `q` or `countryCode` does (OR semantics). Alone, it lists the addresses holding any of them. An unknown value is a `400` |
 
 **Wire conventions**
 
@@ -304,7 +306,9 @@ future index against real collection size before adding it.
 - `OperatorMapper.updateEntity` assigns a new `uses` list (`CollectionMappingStrategy.TARGET_IMMUTABLE`). MapStruct's default clears and refills the stored list in place, which throws when that list is immutable.
 - The `org_status_created` index was created while the collection was empty, so no later index build runs on a populated collection.
 - An address's `expireAt` is counted from the moment of creation rather than from `createdAt`, which auditing only fills in during the save.
-- The list is one composed query (`OperatorListQuery`), not a fixed query per combination of search term, country code and address type. Each added filter would otherwise double the fixed queries, and each would repeat the organisation and status scope.
+- The list is one composed query (`OperatorListQuery`), not a fixed query per combination of search term, country code, address type, use and search uses. Each added filter would otherwise double the fixed queries, and each would repeat the organisation and status scope.
+- A caller searches by use label through `searchUse`, naming the uses whose label contains the term, and the service matches stored uses. The labels are the caller's copy: the address book stores enum names and holds no labels, so matching a label here would make it a second owner of text in one language. A regular expression over the stored names would never match a label such as 'place of origin'.
+- The list's filters travel as two records. `RequestedListFilters` holds them as the request supplied them, with the search term as typed. `ListCriteria` holds them as the query matches them, with the term turned into a quoted partial-match pattern and the country codes trimmed. `OperatorService` is the one place that turns the first into the second, so a field never holds a term in one place and a pattern in another.
 - The list's `addressType` matches on the stored `uses`, not on the stored `addressType` field. An address holding a place of origin and a consignee therefore lists under two address types, which a match on its one stored type could not do. `AddressType` owns which uses each type holds.
 - `ORIGIN_OR_CONSIGNOR` also lists an address with no uses, because an address added without uses would otherwise be listed under no address type.
 

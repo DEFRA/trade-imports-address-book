@@ -49,23 +49,19 @@ public class OperatorService {
    * @param page the 1-based page number
    * @param requestedPageSize the page size from {@link #MIN_PAGE_SIZE} to {@link #MAX_PAGE_SIZE},
    *     or null for {@link #DEFAULT_PAGE_SIZE}
-   * @param q optional case-insensitive partial-word search over name, address line 1, address line
-   *     2, town or city, county and postcode
-   * @param countryCodes optional ISO alpha-2 country codes; an address in any of them matches. With
-   *     {@code q}, an address matching either {@code q} or one of these codes is returned
-   * @param addressType the address type whose uses the listing filters by; {@code
-   *     ORIGIN_OR_CONSIGNOR} also lists an address with no uses
+   * @param filters the request's filters, each optional. The search term is a case-insensitive
+   *     partial-word search over name, address line 1, address line 2, town or city, county and
+   *     postcode; an address in any of the country codes, or holding any of the search uses,
+   *     matches too, so an address matching the term, a code or a search use is returned. The
+   *     address type lists the addresses holding its uses ({@code ORIGIN_OR_CONSIGNOR} also lists
+   *     an address with no uses), and the use keeps only addresses holding it; both combine with
+   *     the search
    * @return one page of live addresses with pagination metadata
    * @throws BadRequestException if {@code page} is less than 1 or {@code requestedPageSize} is
    *     outside {@link #MIN_PAGE_SIZE} to {@link #MAX_PAGE_SIZE}
    */
   public OperatorPageResponse list(
-      String organisationId,
-      int page,
-      Integer requestedPageSize,
-      String q,
-      List<String> countryCodes,
-      AddressType addressType) {
+      String organisationId, int page, Integer requestedPageSize, RequestedListFilters filters) {
     if (page < 1) {
       throw new BadRequestException("page must be 1 or greater");
     }
@@ -80,12 +76,7 @@ public class OperatorService {
     Timer.Sample sample = Timer.start(meterRegistry);
     try {
       Page<Address> result =
-          repository.listLiveAddresses(
-              organisationId,
-              addressType,
-              searchPatternOf(q),
-              nonBlankTrimmed(countryCodes),
-              pageable);
+          repository.listLiveAddresses(organisationId, criteriaOf(filters), pageable);
       List<OperatorResponse> items =
           result.getContent().stream().map(operatorMapper::toResponse).toList();
       return new OperatorPageResponse(
@@ -106,8 +97,17 @@ public class OperatorService {
     return requestedPageSize;
   }
 
-  private static String searchPatternOf(String q) {
-    return q == null || q.isBlank() ? null : toPartialMatchRegex(q);
+  private static ListCriteria criteriaOf(RequestedListFilters filters) {
+    return new ListCriteria(
+        filters.addressType(),
+        filters.use(),
+        searchPatternOf(filters.searchTerm()),
+        nonBlankTrimmed(filters.countryCodes()),
+        filters.searchUses() == null ? List.of() : filters.searchUses());
+  }
+
+  private static String searchPatternOf(String searchTerm) {
+    return searchTerm == null || searchTerm.isBlank() ? null : toPartialMatchRegex(searchTerm);
   }
 
   private static List<String> nonBlankTrimmed(List<String> countryCodes) {
@@ -120,8 +120,8 @@ public class OperatorService {
         .toList();
   }
 
-  private static String toPartialMatchRegex(String q) {
-    return ".*" + Pattern.quote(q.trim()) + ".*";
+  private static String toPartialMatchRegex(String searchTerm) {
+    return ".*" + Pattern.quote(searchTerm.trim()) + ".*";
   }
 
   /**

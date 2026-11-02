@@ -12,9 +12,6 @@ import org.springframework.data.support.PageableExecutionUtils;
 
 class OperatorListQueryImpl implements OperatorListQuery {
 
-  private static final List<String> SEARCHED_FIELDS =
-      List.of("name", "addressLine1", "addressLine2", "townOrCity", "county", "postcode");
-
   private final MongoTemplate mongoTemplate;
 
   OperatorListQueryImpl(MongoTemplate mongoTemplate) {
@@ -23,30 +20,27 @@ class OperatorListQueryImpl implements OperatorListQuery {
 
   @Override
   public Page<Address> listLiveAddresses(
-      String organisationId,
-      AddressType addressType,
-      String searchPattern,
-      List<String> countryCodes,
-      Pageable pageable) {
-    Query query = Query.query(matching(organisationId, addressType, searchPattern, countryCodes));
+      String organisationId, ListCriteria criteria, Pageable pageable) {
+    Query query = Query.query(matching(organisationId, criteria));
     List<Address> content = mongoTemplate.find(Query.of(query).with(pageable), Address.class);
     return PageableExecutionUtils.getPage(
         content, pageable, () -> mongoTemplate.exactCount(query, Address.class));
   }
 
-  private static Criteria matching(
-      String organisationId,
-      AddressType addressType,
-      String searchPattern,
-      List<String> countryCodes) {
+  private static Criteria matching(String organisationId, ListCriteria criteria) {
     List<Criteria> clauses = new ArrayList<>();
     clauses.add(Criteria.where("organisationId").is(organisationId));
     clauses.add(Criteria.where("status").is(AddressStatus.ACTIVE));
-    if (addressType != null) {
-      clauses.add(listedUnder(addressType));
+    if (criteria.addressType() != null) {
+      clauses.add(listedUnder(criteria.addressType()));
     }
-    if (searchPattern != null || !countryCodes.isEmpty()) {
-      clauses.add(matchesSearchOrCountry(searchPattern, countryCodes));
+    if (criteria.use() != null) {
+      clauses.add(Criteria.where("uses").is(criteria.use()));
+    }
+    if (criteria.searchPattern() != null
+        || !criteria.countryCodes().isEmpty()
+        || !criteria.searchUses().isEmpty()) {
+      clauses.add(matchesSearch(criteria));
     }
     return new Criteria().andOperator(clauses);
   }
@@ -60,16 +54,24 @@ class OperatorListQueryImpl implements OperatorListQuery {
         .orOperator(holdsAUse, Criteria.where("uses").is(null), Criteria.where("uses").size(0));
   }
 
-  private static Criteria matchesSearchOrCountry(String searchPattern, List<String> countryCodes) {
-    Stream<Criteria> searched =
-        searchPattern == null
+  private static Criteria matchesSearch(ListCriteria criteria) {
+    List<String> searchedFields =
+        List.of("name", "addressLine1", "addressLine2", "townOrCity", "county", "postcode");
+    Stream<Criteria> inSearchedField =
+        criteria.searchPattern() == null
             ? Stream.empty()
-            : SEARCHED_FIELDS.stream()
-                .map(field -> Criteria.where(field).regex(searchPattern, "i"));
+            : searchedFields.stream()
+                .map(field -> Criteria.where(field).regex(criteria.searchPattern(), "i"));
     Stream<Criteria> inCountry =
-        countryCodes.isEmpty()
+        criteria.countryCodes().isEmpty()
             ? Stream.empty()
-            : Stream.of(Criteria.where("countryCode").in(countryCodes));
-    return new Criteria().orOperator(Stream.concat(searched, inCountry).toList());
+            : Stream.of(Criteria.where("countryCode").in(criteria.countryCodes()));
+    Stream<Criteria> holdingSearchUse =
+        criteria.searchUses().isEmpty()
+            ? Stream.empty()
+            : Stream.of(Criteria.where("uses").in(criteria.searchUses()));
+    return new Criteria()
+        .orOperator(
+            Stream.of(inSearchedField, inCountry, holdingSearchUse).flatMap(s -> s).toList());
   }
 }

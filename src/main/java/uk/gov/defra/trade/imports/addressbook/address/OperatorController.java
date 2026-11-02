@@ -4,6 +4,7 @@ import io.micrometer.core.annotation.Timed;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.headers.Header;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -74,6 +75,10 @@ public class OperatorController {
    * @param addressType the address type whose uses the listing filters by; {@code
    *     ORIGIN_OR_CONSIGNOR} also lists an address with no uses; an unknown value is refused with
    *     400
+   * @param use optional use an address must hold; combines with the address type and the search; an
+   *     unknown value is refused with 400
+   * @param searchUses optional uses that make an address match the search, as {@code q} and the
+   *     country codes do; an unknown value is refused with 400
    * @return 200 with one page of live addresses
    */
   @GetMapping
@@ -91,8 +96,8 @@ public class OperatorController {
     @ApiResponse(
         responseCode = "400",
         description =
-            "An out-of-range or non-numeric page or page size, an unknown address type, or a"
-                + " missing org header",
+            "An out-of-range or non-numeric page or page size, an unknown address type, use or"
+                + " search use, or a missing org header",
         content =
             @Content(
                 mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
@@ -148,16 +153,39 @@ public class OperatorController {
                       + " Combines with q and countryCode. An unknown value is refused with 400.",
               schema = @Schema(implementation = AddressType.class))
           @RequestParam(required = false)
-          AddressType addressType) {
+          AddressType addressType,
+      @Parameter(
+              description =
+                  "Keeps only addresses holding this use. Combines with addressType, q and"
+                      + " countryCode; an address with no uses never matches. An unknown value is"
+                      + " refused with 400.",
+              schema = @Schema(implementation = AddressUse.class))
+          @RequestParam(required = false)
+          AddressUse use,
+      @Parameter(
+              description =
+                  "Uses that make an address match the search: an address holding any of them"
+                      + " matches, as one matching q or countryCode does. Repeatable. An unknown"
+                      + " value is refused with 400.",
+              array = @ArraySchema(schema = @Schema(implementation = AddressUse.class)))
+          @RequestParam(name = "searchUse", required = false)
+          List<AddressUse> searchUses) {
     authoriseOrg(orgId, organisationId);
     log.info(
-        "GET addresses - page {}, pageSize {}, q present {}, countryCodes {}, addressType {}",
+        "GET addresses - page {}, pageSize {}, q present {}, countryCodes {}, addressType {}, use {},"
+            + " searchUses {}",
         page,
         pageSize,
         q != null,
         countryCodes,
-        addressType);
-    return operatorService.list(organisationId, page, pageSize, q, countryCodes, addressType);
+        addressType,
+        use,
+        searchUses);
+    return operatorService.list(
+        organisationId,
+        page,
+        pageSize,
+        new RequestedListFilters(q, countryCodes, addressType, use, searchUses));
   }
 
   /**

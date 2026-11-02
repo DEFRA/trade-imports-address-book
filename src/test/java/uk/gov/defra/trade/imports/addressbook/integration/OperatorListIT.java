@@ -332,6 +332,63 @@ class OperatorListIT extends IntegrationBase {
     listAddresses("addressType", "TRANSPORTER").andExpect(badRequestProblemWithNoErrors());
   }
 
+  @Test
+  void list_shouldReturnOnlyTheLiveAddressesHoldingTheUse_whenUseIsGiven() throws Exception {
+    seedAddressesHoldingEachUse();
+
+    listAddresses("use", "CONSIGNOR")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(1))
+        .andExpect(jsonPath("$.items[*].name", contains(CONSIGNOR)));
+    listAddresses("use", "CONSIGNEE")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(1))
+        .andExpect(jsonPath("$.items[*].name", contains(ORIGIN_AND_CONSIGNEE)));
+  }
+
+  @Test
+  void list_shouldNotReturnAddressesWithNoUses_whenUseIsGivenWithOriginOrConsignor()
+      throws Exception {
+    seedAddressesHoldingEachUse();
+
+    listAddresses("addressType", "ORIGIN_OR_CONSIGNOR", "use", "PLACE_OF_ORIGIN")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(1))
+        .andExpect(jsonPath("$.items[*].name", contains(ORIGIN_AND_CONSIGNEE)));
+  }
+
+  @Test
+  void list_shouldNarrowTheSearchByTheUse_whenUseAndSearchTermAreGiven() throws Exception {
+    seedAddressesHoldingEachUse();
+
+    listAddresses("use", "CONSIGNEE", "q", "Consign")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(1))
+        .andExpect(jsonPath("$.items[*].name", contains(ORIGIN_AND_CONSIGNEE)));
+    listAddresses("use", "CONSIGNEE", "q", "Importer")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(0));
+  }
+
+  @Test
+  void list_shouldPageAndCountOverTheAddressesHoldingTheUse() throws Exception {
+    for (int i = 0; i < 3; i++) {
+      saveHolding("Consignor " + i, "GB", AddressUse.CONSIGNOR);
+    }
+    saveHolding("Importer", "GB", AddressUse.IMPORTER);
+
+    listAddresses("use", "CONSIGNOR", "pageSize", "2")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items.length()").value(2))
+        .andExpect(jsonPath("$.totalItems").value(3))
+        .andExpect(jsonPath("$.totalPages").value(2));
+  }
+
+  @Test
+  void list_shouldReturn400BadRequestProblemWithNoErrorsMap_whenUseIsUnknown() throws Exception {
+    listAddresses("use", "TRANSPORTER").andExpect(badRequestProblemWithNoErrors());
+  }
+
   private Set<String> readIds(String body) throws Exception {
     Set<String> ids = new HashSet<>();
     JsonNode items = objectMapper.readTree(body).get("items");

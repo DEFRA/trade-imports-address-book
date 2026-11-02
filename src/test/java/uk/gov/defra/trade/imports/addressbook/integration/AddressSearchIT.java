@@ -1,6 +1,7 @@
 package uk.gov.defra.trade.imports.addressbook.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -9,11 +10,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
+import uk.gov.defra.trade.imports.addressbook.address.AddressUse;
 
 class AddressSearchIT extends IntegrationBase {
 
@@ -318,6 +322,94 @@ class AddressSearchIT extends IntegrationBase {
     pageIds.addAll(readIds(page1Body));
     pageIds.addAll(readIds(page2Body));
     assertThat(pageIds).containsExactlyInAnyOrderElementsOf(allIds);
+  }
+
+  @Test
+  void searchUseAloneMatchesExactlyTheAddressesHoldingIt() throws Exception {
+    Address consignor = saveAddress(londonDepot().name("Depot A").uses(List.of(AddressUse.CONSIGNOR)));
+    saveAddress(londonDepot().name("Depot B").uses(List.of(AddressUse.IMPORTER)));
+    saveAddress(londonDepot().name("Depot C"));
+
+    mockMvc
+        .perform(listRequest().param("searchUse", "CONSIGNOR"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(1))
+        .andExpect(jsonPath("$.items[0].id").value(consignor.getId()));
+  }
+
+  @Test
+  void searchUseMatchesAnAddressHoldingAnyOfSeveralSearchUses() throws Exception {
+    Address consignor = saveAddress(londonDepot().name("Depot A").uses(List.of(AddressUse.CONSIGNOR)));
+    Address consignee = saveAddress(londonDepot().name("Depot B").uses(List.of(AddressUse.CONSIGNEE)));
+    saveAddress(londonDepot().name("Depot C").uses(List.of(AddressUse.IMPORTER)));
+
+    mockMvc
+        .perform(listRequest().param("searchUse", "CONSIGNOR", "CONSIGNEE"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(2))
+        .andExpect(jsonPath("$.items[*].id", containsInAnyOrder(consignor.getId(), consignee.getId())));
+  }
+
+  @Test
+  void searchUseWidensTheSearchTermToAnAddressHoldingTheUse() throws Exception {
+    Address byName = saveAddress(londonDepot().name("Green Farm"));
+    Address byUse = saveAddress(londonDepot().name("Depot B").uses(List.of(AddressUse.CONSIGNOR)));
+    saveAddress(londonDepot().name("Depot C").uses(List.of(AddressUse.IMPORTER)));
+
+    mockMvc
+        .perform(listRequest().param("q", "green").param("searchUse", "CONSIGNOR"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(2))
+        .andExpect(jsonPath("$.items[*].id", containsInAnyOrder(byName.getId(), byUse.getId())));
+  }
+
+  @Test
+  void searchUseTermAndCountryCodeTogetherReturnTheUnionOfTheirMatches() throws Exception {
+    Address byName = saveAddress(londonDepot().name("Green Farm"));
+    Address byCountry = saveAddress(parisDepot());
+    Address byUse = saveAddress(londonDepot().name("Depot B").uses(List.of(AddressUse.CONSIGNOR)));
+    saveAddress(londonDepot().name("Depot C").uses(List.of(AddressUse.IMPORTER)));
+
+    mockMvc
+        .perform(
+            listRequest().param("q", "green").param("countryCode", "FR").param("searchUse", "CONSIGNOR"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(3))
+        .andExpect(
+            jsonPath(
+                "$.items[*].id",
+                containsInAnyOrder(byName.getId(), byCountry.getId(), byUse.getId())));
+  }
+
+  @Test
+  void searchUseStaysWithinTheAddressType() throws Exception {
+    Address consignor = saveAddress(londonDepot().name("Depot A").uses(List.of(AddressUse.CONSIGNOR)));
+    saveAddress(londonDepot().name("Depot B").uses(List.of(AddressUse.IMPORTER)));
+
+    mockMvc
+        .perform(
+            listRequest().param("addressType", "BRANCH").param("searchUse", "CONSIGNOR"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(0));
+    mockMvc
+        .perform(
+            listRequest()
+                .param("addressType", "ORIGIN_OR_CONSIGNOR")
+                .param("searchUse", "CONSIGNOR"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(1))
+        .andExpect(jsonPath("$.items[0].id").value(consignor.getId()));
+  }
+
+  @Test
+  void anUnknownSearchUseIsABadRequestWithNoErrorsMap() throws Exception {
+    mockMvc
+        .perform(listRequest().param("searchUse", "TRANSPORTER"))
+        .andExpect(badRequestProblemWithNoErrors());
+  }
+
+  private static MockHttpServletRequestBuilder listRequest() {
+    return get("/organisation/{orgId}/addresses", ORGANISATION_ID).header(ORG_HEADER, ORGANISATION_ID);
   }
 
   private static Address.AddressBuilder perthAddress(String name) {

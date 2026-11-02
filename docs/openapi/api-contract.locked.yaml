@@ -15,7 +15,9 @@ info:
     **Soft delete:** DELETE sets internal status DELETED; the wire exposes `deleted: true`.
     Tombstones remain readable by id. A **404** is not a deletion signal.
 
-    **Search:** `q` and `countryCode` combine with OR semantics when both are supplied.
+    **Search:** `q`, `countryCode` and `searchUse` combine with OR semantics when more than one
+    is supplied. `searchUse` is repeatable; an address holding any of the uses it names matches
+    the search.
 
     **Pagination:** the page size is the optional `pageSize` request parameter; a value outside
     its schema's bounds is a 400.
@@ -36,6 +38,11 @@ info:
     with no uses; DESTINATION_CONSIGNEE_OR_IMPORTER holds PLACE_OF_DESTINATION, CONSIGNEE and
     IMPORTER; BRANCH holds BRANCH_ADDRESS. It combines with `q` and `countryCode` (the type
     narrows the search), and an unknown value is a 400. Without it, every live address is listed.
+
+    **Listing by use:** the list's `use` query parameter returns only the addresses holding that
+    use, one of PLACE_OF_ORIGIN, CONSIGNOR, PLACE_OF_DESTINATION, CONSIGNEE, IMPORTER or
+    BRANCH_ADDRESS. It narrows the listing together with `addressType` and the search (all
+    combine with AND), an address with no uses never matches it, and an unknown value is a 400.
 servers:
   - url: http://localhost:8089
     description: Local dev
@@ -243,6 +250,32 @@ paths:
           - ORIGIN_OR_CONSIGNOR
           - DESTINATION_CONSIGNEE_OR_IMPORTER
           - BRANCH
+      - name: use
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - PLACE_OF_ORIGIN
+          - CONSIGNOR
+          - PLACE_OF_DESTINATION
+          - CONSIGNEE
+          - IMPORTER
+          - BRANCH_ADDRESS
+      - name: searchUse
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+            enum:
+            - PLACE_OF_ORIGIN
+            - CONSIGNOR
+            - PLACE_OF_DESTINATION
+            - CONSIGNEE
+            - IMPORTER
+            - BRANCH_ADDRESS
       responses:
         '200':
           description: One page of the caller's live addresses
@@ -251,7 +284,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/OperatorPageResponse'
         '400':
-          description: An out-of-range or non-numeric page or page size, an unknown address type, or a missing org header
+          description: An out-of-range or non-numeric page or page size, an unknown address type, use or search use, or a missing org header
           content:
             application/problem+json:
               schema:
