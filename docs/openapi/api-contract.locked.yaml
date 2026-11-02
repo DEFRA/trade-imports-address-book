@@ -29,6 +29,13 @@ info:
     PLACE_OF_DESTINATION, CONSIGNEE, IMPORTER or BRANCH_ADDRESS. A value outside those lists is a
     400 validation problem keyed by `addressType` or `uses`, and nothing is saved. An update
     replaces both.
+
+    **Listing by address type:** the list's `addressType` query parameter returns only the
+    addresses holding one of that type's uses, so an address holding uses of two types is listed
+    under both. ORIGIN_OR_CONSIGNOR holds PLACE_OF_ORIGIN and CONSIGNOR and also lists an address
+    with no uses; DESTINATION_CONSIGNEE_OR_IMPORTER holds PLACE_OF_DESTINATION, CONSIGNEE and
+    IMPORTER; BRANCH holds BRANCH_ADDRESS. It combines with `q` and `countryCode` (the type
+    narrows the search), and an unknown value is a 400. Without it, every live address is listed.
 servers:
   - url: http://localhost:8089
     description: Local dev
@@ -227,6 +234,15 @@ paths:
           type: array
           items:
             type: string
+      - name: addressType
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - ORIGIN_OR_CONSIGNOR
+          - DESTINATION_CONSIGNEE_OR_IMPORTER
+          - BRANCH
       responses:
         '200':
           description: One page of the caller's live addresses
@@ -235,7 +251,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/OperatorPageResponse'
         '400':
-          description: An out-of-range or non-numeric page or page size, or a missing org header
+          description: An out-of-range or non-numeric page or page size, an unknown address type, or a missing org header
           content:
             application/problem+json:
               schema:

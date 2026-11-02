@@ -1,5 +1,8 @@
 package uk.gov.defra.trade.imports.addressbook.integration;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
@@ -13,6 +16,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -23,10 +27,20 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
+import org.springframework.test.web.servlet.ResultActions;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
+import uk.gov.defra.trade.imports.addressbook.address.AddressType;
+import uk.gov.defra.trade.imports.addressbook.address.AddressUse;
 
 class OperatorListIT extends IntegrationBase {
+
+  private static final String ORIGIN_AND_CONSIGNEE = "Origin And Consignee";
+  private static final String CONSIGNOR = "Consignor";
+  private static final String IMPORTER = "Importer";
+  private static final String BRANCH = "Branch";
+  private static final String NO_USES = "No Uses";
+  private static final String EMPTY_USES = "Empty Uses";
 
   @Autowired private MongoTemplate mongoTemplate;
   @Autowired private ObjectMapper objectMapper;
@@ -49,14 +63,48 @@ class OperatorListIT extends IntegrationBase {
     }
   }
 
+  private void saveHolding(String name, String countryCode, AddressUse... uses) {
+    saveAddress(
+        addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE)
+            .name(name)
+            .countryCode(countryCode)
+            .uses(List.of(uses)));
+  }
+
+  private void seedAddressesHoldingEachUse() {
+    saveHolding(ORIGIN_AND_CONSIGNEE, "GB", AddressUse.PLACE_OF_ORIGIN, AddressUse.CONSIGNEE);
+    saveHolding(CONSIGNOR, "GB", AddressUse.CONSIGNOR);
+    saveHolding(IMPORTER, "FR", AddressUse.IMPORTER);
+    saveHolding(BRANCH, "FR", AddressUse.BRANCH_ADDRESS);
+    saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE).name(NO_USES));
+    saveAddress(
+        addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE)
+            .name(EMPTY_USES)
+            .addressType(AddressType.BRANCH)
+            .uses(List.of()));
+    saveAddress(
+        addressBuilder(ORGANISATION_ID, AddressStatus.DELETED)
+            .name("Deleted Branch")
+            .uses(List.of(AddressUse.BRANCH_ADDRESS)));
+    saveAddress(
+        addressBuilder(OTHER_ORG, AddressStatus.ACTIVE)
+            .name("Other Organisation Consignor")
+            .uses(List.of(AddressUse.CONSIGNOR)));
+  }
+
+  private ResultActions listAddresses(String... queryParameterNamesAndValues) throws Exception {
+    var request = get("/organisation/{orgId}/addresses", ORGANISATION_ID);
+    for (int i = 0; i < queryParameterNamesAndValues.length; i += 2) {
+      request = request.param(queryParameterNamesAndValues[i], queryParameterNamesAndValues[i + 1]);
+    }
+    return mockMvc.perform(request.header(ORG_HEADER, ORGANISATION_ID));
+  }
+
   @Test
   void list_shouldReturn25ItemsAcross2Pages_whenNoPageSizeIsRequested() throws Exception {
-    // Given
     seedActiveWithDistinctCreatedAt(30);
 
-    // When / Then
-    mockMvc
-        .perform(get("/organisation/{orgId}/addresses", ORGANISATION_ID).header(ORG_HEADER, ORGANISATION_ID))
+    listAddresses()
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items.length()").value(DEFAULT_PAGE_SIZE))
         .andExpect(jsonPath("$.page").value(1))
@@ -68,25 +116,18 @@ class OperatorListIT extends IntegrationBase {
 
   @Test
   void list_shouldReturnRemaining5OnPage2WithDisjointIds_when30AddressesSeeded() throws Exception {
-    // Given
     seedActiveWithDistinctCreatedAt(30);
 
     String page1Body =
-        mockMvc
-            .perform(get("/organisation/{orgId}/addresses", ORGANISATION_ID).header(ORG_HEADER, ORGANISATION_ID))
+        listAddresses()
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.items.length()").value(DEFAULT_PAGE_SIZE))
             .andReturn()
             .getResponse()
             .getContentAsString();
 
-    // When / Then
     String page2Body =
-        mockMvc
-            .perform(
-                get("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                    .header(ORG_HEADER, ORGANISATION_ID)
-                    .param("page", "2"))
+        listAddresses("page", "2")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.items.length()").value(5))
             .andExpect(jsonPath("$.page").value(2))
@@ -100,21 +141,18 @@ class OperatorListIT extends IntegrationBase {
     Set<String> page1Ids = readIds(page1Body);
     Set<String> page2Ids = readIds(page2Body);
     page1Ids.retainAll(page2Ids);
-    org.assertj.core.api.Assertions.assertThat(page1Ids).isEmpty();
-    org.assertj.core.api.Assertions.assertThat(page2Ids).hasSize(5);
+    assertThat(page1Ids).isEmpty();
+    assertThat(page2Ids).hasSize(5);
   }
 
   @Test
   void list_shouldExcludeDeletedTombstones_whenMixedStatusesSeeded() throws Exception {
-    // Given
     seedActiveWithDistinctCreatedAt(3);
     Address deleted =
         saveWithCreatedAt(
             ORGANISATION_ID, AddressStatus.DELETED, "Ghost Address", Instant.parse("2026-01-01T00:00:00Z"));
 
-    // When / Then
-    mockMvc
-        .perform(get("/organisation/{orgId}/addresses", ORGANISATION_ID).header(ORG_HEADER, ORGANISATION_ID))
+    listAddresses()
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(3))
         .andExpect(jsonPath("$.items.length()").value(3))
@@ -124,14 +162,11 @@ class OperatorListIT extends IntegrationBase {
 
   @Test
   void list_shouldReturnOnlyCallersOrganisation_whenOtherOrgHasAddresses() throws Exception {
-    // Given
     seedActiveWithDistinctCreatedAt(2);
     saveWithCreatedAt(
         OTHER_ORG, AddressStatus.ACTIVE, "Other Org Address", Instant.parse("2026-01-01T00:00:00Z"));
 
-    // When / Then
-    mockMvc
-        .perform(get("/organisation/{orgId}/addresses", ORGANISATION_ID).header(ORG_HEADER, ORGANISATION_ID))
+    listAddresses()
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(2))
         .andExpect(jsonPath("$.items.length()").value(2))
@@ -142,26 +177,14 @@ class OperatorListIT extends IntegrationBase {
   @ValueSource(strings = {"0", "-1"})
   void list_shouldReturn400BadRequestProblemWithNoErrorsMap_whenPageIsOutOfRange(String page)
       throws Exception {
-    // When / Then
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .param("page", page))
-        .andExpect(badRequestProblemWithNoErrors());
+    listAddresses("page", page).andExpect(badRequestProblemWithNoErrors());
   }
 
   @Test
   void list_shouldReturn8ItemsAcross4Pages_whenPageSizeIs8() throws Exception {
-    // Given
     seedActiveWithDistinctCreatedAt(30);
 
-    // When / Then
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .param("pageSize", "8"))
+    listAddresses("pageSize", "8")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items.length()").value(8))
         .andExpect(jsonPath("$.pageSize").value(8))
@@ -173,28 +196,16 @@ class OperatorListIT extends IntegrationBase {
   @ValueSource(strings = {"0", "101", "-1", "abc"})
   void list_shouldReturn400BadRequestProblemWithNoErrorsMap_whenPageSizeIsOutOfRangeOrNonNumeric(
       String pageSize) throws Exception {
-    // When / Then
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .param("pageSize", pageSize))
-        .andExpect(badRequestProblemWithNoErrors());
+    listAddresses("pageSize", pageSize).andExpect(badRequestProblemWithNoErrors());
   }
 
   @ParameterizedTest
   @CsvSource({"1, 1, 3", "100, 3, 1"})
   void list_shouldServeTheRequestedPageSize_whenItIsAtABound(
       int pageSize, int expectedItems, int expectedTotalPages) throws Exception {
-    // Given
     seedActiveWithDistinctCreatedAt(3);
 
-    // When / Then
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .param("pageSize", String.valueOf(pageSize)))
+    listAddresses("pageSize", String.valueOf(pageSize))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.pageSize").value(pageSize))
         .andExpect(jsonPath("$.items.length()").value(expectedItems))
@@ -203,18 +214,11 @@ class OperatorListIT extends IntegrationBase {
 
   @Test
   void list_shouldReturn400BadRequestProblem_whenPageIsNonNumeric() throws Exception {
-    // When / Then
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .param("page", "abc"))
-        .andExpect(badRequestProblemWithNoErrors());
+    listAddresses("page", "abc").andExpect(badRequestProblemWithNoErrors());
   }
 
   @Test
   void list_shouldReturn400BadRequestWithNoErrorsMap_whenOrgHeaderMissing() throws Exception {
-    // When / Then
     mockMvc
         .perform(get("/organisation/{orgId}/addresses", ORGANISATION_ID))
         .andExpect(badRequestProblemWithNoErrors());
@@ -222,20 +226,110 @@ class OperatorListIT extends IntegrationBase {
 
   @Test
   void list_shouldReturnEmptyItems_whenPageIsBeyondTheLast() throws Exception {
-    // Given
     seedActiveWithDistinctCreatedAt(30);
 
-    // When / Then
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .param("page", "3"))
+    listAddresses("page", "3")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items").isEmpty())
         .andExpect(jsonPath("$.page").value(3))
         .andExpect(jsonPath("$.totalItems").value(30))
         .andExpect(jsonPath("$.totalPages").value(2));
+  }
+
+  @Test
+  void list_shouldReturnEveryLiveAddress_whenNoAddressTypeIsGiven() throws Exception {
+    seedAddressesHoldingEachUse();
+
+    listAddresses()
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(6))
+        .andExpect(
+            jsonPath(
+                "$.items[*].name",
+                containsInAnyOrder(
+                    ORIGIN_AND_CONSIGNEE,
+                    CONSIGNOR,
+                    IMPORTER,
+                    BRANCH,
+                    NO_USES,
+                    EMPTY_USES)));
+  }
+
+  @Test
+  void list_shouldReturnAddressesHoldingAnOriginOrConsignorUseAndThoseHoldingNone_whenAddressTypeIsOriginOrConsignor()
+      throws Exception {
+    seedAddressesHoldingEachUse();
+
+    listAddresses("addressType", "ORIGIN_OR_CONSIGNOR")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(4))
+        .andExpect(
+            jsonPath(
+                "$.items[*].name",
+                containsInAnyOrder(
+                    ORIGIN_AND_CONSIGNEE, CONSIGNOR, NO_USES, EMPTY_USES)));
+  }
+
+  @Test
+  void list_shouldReturnAddressesHoldingADestinationConsigneeOrImporterUse_whenAddressTypeIsDestinationConsigneeOrImporter()
+      throws Exception {
+    seedAddressesHoldingEachUse();
+
+    listAddresses("addressType", "DESTINATION_CONSIGNEE_OR_IMPORTER")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(2))
+        .andExpect(jsonPath("$.items[*].name", containsInAnyOrder(ORIGIN_AND_CONSIGNEE, IMPORTER)));
+  }
+
+  @Test
+  void list_shouldReturnOnlyTheLiveAddressHoldingABranchAddressUse_whenAddressTypeIsBranch()
+      throws Exception {
+    seedAddressesHoldingEachUse();
+
+    listAddresses("addressType", "BRANCH")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(1))
+        .andExpect(jsonPath("$.items[*].name", contains(BRANCH)));
+  }
+
+  @Test
+  void list_shouldCombineTheSearchTermWithTheAddressType() throws Exception {
+    seedAddressesHoldingEachUse();
+
+    listAddresses("addressType", "DESTINATION_CONSIGNEE_OR_IMPORTER", "q", "Consign")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(1))
+        .andExpect(jsonPath("$.items[*].name", contains(ORIGIN_AND_CONSIGNEE)));
+  }
+
+  @Test
+  void list_shouldCombineTheCountryCodeWithTheAddressType() throws Exception {
+    seedAddressesHoldingEachUse();
+
+    listAddresses("addressType", "BRANCH", "countryCode", "FR")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(1))
+        .andExpect(jsonPath("$.items[*].name", contains(BRANCH)));
+    listAddresses("addressType", "ORIGIN_OR_CONSIGNOR", "countryCode", "FR")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(0));
+  }
+
+  @Test
+  void list_shouldPageAndCountOnlyTheAddressesListedUnderTheAddressType() throws Exception {
+    seedAddressesHoldingEachUse();
+
+    listAddresses("addressType", "ORIGIN_OR_CONSIGNOR", "pageSize", "1")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items.length()").value(1))
+        .andExpect(jsonPath("$.totalItems").value(4))
+        .andExpect(jsonPath("$.totalPages").value(4));
+  }
+
+  @Test
+  void list_shouldReturn400BadRequestProblemWithNoErrorsMap_whenAddressTypeIsUnknown()
+      throws Exception {
+    listAddresses("addressType", "TRANSPORTER").andExpect(badRequestProblemWithNoErrors());
   }
 
   private Set<String> readIds(String body) throws Exception {

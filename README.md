@@ -100,7 +100,8 @@ organisation id.
 `OperatorRepository` extends Spring Data's bare `Repository`, not `CrudRepository`, so it
 inherits no unscoped `findById`, `deleteById` or `deleteAll`. It declares `save` and queries that
 take an organisation id, so no code path reads or deletes another organisation's addresses by
-address id alone.
+address id alone. The list query is a custom repository fragment (`OperatorListQuery`) that takes
+the organisation id and always scopes by it and by `ACTIVE` status.
 
 **Filter behaviour**
 
@@ -135,6 +136,7 @@ returns **404** (no existence disclosure).
 | `pageSize` | Addresses a page, from `1` to `100` (default `25`); any other value is a `400` |
 | `q` | Case-insensitive partial search over `name`, `addressLine1`, `addressLine2`, `townOrCity`, `county` and `postcode` |
 | `countryCode` | One or more ISO country codes (repeat the parameter). Alone, it lists the addresses in any of them. With `q`, an address matches when the search term appears in a searched field **or** its stored `countryCode` is one of them (OR semantics, not AND) |
+| `addressType` | One of `ORIGIN_OR_CONSIGNOR`, `DESTINATION_CONSIGNEE_OR_IMPORTER` or `BRANCH`. Lists only the addresses holding one of that type's uses: `ORIGIN_OR_CONSIGNOR` holds `PLACE_OF_ORIGIN` and `CONSIGNOR`, `DESTINATION_CONSIGNEE_OR_IMPORTER` holds `PLACE_OF_DESTINATION`, `CONSIGNEE` and `IMPORTER`, `BRANCH` holds `BRANCH_ADDRESS`. `ORIGIN_OR_CONSIGNOR` also lists an address with no uses. It narrows the result with `q` and `countryCode` (AND with the type), and an unknown value is a `400`. Without it, every live address is listed |
 
 **Wire conventions**
 
@@ -302,6 +304,9 @@ future index against real collection size before adding it.
 - `OperatorMapper.updateEntity` assigns a new `uses` list (`CollectionMappingStrategy.TARGET_IMMUTABLE`). MapStruct's default clears and refills the stored list in place, which throws when that list is immutable.
 - The `org_status_created` index was created while the collection was empty, so no later index build runs on a populated collection.
 - An address's `expireAt` is counted from the moment of creation rather than from `createdAt`, which auditing only fills in during the save.
+- The list is one composed query (`OperatorListQuery`), not a fixed query per combination of search term, country code and address type. Each added filter would otherwise double the fixed queries, and each would repeat the organisation and status scope.
+- The list's `addressType` matches on the stored `uses`, not on the stored `addressType` field. An address holding a place of origin and a consignee therefore lists under two address types, which a match on its one stored type could not do. `AddressType` owns which uses each type holds.
+- `ORIGIN_OR_CONSIGNOR` also lists an address with no uses, because an address added without uses would otherwise be listed under no address type.
 
 ## Licence
 

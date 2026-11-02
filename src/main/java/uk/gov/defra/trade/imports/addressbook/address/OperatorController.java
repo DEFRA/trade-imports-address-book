@@ -71,6 +71,9 @@ public class OperatorController {
    *     2, town or city, county and postcode
    * @param countryCodes optional ISO alpha-2 country codes; an address in any of them matches. With
    *     {@code q}, an address matching either {@code q} or one of these codes is returned
+   * @param addressType the address type whose uses the listing filters by; {@code
+   *     ORIGIN_OR_CONSIGNOR} also lists an address with no uses; an unknown value is refused with
+   *     400
    * @return 200 with one page of live addresses
    */
   @GetMapping
@@ -88,7 +91,8 @@ public class OperatorController {
     @ApiResponse(
         responseCode = "400",
         description =
-            "An out-of-range or non-numeric page or page size, or a missing org header",
+            "An out-of-range or non-numeric page or page size, an unknown address type, or a"
+                + " missing org header",
         content =
             @Content(
                 mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
@@ -136,15 +140,24 @@ public class OperatorController {
           @RequestParam(required = false)
           Integer pageSize,
       @RequestParam(required = false) String q,
-      @RequestParam(name = "countryCode", required = false) List<String> countryCodes) {
+      @RequestParam(name = "countryCode", required = false) List<String> countryCodes,
+      @Parameter(
+              description =
+                  "The address type to list. The listing returns addresses holding any of the"
+                      + " type's uses; ORIGIN_OR_CONSIGNOR also lists an address with no uses."
+                      + " Combines with q and countryCode. An unknown value is refused with 400.",
+              schema = @Schema(implementation = AddressType.class))
+          @RequestParam(required = false)
+          AddressType addressType) {
     authoriseOrg(orgId, organisationId);
     log.info(
-        "GET addresses - page {}, pageSize {}, q present {}, countryCodes {}",
+        "GET addresses - page {}, pageSize {}, q present {}, countryCodes {}, addressType {}",
         page,
         pageSize,
         q != null,
-        countryCodes);
-    return operatorService.list(organisationId, page, pageSize, q, countryCodes);
+        countryCodes,
+        addressType);
+    return operatorService.list(organisationId, page, pageSize, q, countryCodes, addressType);
   }
 
   /**

@@ -53,6 +53,8 @@ public class OperatorService {
    *     2, town or city, county and postcode
    * @param countryCodes optional ISO alpha-2 country codes; an address in any of them matches. With
    *     {@code q}, an address matching either {@code q} or one of these codes is returned
+   * @param addressType the address type whose uses the listing filters by; {@code
+   *     ORIGIN_OR_CONSIGNOR} also lists an address with no uses
    * @return one page of live addresses with pagination metadata
    * @throws BadRequestException if {@code page} is less than 1 or {@code requestedPageSize} is
    *     outside {@link #MIN_PAGE_SIZE} to {@link #MAX_PAGE_SIZE}
@@ -62,7 +64,8 @@ public class OperatorService {
       int page,
       Integer requestedPageSize,
       String q,
-      List<String> countryCodes) {
+      List<String> countryCodes,
+      AddressType addressType) {
     if (page < 1) {
       throw new BadRequestException("page must be 1 or greater");
     }
@@ -76,7 +79,13 @@ public class OperatorService {
 
     Timer.Sample sample = Timer.start(meterRegistry);
     try {
-      Page<Address> result = queryPage(organisationId, q, countryCodes, pageable);
+      Page<Address> result =
+          repository.listLiveAddresses(
+              organisationId,
+              addressType,
+              searchPatternOf(q),
+              nonBlankTrimmed(countryCodes),
+              pageable);
       List<OperatorResponse> items =
           result.getContent().stream().map(operatorMapper::toResponse).toList();
       return new OperatorPageResponse(
@@ -97,33 +106,8 @@ public class OperatorService {
     return requestedPageSize;
   }
 
-  private Page<Address> queryPage(
-      String organisationId, String q, List<String> countryCodes, Pageable pageable) {
-    List<String> searchedCountryCodes = nonBlankTrimmed(countryCodes);
-    boolean hasQuery = q != null && !q.isBlank();
-    boolean hasCountryCodes = !searchedCountryCodes.isEmpty();
-
-    if (!hasQuery && !hasCountryCodes) {
-      return repository.findByOrganisationIdAndStatus(
-          organisationId, AddressStatus.ACTIVE, pageable);
-    }
-
-    if (hasQuery && hasCountryCodes) {
-      return repository.searchByQueryOrAnyCountryCode(
-          organisationId,
-          AddressStatus.ACTIVE,
-          toPartialMatchRegex(q),
-          searchedCountryCodes,
-          pageable);
-    }
-
-    if (hasQuery) {
-      return repository.searchByQuery(
-          organisationId, AddressStatus.ACTIVE, toPartialMatchRegex(q), pageable);
-    }
-
-    return repository.searchByAnyCountryCode(
-        organisationId, AddressStatus.ACTIVE, searchedCountryCodes, pageable);
+  private static String searchPatternOf(String q) {
+    return q == null || q.isBlank() ? null : toPartialMatchRegex(q);
   }
 
   private static List<String> nonBlankTrimmed(List<String> countryCodes) {

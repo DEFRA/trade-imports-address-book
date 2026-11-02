@@ -117,8 +117,7 @@ abstract class IntegrationBase {
 
   protected List<Address> activeAddressesFor(String organisationId) {
     return operatorRepository
-        .findByOrganisationIdAndStatus(
-            organisationId, AddressStatus.ACTIVE, PageRequest.of(0, 100))
+        .listLiveAddresses(organisationId, null, null, List.of(), PageRequest.of(0, 100))
         .getContent();
   }
 
