@@ -37,4 +37,14 @@ class ValueRecordingTimer extends StepTimer {
   List<Double> takeRecordedMilliseconds() {
     return recordedMilliseconds.takeAll();
   }
+
+  @Override
+  public boolean equals(Object other) {
+    return super.equals(other);
+  }
+
+  @Override
+  public int hashCode() {
+    return super.hashCode();
+  }
 }

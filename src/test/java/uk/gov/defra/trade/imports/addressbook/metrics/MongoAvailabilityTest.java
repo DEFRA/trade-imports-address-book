@@ -7,6 +7,7 @@ import static uk.gov.defra.trade.imports.addressbook.testsupport.MongoHeartbeats
 import static uk.gov.defra.trade.imports.addressbook.testsupport.MongoHeartbeats.succeededFrom;
 
 import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.spi.ILoggingEvent;
 import org.junit.jupiter.api.Test;
 import uk.gov.defra.trade.imports.addressbook.testsupport.CapturedLogs;
 
@@ -82,7 +83,7 @@ class MongoAvailabilityTest {
 
     // Then
     assertThat(logs)
-        .extracting(event -> event.getLevel(), event -> event.getFormattedMessage())
+        .extracting(ILoggingEvent::getLevel, ILoggingEvent::getFormattedMessage)
         .containsExactly(
             tuple(Level.INFO, "MongoDB is available"),
             tuple(

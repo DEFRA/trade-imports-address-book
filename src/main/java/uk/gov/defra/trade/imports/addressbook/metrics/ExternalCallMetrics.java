@@ -37,7 +37,7 @@ public class ExternalCallMetrics {
    */
   public void recordSuccess(ExternalCall call, Duration elapsed) {
     logCall(call, elapsed, "success", null);
-    record(call, elapsed, 0);
+    recordCall(call, elapsed, 0);
   }
 
   /**
@@ -49,10 +49,10 @@ public class ExternalCallMetrics {
    */
   public void recordFailure(ExternalCall call, Duration elapsed, Throwable cause) {
     logCall(call, elapsed, "failure", cause);
-    record(call, elapsed, 1);
+    recordCall(call, elapsed, 1);
   }
 
-  private void record(ExternalCall call, Duration elapsed, int failures) {
+  private void recordCall(ExternalCall call, Duration elapsed, int failures) {
     Tags tags = Tags.of("Dependency", call.dependency(), "Operation", call.operation());
     meterRegistry.timer(DURATION_METRIC, tags).record(elapsed);
     DistributionSummary.builder(FAILURE_METRIC).tags(tags).register(meterRegistry).record(failures);

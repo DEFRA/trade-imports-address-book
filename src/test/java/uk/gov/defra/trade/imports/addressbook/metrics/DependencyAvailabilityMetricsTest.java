@@ -13,7 +13,7 @@ class DependencyAvailabilityMetricsTest {
   private final MongoAvailability mongoAvailability = new MongoAvailability();
 
   {
-    new DependencyAvailabilityMetrics(meterRegistry, mongoAvailability);
+    new DependencyAvailabilityMetrics(mongoAvailability).bindTo(meterRegistry);
   }
 
   @Test
