@@ -422,12 +422,14 @@ components:
             - BRANCH_ADDRESS
       required:
       - addressLine1
+      - addressType
       - countryCode
       - email
       - name
       - phone
       - postcode
       - townOrCity
+      - uses
     ValidationProblem:
       properties:
         type:

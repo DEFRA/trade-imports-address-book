@@ -5,7 +5,6 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
-import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -99,11 +98,36 @@ class AddressCrudIT extends IntegrationBase {
   }
 
   @Test
-  void post_shouldReadBackNullAddressTypeAndUses_whenNeitherIsGiven() throws Exception {
-    getAddress(createdAddressId(postAddress(addressBody())))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.addressType").value(nullValue()))
-        .andExpect(jsonPath("$.uses").value(nullValue()));
+  void post_shouldReturn400KeyedByAddressTypeAndSaveNothing_whenTheTypeIsMissing()
+      throws Exception {
+    postAddress(addressBody().without("addressType"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.type").value(VALIDATION_ERROR_TYPE))
+        .andExpect(jsonPath("$.errors.addressType[0]").value("Select an address type"))
+        .andExpect(jsonPath("$.errors.uses").doesNotExist());
+
+    assertThat(activeAddressesFor(ORGANISATION_ID)).isEmpty();
+  }
+
+  @Test
+  void post_shouldReturn400KeyedByUsesAndSaveNothing_whenUsesAreMissing() throws Exception {
+    assertCreateRefusedForUsesAndNothingSaved(addressBody().without("uses"));
+  }
+
+  @Test
+  void post_shouldReturn400KeyedByUsesAndSaveNothing_whenUsesAreEmpty() throws Exception {
+    assertCreateRefusedForUsesAndNothingSaved(addressBody().with("uses", List.of()));
+  }
+
+  private void assertCreateRefusedForUsesAndNothingSaved(AddressBody body) throws Exception {
+    postAddress(body)
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.type").value(VALIDATION_ERROR_TYPE))
+        .andExpect(
+            jsonPath("$.errors.uses[0]").value("Select what this address can be used for"))
+        .andExpect(jsonPath("$.errors.addressType").doesNotExist());
+
+    assertThat(activeAddressesFor(ORGANISATION_ID)).isEmpty();
   }
 
   @Test

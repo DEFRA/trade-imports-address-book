@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Null;
 import jakarta.validation.constraints.Size;
 import java.util.List;
@@ -18,8 +19,9 @@ import lombok.Builder;
  * <p>{@code type} and {@code role} must be absent: a supplied value fails {@code @Null} and is
  * reported as a per-field validation error. Both are hidden from the OpenAPI schema.
  *
- * <p>{@code addressType} and {@code uses} are optional. A value that is not the name of an {@link
- * AddressType} or {@link AddressUse} constant is a validation error on that field.
+ * <p>{@code addressType} is required and {@code uses} must hold at least one entry. A value that
+ * is not the name of an {@link AddressType} or {@link AddressUse} constant is a validation error on that
+ * field.
  *
  * <p>{@code countryCode} is validated for presence only and stored exactly as given.
  */
@@ -93,11 +95,15 @@ public record AddressRequest(
             maxLength = 254,
             example = "exports@highlandlivestock.example.com")
         String email,
-    @EnumConstantName(of = AddressType.class, message = "Select a valid address type")
-        @Schema(implementation = AddressType.class)
+    @NotBlank(message = "Select an address type")
+        @EnumConstantName(of = AddressType.class, message = "Select a valid address type")
+        @Schema(implementation = AddressType.class, requiredMode = Schema.RequiredMode.REQUIRED)
         String addressType,
-    @EnumConstantName(of = AddressUse.class, message = "Select valid address uses")
-        @ArraySchema(schema = @Schema(implementation = AddressUse.class))
+    @NotEmpty(message = "Select what this address can be used for")
+        @EnumConstantName(of = AddressUse.class, message = "Select valid address uses")
+        @ArraySchema(
+            schema = @Schema(implementation = AddressUse.class),
+            arraySchema = @Schema(requiredMode = Schema.RequiredMode.REQUIRED))
         List<String> uses,
     @Null(message = "type is not a supported field")
         @Schema(hidden = true)

@@ -396,6 +396,7 @@ components:
           - ORIGIN_OR_CONSIGNOR
           - DESTINATION_CONSIGNEE_OR_IMPORTER
           - BRANCH
+          minLength: 1
         uses:
           type: array
           items:
@@ -408,14 +409,17 @@ components:
             - CONSIGNEE
             - IMPORTER
             - BRANCH_ADDRESS
+          minItems: 1
       required:
       - addressLine1
+      - addressType
       - countryCode
       - email
       - name
       - phone
       - postcode
       - townOrCity
+      - uses
     OperatorResponse:
       description: An address in the caller's organisation-scoped address book
       properties:

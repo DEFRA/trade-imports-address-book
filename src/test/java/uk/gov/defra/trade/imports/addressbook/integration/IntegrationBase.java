@@ -174,6 +174,13 @@ abstract class IntegrationBase {
       fields.put("countryCode", COUNTRY_CODE);
       fields.put("phone", PHONE);
       fields.put("email", EMAIL);
+      fields.put("addressType", "ORIGIN_OR_CONSIGNOR");
+      fields.put("uses", List.of("PLACE_OF_ORIGIN"));
+    }
+
+    AddressBody without(String field) {
+      fields.remove(field);
+      return this;
     }
 
     AddressBody with(String field, Object value) {

@@ -149,11 +149,12 @@ returns **404** (no existence disclosure).
   never a bare array.
 - Soft-deleted addresses expose `deleted: true` on read; the internal `status` enum is not on the wire.
 - Validation failures return **400** `application/problem+json` with a camelCase `errors` map.
-- `addressType` (one value) and `uses` (a list) are optional and take values from fixed UPPER_SNAKE
-  lists: `ORIGIN_OR_CONSIGNOR`, `DESTINATION_CONSIGNEE_OR_IMPORTER` or `BRANCH` for the type;
-  `PLACE_OF_ORIGIN`, `CONSIGNOR`, `PLACE_OF_DESTINATION`, `CONSIGNEE`, `IMPORTER` or
-  `BRANCH_ADDRESS` for the uses. A value outside its list is a **400** validation problem keyed by
-  `addressType` or `uses`, and nothing is saved. An update replaces both.
+- `addressType` (one value) and `uses` (a list of at least one) are required on create and update,
+  and take values from fixed UPPER_SNAKE lists: `ORIGIN_OR_CONSIGNOR`,
+  `DESTINATION_CONSIGNEE_OR_IMPORTER` or `BRANCH` for the type; `PLACE_OF_ORIGIN`, `CONSIGNOR`,
+  `PLACE_OF_DESTINATION`, `CONSIGNEE`, `IMPORTER` or `BRANCH_ADDRESS` for the uses. A missing
+  value, or one outside its list, is a **400** validation problem keyed by `addressType` or `uses`,
+  and nothing is saved. An update replaces both.
 
 **Example — create an address**
 
@@ -228,12 +229,13 @@ The API surface is locked and tested on every `mvn verify`:
 
 | File | Role |
 | --- | --- |
-| [`docs/openapi/api-contract.locked.yaml`](docs/openapi/api-contract.locked.yaml) | Human-authored source of truth (paths, operationIds, 400 `anyOf` shapes, allowed values of enum properties) |
+| [`docs/openapi/api-contract.locked.yaml`](docs/openapi/api-contract.locked.yaml) | Human-authored source of truth (paths, operationIds, 400 `anyOf` shapes, allowed values of enum properties, the `AddressRequest` required list) |
 | [`docs/openapi/operators.yml`](docs/openapi/operators.yml) | springdoc-generated spec, committed for downstream consumers |
 
 `OperatorComplianceIT` fails the build if `operators.yml` is stale against live `/v3/api-docs`, or
-if paths, HTTP methods, operationIds, component schema property names, or the allowed values of
-`addressType` and `uses` diverge from the locked contract.
+if paths, HTTP methods, operationIds, component schema property names, the allowed values of
+`addressType` and `uses`, or the required list of `AddressRequest` diverge from the locked
+contract.
 
 Regenerate the committed artifact after an intentional API change (no Testcontainers required):
 
@@ -310,7 +312,7 @@ future index against real collection size before adding it.
 - A caller searches by use label through `searchUse`, naming the uses whose label contains the term, and the service matches stored uses. The labels are the caller's copy: the address book stores enum names and holds no labels, so matching a label here would make it a second owner of text in one language. A regular expression over the stored names would never match a label such as 'place of origin'.
 - The list's filters travel as two records. `RequestedListFilters` holds them as the request supplied them, with the search term as typed. `ListCriteria` holds them as the query matches them, with the term turned into a quoted partial-match pattern and the country codes trimmed. `OperatorService` is the one place that turns the first into the second, so a field never holds a term in one place and a pattern in another.
 - The list's `addressType` matches on the stored `uses`, not on the stored `addressType` field. An address holding a place of origin and a consignee therefore lists under two address types, which a match on its one stored type could not do. `AddressType` owns which uses each type holds.
-- `ORIGIN_OR_CONSIGNOR` also lists an address with no uses, because an address added without uses would otherwise be listed under no address type.
+- `ORIGIN_OR_CONSIGNOR` also lists an address with no uses, because an address the service already holds with no uses (saved before uses were required) would otherwise be listed under no address type.
 
 ## Licence
 

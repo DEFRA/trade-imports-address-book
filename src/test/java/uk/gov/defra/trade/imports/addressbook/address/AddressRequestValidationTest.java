@@ -42,7 +42,9 @@ class AddressRequestValidationTest {
         .postcode("IV2 3JH")
         .countryCode("GB")
         .phone("+44 1463 234567")
-        .email("exports@highlandlivestock.example.com");
+        .email("exports@highlandlivestock.example.com")
+        .addressType("ORIGIN_OR_CONSIGNOR")
+        .uses(List.of("PLACE_OF_ORIGIN"));
   }
 
   private static String repeat(int length) {
@@ -141,6 +143,26 @@ class AddressRequestValidationTest {
             "email",
             "Enter an email address in the correct format"),
         Arguments.of(
+            "missing addressType",
+            validRequest().addressType(null).build(),
+            "addressType",
+            "Select an address type"),
+        Arguments.of(
+            "blank addressType",
+            validRequest().addressType("").build(),
+            "addressType",
+            "Select an address type"),
+        Arguments.of(
+            "missing uses",
+            validRequest().uses(null).build(),
+            "uses",
+            "Select what this address can be used for"),
+        Arguments.of(
+            "empty uses",
+            validRequest().uses(List.of()).build(),
+            "uses",
+            "Select what this address can be used for"),
+        Arguments.of(
             "unknown addressType",
             validRequest().addressType("TRANSPORTER").build(),
             "addressType",
@@ -223,13 +245,6 @@ class AddressRequestValidationTest {
   void everyAddressTypeWithEveryUseHasNoViolations(AddressType addressType) {
     List<String> allUses = Arrays.stream(AddressUse.values()).map(Enum::name).toList();
     AddressRequest request = validRequest().addressType(addressType.name()).uses(allUses).build();
-
-    assertThat(validator.validate(request)).isEmpty();
-  }
-
-  @Test
-  void emptyUsesHasNoViolations() {
-    AddressRequest request = validRequest().uses(List.of()).build();
 
     assertThat(validator.validate(request)).isEmpty();
   }

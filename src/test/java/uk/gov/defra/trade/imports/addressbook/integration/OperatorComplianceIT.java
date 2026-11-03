@@ -188,6 +188,21 @@ class OperatorComplianceIT extends IntegrationBase {
     }
   }
 
+  @Test
+  void liveAddressRequestHasTheLockedRequiredProperties() throws IOException {
+    List<Object> lockedRequired = requiredProperties(lockedContract(), "AddressRequest");
+
+    assertThat(lockedRequired).contains("addressType", "uses");
+    assertThat(requiredProperties(ApiDocs.fetchLive(port), "AddressRequest"))
+        .as("required properties of AddressRequest must match the locked contract")
+        .containsExactlyInAnyOrderElementsOf(lockedRequired);
+  }
+
+  @SuppressWarnings("unchecked")
+  private static List<Object> requiredProperties(Map<String, Object> doc, String schema) {
+    return (List<Object>) nested(doc, "components", "schemas", schema, "required");
+  }
+
   @SuppressWarnings("unchecked")
   private static List<Object> listParameterAllowedValues(
       Map<String, Object> doc, String parameterName) {

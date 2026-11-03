@@ -3,7 +3,6 @@ package uk.gov.defra.trade.imports.addressbook.integration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -103,20 +102,18 @@ class AddressUpdateIT extends IntegrationBase {
   }
 
   @Test
-  void put_shouldClearAddressTypeAndUses_whenBodyOmitsThem() throws Exception {
+  void put_shouldReturn400NamingBothAndKeepStoredValues_whenBodyOmitsTypeAndUses()
+      throws Exception {
     Address saved = saveActiveWithOptionals();
 
-    putAddress(saved.getId(), addressBody())
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.addressType").value(nullValue()))
-        .andExpect(jsonPath("$.uses").value(nullValue()));
+    putAddress(saved.getId(), addressBody().without("addressType").without("uses"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.type").value(VALIDATION_ERROR_TYPE))
+        .andExpect(jsonPath("$.errors.addressType[0]").value("Select an address type"))
+        .andExpect(
+            jsonPath("$.errors.uses[0]").value("Select what this address can be used for"));
 
-    assertThat(storedAddress(saved.getId()))
-        .satisfies(
-            address -> {
-              assertThat(address.getAddressType()).isNull();
-              assertThat(address.getUses()).isNull();
-            });
+    assertStoredTypeAndUsesAreStillTheSeededOnes(saved);
   }
 
   @Test

@@ -71,20 +71,8 @@ class AddressExpiryIT extends IntegrationBase {
   @Test
   void post_givesTheNewAddressAnExpireAtSevenDaysAhead() throws Exception {
     // Given
-    String body =
-        """
-        {
-          "name": "Highland Livestock Ltd",
-          "addressLine1": "14 Drover's Way",
-          "townOrCity": "Inverness",
-          "postcode": "IV2 3JH",
-          "countryCode": "GB",
-          "phone": "+44 1463 234567",
-          "email": "exports@highlandlivestock.example.com"
-        }
-        """;
-    // Mongo stores dates to the millisecond, so the lower bound must be no finer than that
-    Instant before = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+    String body = addressBody().json();
+    Instant beforeAtMongoPrecision = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
     // When
     mockMvc
@@ -101,7 +89,7 @@ class AddressExpiryIT extends IntegrationBase {
     List<Address> addresses = activeAddressesFor(ORGANISATION_ID);
     assertThat(addresses).hasSize(1);
     assertThat(addresses.getFirst().getExpireAt())
-        .isBetween(before.plus(7, ChronoUnit.DAYS), after.plus(7, ChronoUnit.DAYS));
+        .isBetween(beforeAtMongoPrecision.plus(7, ChronoUnit.DAYS), after.plus(7, ChronoUnit.DAYS));
   }
 
   @Test

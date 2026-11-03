@@ -22,18 +22,7 @@ class AddressScopingIT extends IntegrationBase {
   private static final String ORG_A = ORGANISATION_ID;
   private static final String ORG_B = OTHER_ORG;
 
-  private static final String CREATE_BODY =
-      """
-      {
-        "name": "Highland Livestock Ltd",
-        "addressLine1": "14 Drover's Way",
-        "townOrCity": "Inverness",
-        "postcode": "IV2 3JH",
-        "countryCode": "GB",
-        "phone": "+44 1463 234567",
-        "email": "exports@highlandlivestock.example.com"
-      }
-      """;
+  private static final String CREATE_BODY = addressBody().json();
 
   @Autowired private OperatorRepository repository;
   @Autowired private ObjectMapper objectMapper;
