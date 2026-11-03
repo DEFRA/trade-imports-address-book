@@ -1,0 +1,31 @@
+package uk.gov.defra.trade.imports.addressbook.metrics;
+
+import io.micrometer.core.instrument.Clock;
+import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
+import io.micrometer.core.instrument.step.StepDistributionSummary;
+import java.util.List;
+
+/** A step distribution summary that also keeps every amount it records until taken. */
+class ValueRecordingDistributionSummary extends StepDistributionSummary {
+
+  private final RecordedValues recordedAmounts = new RecordedValues();
+
+  ValueRecordingDistributionSummary(
+      Id id,
+      Clock clock,
+      DistributionStatisticConfig distributionStatisticConfig,
+      double scale,
+      long stepMillis) {
+    super(id, clock, distributionStatisticConfig, scale, stepMillis, false);
+  }
+
+  @Override
+  protected void recordNonNegative(double amount) {
+    super.recordNonNegative(amount);
+    recordedAmounts.add(amount);
+  }
+
+  List<Double> takeRecordedAmounts() {
+    return recordedAmounts.takeAll();
+  }
+}

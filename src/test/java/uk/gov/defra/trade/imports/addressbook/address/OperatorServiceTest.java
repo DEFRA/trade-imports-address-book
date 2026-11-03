@@ -6,6 +6,7 @@ import static uk.gov.defra.trade.imports.addressbook.address.OperatorService.DEF
 import static uk.gov.defra.trade.imports.addressbook.address.OperatorTestSupport.NO_TTL;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -16,12 +17,14 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -34,6 +37,7 @@ import org.springframework.data.domain.Sort;
 import uk.gov.defra.trade.imports.addressbook.configuration.AddressTtlConfig;
 import uk.gov.defra.trade.imports.addressbook.exceptions.BadRequestException;
 import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
+import uk.gov.defra.trade.imports.addressbook.metrics.AddressMetrics;
 
 @ExtendWith(MockitoExtension.class)
 class OperatorServiceTest {
@@ -44,13 +48,14 @@ class OperatorServiceTest {
 
   private final MeterRegistry meterRegistry = new SimpleMeterRegistry();
   private final OperatorMapper operatorMapper = Mappers.getMapper(OperatorMapper.class);
+  private final AddressMetrics addressMetrics = new AddressMetrics(meterRegistry);
 
   private OperatorService service;
 
   @BeforeEach
   void setUp() {
     service =
-        new OperatorService(repository, operatorMapper, meterRegistry, NO_TTL);
+        new OperatorService(repository, operatorMapper, meterRegistry, NO_TTL, addressMetrics);
   }
 
   private OperatorService serviceWithTtl(Integer days, String environment) {
@@ -58,7 +63,25 @@ class OperatorServiceTest {
         repository,
         operatorMapper,
         meterRegistry,
-        new AddressTtlConfig(days, environment));
+        new AddressTtlConfig(days, environment),
+        addressMetrics);
+  }
+
+  private List<String> countedChanges() {
+    return countedTagValues("AddressChange", "Action");
+  }
+
+  private List<String> countedSearches() {
+    return countedTagValues("AddressSearch", "SearchType");
+  }
+
+  private List<String> countedTagValues(String counterName, String tagKey) {
+    return meterRegistry.find(counterName).counters().stream()
+        .flatMap(
+            counter ->
+                Collections.nCopies((int) counter.count(), counter.getId().getTag(tagKey))
+                    .stream())
+        .toList();
   }
 
   private AddressRequest request() {
@@ -97,6 +120,18 @@ class OperatorServiceTest {
     assertThat(created.getName()).isEqualTo("Highland Livestock Ltd");
     assertThat(created.getCountryCode()).isEqualTo("GB");
     assertThat(created.getId()).isEqualTo("665f1c2ab3e4d51a2c9d0e77");
+  }
+
+  @Test
+  void create_countsOneCreateChange() {
+    // Given
+    when(repository.save(any(Address.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+    // When
+    service.create(request(), ORG);
+
+    // Then
+    assertThat(countedChanges()).containsExactly("create");
   }
 
   @Test
@@ -271,6 +306,21 @@ class OperatorServiceTest {
   }
 
   @Test
+  void update_countsOneUpdateChange() {
+    // Given
+    Address existing = persistedAddress("665f1c2ab3e4d51a2c9d0e77", ORG, AddressStatus.ACTIVE);
+    when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", ORG))
+        .thenReturn(Optional.of(existing));
+    when(repository.save(any(Address.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+    // When
+    service.update("665f1c2ab3e4d51a2c9d0e77", updateRequest(), ORG);
+
+    // Then
+    assertThat(countedChanges()).containsExactly("update");
+  }
+
+  @Test
   void update_keepsTheExpireAtSetWhenTheAddressWasCreated() {
     // Given
     OperatorService withTtl = serviceWithTtl(7, "dev");
@@ -344,6 +394,35 @@ class OperatorServiceTest {
     Address persisted = captor.getValue();
     assertThat(persisted.getStatus()).isEqualTo(AddressStatus.DELETED);
     assertThat(persisted.getId()).isEqualTo("665f1c2ab3e4d51a2c9d0e77");
+  }
+
+  @Test
+  void delete_countsOneDeleteChange() {
+    // Given
+    Address existing = persistedAddress("665f1c2ab3e4d51a2c9d0e77", ORG, AddressStatus.ACTIVE);
+    when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", ORG))
+        .thenReturn(Optional.of(existing));
+    when(repository.save(any(Address.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+    // When
+    service.delete("665f1c2ab3e4d51a2c9d0e77", ORG);
+
+    // Then
+    assertThat(countedChanges()).containsExactly("delete");
+  }
+
+  @Test
+  void delete_ofAnAlreadyDeletedTombstoneCountsNoChange() {
+    // Given
+    Address tombstone = persistedAddress("665f1c2ab3e4d51a2c9d0e77", ORG, AddressStatus.DELETED);
+    when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", ORG))
+        .thenReturn(Optional.of(tombstone));
+
+    // When
+    service.delete("665f1c2ab3e4d51a2c9d0e77", ORG);
+
+    // Then
+    assertThat(countedChanges()).isEmpty();
   }
 
   @Test
@@ -481,6 +560,55 @@ class OperatorServiceTest {
     // When & Then
     assertThatExceptionOfType(BadRequestException.class)
         .isThrownBy(() -> service.list(ORG, 0, null, null, null));
+  }
+
+  @Test
+  void list_withAPageBelow1CountsNoSearch() {
+    // When
+    assertThatExceptionOfType(BadRequestException.class)
+        .isThrownBy(() -> service.list(ORG, 0, null, "farm", null));
+
+    // Then
+    assertThat(countedSearches()).isEmpty();
+  }
+
+  @ParameterizedTest
+  @CsvSource(
+      nullValues = "null",
+      value = {
+        "null, null, none",
+        "'   ', '  ', none",
+        "farm, null, query",
+        "null, FR, country",
+        "France, FR, query-and-country"
+      })
+  void list_countsOneSearchOfTheTypeItsFiltersMake(
+      String q, String countryCode, String searchType) {
+    // Given
+    givenEverySearchFindsNothing();
+    List<String> countryCodes = countryCode == null ? null : List.of(countryCode);
+
+    // When
+    service.list(ORG, 1, null, q, countryCodes);
+
+    // Then
+    assertThat(countedSearches()).containsExactly(searchType);
+  }
+
+  private void givenEverySearchFindsNothing() {
+    PageImpl<Address> empty = new PageImpl<>(List.of(), PageRequest.of(0, DEFAULT_PAGE_SIZE), 0);
+    lenient()
+        .when(repository.findByOrganisationIdAndStatus(any(), any(), any(Pageable.class)))
+        .thenReturn(empty);
+    lenient()
+        .when(repository.searchByQuery(any(), any(), any(), any(Pageable.class)))
+        .thenReturn(empty);
+    lenient()
+        .when(repository.searchByAnyCountryCode(any(), any(), any(), any(Pageable.class)))
+        .thenReturn(empty);
+    lenient()
+        .when(repository.searchByQueryOrAnyCountryCode(any(), any(), any(), any(), any(Pageable.class)))
+        .thenReturn(empty);
   }
 
   @Test

@@ -91,6 +91,12 @@ management:
     enable:
       all: false
       controller: true
+      service: true
+      "[ExternalCallDuration]": true
+      "[ExternalCallFailure]": true
+      "[DependencyAvailable]": true
+      "[AddressSearch]": true
+      "[AddressChange]": true
       jvm:
         memory:
           committed: true

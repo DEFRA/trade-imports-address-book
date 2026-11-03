@@ -1,5 +1,6 @@
 package uk.gov.defra.trade.imports.addressbook.address;
 
+import io.micrometer.core.annotation.Timed;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.time.Instant;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 import uk.gov.defra.trade.imports.addressbook.configuration.AddressTtlConfig;
 import uk.gov.defra.trade.imports.addressbook.exceptions.BadRequestException;
 import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
+import uk.gov.defra.trade.imports.addressbook.metrics.AddressMetrics;
 
 /** Lists, creates, reads, updates and soft-deletes an organisation's addresses. */
 @Service
@@ -30,16 +32,19 @@ public class OperatorService {
   private final OperatorMapper operatorMapper;
   private final MeterRegistry meterRegistry;
   private final AddressTtlConfig ttlConfig;
+  private final AddressMetrics addressMetrics;
 
   public OperatorService(
       OperatorRepository repository,
       OperatorMapper operatorMapper,
       MeterRegistry meterRegistry,
-      AddressTtlConfig ttlConfig) {
+      AddressTtlConfig ttlConfig,
+      AddressMetrics addressMetrics) {
     this.repository = repository;
     this.operatorMapper = operatorMapper;
     this.meterRegistry = meterRegistry;
     this.ttlConfig = ttlConfig;
+    this.addressMetrics = addressMetrics;
   }
 
   /**
@@ -57,6 +62,7 @@ public class OperatorService {
    * @throws BadRequestException if {@code page} is less than 1 or {@code requestedPageSize} is
    *     outside {@link #MIN_PAGE_SIZE} to {@link #MAX_PAGE_SIZE}
    */
+  @Timed("service.listOperators.time")
   public OperatorPageResponse list(
       String organisationId,
       int page,
@@ -74,9 +80,14 @@ public class OperatorService {
             pageSize,
             Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id")));
 
+    List<String> searchedCountryCodes = nonBlankTrimmed(countryCodes);
+    AddressSearchType searchType = searchTypeOf(q, searchedCountryCodes);
+    addressMetrics.recordSearch(searchType);
+
     Timer.Sample sample = Timer.start(meterRegistry);
     try {
-      Page<Address> result = queryPage(organisationId, q, countryCodes, pageable);
+      Page<Address> result =
+          queryPage(organisationId, searchType, q, searchedCountryCodes, pageable);
       List<OperatorResponse> items =
           result.getContent().stream().map(operatorMapper::toResponse).toList();
       return new OperatorPageResponse(
@@ -97,33 +108,45 @@ public class OperatorService {
     return requestedPageSize;
   }
 
-  private Page<Address> queryPage(
-      String organisationId, String q, List<String> countryCodes, Pageable pageable) {
-    List<String> searchedCountryCodes = nonBlankTrimmed(countryCodes);
+  private static AddressSearchType searchTypeOf(String q, List<String> searchedCountryCodes) {
     boolean hasQuery = q != null && !q.isBlank();
     boolean hasCountryCodes = !searchedCountryCodes.isEmpty();
-
-    if (!hasQuery && !hasCountryCodes) {
-      return repository.findByOrganisationIdAndStatus(
-          organisationId, AddressStatus.ACTIVE, pageable);
-    }
-
     if (hasQuery && hasCountryCodes) {
-      return repository.searchByQueryOrAnyCountryCode(
-          organisationId,
-          AddressStatus.ACTIVE,
-          toPartialMatchRegex(q),
-          searchedCountryCodes,
-          pageable);
+      return AddressSearchType.QUERY_AND_COUNTRY;
     }
-
     if (hasQuery) {
-      return repository.searchByQuery(
-          organisationId, AddressStatus.ACTIVE, toPartialMatchRegex(q), pageable);
+      return AddressSearchType.QUERY;
     }
+    if (hasCountryCodes) {
+      return AddressSearchType.COUNTRY;
+    }
+    return AddressSearchType.NONE;
+  }
 
-    return repository.searchByAnyCountryCode(
-        organisationId, AddressStatus.ACTIVE, searchedCountryCodes, pageable);
+  private Page<Address> queryPage(
+      String organisationId,
+      AddressSearchType searchType,
+      String q,
+      List<String> searchedCountryCodes,
+      Pageable pageable) {
+    return switch (searchType) {
+      case NONE ->
+          repository.findByOrganisationIdAndStatus(
+              organisationId, AddressStatus.ACTIVE, pageable);
+      case QUERY_AND_COUNTRY ->
+          repository.searchByQueryOrAnyCountryCode(
+              organisationId,
+              AddressStatus.ACTIVE,
+              toPartialMatchRegex(q),
+              searchedCountryCodes,
+              pageable);
+      case QUERY ->
+          repository.searchByQuery(
+              organisationId, AddressStatus.ACTIVE, toPartialMatchRegex(q), pageable);
+      case COUNTRY ->
+          repository.searchByAnyCountryCode(
+              organisationId, AddressStatus.ACTIVE, searchedCountryCodes, pageable);
+    };
   }
 
   private static List<String> nonBlankTrimmed(List<String> countryCodes) {
@@ -149,6 +172,7 @@ public class OperatorService {
    * @param organisationId the owning organisation id
    * @return the saved address, with its assigned id and timestamps
    */
+  @Timed("service.createOperator.time")
   public Address create(AddressRequest request, String organisationId) {
     Address address = operatorMapper.toEntity(request);
     address.setOrganisationId(organisationId);
@@ -157,6 +181,7 @@ public class OperatorService {
 
     Address saved = repository.save(address);
     log.info("Created address {}", saved.getId());
+    addressMetrics.recordCreate();
     return saved;
   }
 
@@ -176,6 +201,7 @@ public class OperatorService {
    * @return the address, with {@code status DELETED} if it was soft-deleted; empty if the id is
    *     unknown or belongs to another organisation
    */
+  @Timed("service.getOperator.time")
   public Optional<Address> get(String id, String organisationId) {
     return repository.findByIdAndOrganisationId(id, organisationId);
   }
@@ -192,6 +218,7 @@ public class OperatorService {
    * @throws NotFoundException if the id is unknown, belongs to another organisation, or is
    *     soft-deleted
    */
+  @Timed("service.updateOperator.time")
   public Address update(String id, AddressRequest request, String organisationId) {
     Address existing =
         repository
@@ -203,6 +230,7 @@ public class OperatorService {
 
     Address saved = repository.save(existing);
     log.info("Updated address {}", saved.getId());
+    addressMetrics.recordUpdate();
     return saved;
   }
 
@@ -214,6 +242,7 @@ public class OperatorService {
    * @param organisationId the caller's organisation id
    * @throws NotFoundException if the id is unknown or belongs to another organisation
    */
+  @Timed("service.deleteOperator.time")
   public void delete(String id, String organisationId) {
     Address existing =
         repository
@@ -227,5 +256,6 @@ public class OperatorService {
     existing.setStatus(AddressStatus.DELETED);
     repository.save(existing);
     log.info("Soft-deleted address {}", existing.getId());
+    addressMetrics.recordDelete();
   }
 }
