@@ -353,7 +353,6 @@ components:
           type: string
           description: Second line of the postal address
           maxLength: 255
-          minLength: 0
         townOrCity:
           type: string
           description: Town or city
@@ -364,7 +363,6 @@ components:
           type: string
           description: County or region
           maxLength: 100
-          minLength: 0
         postcode:
           type: string
           description: Postal or ZIP code

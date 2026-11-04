@@ -188,6 +188,11 @@ class AddressRequestValidationTest {
             "uses",
             "Select valid address uses"),
         Arguments.of(
+            "blank use",
+            validRequest().uses(List.of("CONSIGNOR", " ")).build(),
+            "uses",
+            "Select valid address uses"),
+        Arguments.of(
             "stray type",
             validRequest().type("IMPORTER").build(),
             "type",
@@ -199,18 +204,16 @@ class AddressRequestValidationTest {
             "role is not a supported field"));
   }
 
-  @ParameterizedTest(name = "{0} -> violation on {2}: {3}")
+  @ParameterizedTest(name = "{0} -> only violation on {2}: {3}")
   @MethodSource("invalidFields")
-  void invalidFieldProducesAViolationOnThatFieldWithTheDeclaredMessage(
+  void invalidFieldProducesOnlyTheDeclaredMessageOnThatField(
       String description, AddressRequest request, String expectedProperty, String expectedMessage) {
     Set<ConstraintViolation<AddressRequest>> violations = validator.validate(request);
 
     assertThat(violations)
-        .anySatisfy(
-            violation -> {
-              assertThat(violation.getPropertyPath().toString()).isEqualTo(expectedProperty);
-              assertThat(violation.getMessage()).isEqualTo(expectedMessage);
-            });
+        .filteredOn(violation -> violation.getPropertyPath().toString().equals(expectedProperty))
+        .extracting(ConstraintViolation::getMessage)
+        .containsExactly(expectedMessage);
   }
 
   static Stream<Arguments> fieldsAtMaximumLength() {
