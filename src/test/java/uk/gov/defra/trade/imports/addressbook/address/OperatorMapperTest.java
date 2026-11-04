@@ -5,8 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.PropertyNamingStrategies;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
@@ -15,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
+import uk.gov.defra.trade.imports.addressbook.configuration.JacksonConfig;
 
 class OperatorMapperTest {
 
@@ -25,10 +24,7 @@ class OperatorMapperTest {
   @BeforeEach
   void setUp() {
     Jackson2ObjectMapperBuilder builder = new Jackson2ObjectMapperBuilder();
-    builder
-        .propertyNamingStrategy(PropertyNamingStrategies.LOWER_CAMEL_CASE)
-        .failOnUnknownProperties(false)
-        .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    new JacksonConfig().camelCaseNamingStrategy().customize(builder);
     mapper = builder.build().findAndRegisterModules();
   }
 
@@ -165,7 +161,6 @@ class OperatorMapperTest {
   void response_serialisesInstantFieldsAsIso8601NotEpochMillis() {
     JsonNode json = mapper.valueToTree(responseFor(AddressStatus.ACTIVE));
 
-    assertThat(mapper.isEnabled(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)).isFalse();
     assertThat(json.get("createdAt").isTextual()).isTrue();
     assertThat(json.get("modifiedAt").isTextual()).isTrue();
   }
