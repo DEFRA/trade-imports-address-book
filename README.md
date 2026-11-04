@@ -229,14 +229,14 @@ The API surface is locked and tested on every `mvn verify`:
 
 | File | Role |
 | --- | --- |
-| [`docs/openapi/api-contract.locked.yaml`](docs/openapi/api-contract.locked.yaml) | Human-authored source of truth (paths, operationIds, 400 `anyOf` shapes, allowed values of enum properties, the `AddressRequest` required list) |
+| [`docs/openapi/api-contract.locked.yaml`](docs/openapi/api-contract.locked.yaml) | Human-authored source of truth (paths, operationIds, 400 `anyOf` shapes, allowed values of enum properties, the `AddressRequest` required list, the minimum number of `AddressRequest.uses`) |
 | [`docs/openapi/operators.yml`](docs/openapi/operators.yml) | springdoc-generated spec, committed for downstream consumers |
 
 `OperatorComplianceIT` fails the build if `operators.yml` is stale against live `/v3/api-docs`, or
 if paths, HTTP methods, operationIds, operation parameter names, component schema property
 names, the allowed values of `addressType`, `uses` and the list's `category`, `use` and
-`searchUse` parameters, the 400 `anyOf` shapes of create and update, or the required list of
-`AddressRequest` diverge from the locked contract.
+`searchUse` parameters, the 400 `anyOf` shapes of create and update, the required list of
+`AddressRequest` or the minimum number of `AddressRequest.uses` diverge from the locked contract.
 
 Regenerate the committed artifact after an intentional API change (no Testcontainers required):
 

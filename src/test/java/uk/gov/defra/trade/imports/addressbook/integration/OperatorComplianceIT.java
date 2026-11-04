@@ -200,6 +200,20 @@ class OperatorComplianceIT extends IntegrationBase {
         .containsExactlyInAnyOrderElementsOf(lockedRequired);
   }
 
+  @Test
+  void liveAddressRequestUsesHasTheLockedMinimumNumberOfItems() throws IOException {
+    Object lockedMinItems = minItems(lockedContract(), "AddressRequest", "uses");
+
+    assertThat(lockedMinItems).isEqualTo(1);
+    assertThat(minItems(ApiDocs.fetchLive(port), "AddressRequest", "uses"))
+        .as("minItems of AddressRequest.uses must match the locked contract")
+        .isEqualTo(lockedMinItems);
+  }
+
+  private static Object minItems(Map<String, Object> doc, String schema, String property) {
+    return nested(doc, "components", "schemas", schema, "properties", property, "minItems");
+  }
+
   @SuppressWarnings("unchecked")
   private static List<Object> listParameterAllowedValues(
       Map<String, Object> doc, String parameterName) {
