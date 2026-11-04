@@ -22,15 +22,6 @@ import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressExpiryIndex;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
 
-/**
- * Non-prod address expiry against a real Mongo: a created address gets an {@code expireAt}, and
- * Mongo's TTL monitor removes expired addresses (live or tombstoned) while leaving undated and
- * not-yet-expired ones alone.
- *
- * <p>The Mongo container is shared by every integration test, so the TTL index is dropped after
- * each test — {@code OperatorIndexIT} pins the default index set. The TTL monitor is sped up from
- * its 60-second default so a removal can be observed within the test.
- */
 @TestPropertySource(
     properties = {"address-book.ttl.days=7", "address-book.ttl.expiry.enabled=true"})
 class AddressExpiryIT extends IntegrationBase {
