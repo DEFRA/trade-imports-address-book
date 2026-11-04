@@ -5,7 +5,6 @@ import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
 import io.micrometer.core.instrument.step.StepDistributionSummary;
 import java.util.List;
 
-/** A step distribution summary that also keeps every amount it records until taken. */
 class ValueRecordingDistributionSummary extends StepDistributionSummary {
 
   private final RecordedValues recordedAmounts = new RecordedValues();
@@ -16,7 +15,13 @@ class ValueRecordingDistributionSummary extends StepDistributionSummary {
       DistributionStatisticConfig distributionStatisticConfig,
       double scale,
       long stepMillis) {
-    super(id, clock, distributionStatisticConfig, scale, stepMillis, false);
+    super(
+        id,
+        clock,
+        distributionStatisticConfig,
+        scale,
+        stepMillis,
+        EmfMeterRegistry.NO_AGGREGABLE_PERCENTILES);
   }
 
   @Override

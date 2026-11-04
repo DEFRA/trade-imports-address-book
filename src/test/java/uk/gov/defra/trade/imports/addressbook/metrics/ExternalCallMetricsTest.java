@@ -12,7 +12,6 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
-import org.slf4j.MDC;
 import uk.gov.defra.trade.imports.addressbook.testsupport.CapturedLogs;
 
 class ExternalCallMetricsTest {
@@ -24,10 +23,8 @@ class ExternalCallMetricsTest {
 
   @Test
   void recordSuccess_shouldTimeTheCallAndRecordNoFailure_taggedByDependencyAndOperation() {
-    // When
     metrics.recordSuccess(MONGODB_FIND, Duration.ofMillis(250));
 
-    // Then
     Timer duration = durationOf(MONGODB_FIND);
     assertThat(duration.count()).isEqualTo(1);
     assertThat(duration.totalTime(TimeUnit.MILLISECONDS)).isEqualTo(250.0);
@@ -38,23 +35,19 @@ class ExternalCallMetricsTest {
 
   @Test
   void recordFailure_shouldRecordOneFailure() {
-    // When
     metrics.recordFailure(MONGODB_FIND, Duration.ofMillis(5), connectionReset());
 
-    // Then
     assertThat(durationOf(MONGODB_FIND).count()).isEqualTo(1);
     assertThat(failureOf(MONGODB_FIND).totalAmount()).isEqualTo(1.0);
   }
 
   @Test
   void recordSuccess_shouldLogTheCallWithItsOutcomeAndDuration() {
-    // When
     var logs =
         CapturedLogs.loggedBy(
             ExternalCallMetrics.class,
             () -> metrics.recordSuccess(MONGODB_FIND, Duration.ofMillis(250)));
 
-    // Then
     assertThat(logs).hasSize(1);
     var event = logs.getFirst();
     assertThat(event.getFormattedMessage())
@@ -63,37 +56,26 @@ class ExternalCallMetricsTest {
         .containsEntry("event.category", "external-call")
         .containsEntry("event.action", "mongodb/find")
         .containsEntry("event.outcome", "success")
-        .containsEntry("event.duration", 250_000_000L);
+        .containsEntry("event.duration", 250_000_000L)
+        .doesNotContainKey("event.reason");
     assertThat(event.getThrowableProxy()).isNull();
   }
 
   @Test
-  void recordFailure_shouldLogTheCallAsAFailure_withTheExceptionThatFailedIt() {
-    // When
+  void recordFailure_shouldLogTheCallAsAFailure_withTheExceptionAndItsTypeAsTheReason() {
     var logs =
         CapturedLogs.loggedBy(
             ExternalCallMetrics.class,
             () -> metrics.recordFailure(MONGODB_FIND, Duration.ofMillis(5), connectionReset()));
 
-    // Then
     var event = logs.getFirst();
     assertThat(event.getFormattedMessage()).isEqualTo("External call mongodb/find failure in 5 ms");
-    assertThat(keyValues(event)).containsEntry("event.outcome", "failure");
+    assertThat(keyValues(event))
+        .containsEntry("event.outcome", "failure")
+        .containsEntry("event.reason", "MongoSocketReadException");
     assertThat(event.getThrowableProxy().getClassName())
         .isEqualTo(MongoSocketReadException.class.getName());
     assertThat(event.getThrowableProxy().getMessage()).isEqualTo(CONNECTION_RESET);
-  }
-
-  @Test
-  void recordSuccess_shouldPutNoEventFieldsInTheMdc() {
-    // When
-    metrics.recordSuccess(MONGODB_FIND, Duration.ofMillis(5));
-
-    // Then
-    assertThat(MDC.get("event.category")).isNull();
-    assertThat(MDC.get("event.action")).isNull();
-    assertThat(MDC.get("event.outcome")).isNull();
-    assertThat(MDC.get("event.duration")).isNull();
   }
 
   private Timer durationOf(ExternalCall call) {

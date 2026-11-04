@@ -7,16 +7,10 @@ import java.util.List;
 import org.slf4j.event.KeyValuePair;
 
 /**
- * The ECS encoder, plus a nested {@code event} object built from the line's {@code event.*}
- * key-value pairs.
- *
- * <p>CDP keeps {@code event.*} fields only when they are nested, as in {@code
- * "event":{"duration":203000000}}, and drops flat dotted keys such as {@code "event.duration"}
- * without an error. The parent encoder writes MDC entries as flat keys and ignores key-value pairs,
- * so a line that needs {@code event.*} fields sets them as key-value pairs and this encoder nests
- * them. A {@link Number} value is written as a JSON number, which CDP needs for {@code
- * event.duration}; a non-finite one, which JSON cannot hold, is written as a string. A line with no {@code event.*} key-value pairs is written exactly as the parent
- * writes it.
+ * An ECS encoder that also writes a line's {@code event.*} key-value pairs as one nested {@code
+ * event} object, each key without its {@code event.} prefix. A finite {@link Number} value is
+ * written as a JSON number, {@code null} as JSON {@code null}, and any other value as a JSON
+ * string. A line with no {@code event.*} key-value pairs gets no {@code event} object.
  */
 public class EcsEventEncoder extends EcsEncoder {
 
@@ -37,8 +31,7 @@ public class EcsEventEncoder extends EcsEncoder {
       appendValue(field.value, builder);
       builder.append(',');
     }
-    // The parent's serializers each end with a comma, and it removes only the last one.
-    builder.setLength(builder.length() - 1);
+    removeLastComma(builder);
     builder.append("},");
   }
 
@@ -62,7 +55,10 @@ public class EcsEventEncoder extends EcsEncoder {
     }
   }
 
-  // JSON has no NaN or Infinity, so a bare one would make the whole line unparseable.
+  private static void removeLastComma(StringBuilder builder) {
+    builder.setLength(builder.length() - 1);
+  }
+
   private static boolean isFinite(Number number) {
     return switch (number) {
       case Double d -> Double.isFinite(d);

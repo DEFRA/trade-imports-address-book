@@ -13,10 +13,6 @@ import org.springframework.context.annotation.Configuration;
 import software.amazon.cloudwatchlogs.emf.logger.MetricsLogger;
 import uk.gov.defra.trade.imports.addressbook.metrics.EmfMeterRegistry;
 
-/**
- * Micrometer AOP aspects for {@code @Timed} and {@code @Counted}, and, when {@code
- * aws.emf.enabled} is true, the registry that publishes every meter to CloudWatch.
- */
 @Slf4j
 @Configuration
 public class MetricsConfig {

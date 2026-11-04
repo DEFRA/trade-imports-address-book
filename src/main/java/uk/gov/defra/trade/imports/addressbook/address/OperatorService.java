@@ -1,8 +1,6 @@
 package uk.gov.defra.trade.imports.addressbook.address;
 
 import io.micrometer.core.annotation.Timed;
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Timer;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -30,19 +28,16 @@ public class OperatorService {
 
   private final OperatorRepository repository;
   private final OperatorMapper operatorMapper;
-  private final MeterRegistry meterRegistry;
   private final AddressTtlConfig ttlConfig;
   private final AddressMetrics addressMetrics;
 
   public OperatorService(
       OperatorRepository repository,
       OperatorMapper operatorMapper,
-      MeterRegistry meterRegistry,
       AddressTtlConfig ttlConfig,
       AddressMetrics addressMetrics) {
     this.repository = repository;
     this.operatorMapper = operatorMapper;
-    this.meterRegistry = meterRegistry;
     this.ttlConfig = ttlConfig;
     this.addressMetrics = addressMetrics;
   }
@@ -84,17 +79,11 @@ public class OperatorService {
     AddressSearchType searchType = searchTypeOf(q, searchedCountryCodes);
     addressMetrics.recordSearch(searchType);
 
-    Timer.Sample sample = Timer.start(meterRegistry);
-    try {
-      Page<Address> result =
-          queryPage(organisationId, searchType, q, searchedCountryCodes, pageable);
-      List<OperatorResponse> items =
-          result.getContent().stream().map(operatorMapper::toResponse).toList();
-      return new OperatorPageResponse(
-          items, page, pageSize, (int) result.getTotalElements(), result.getTotalPages());
-    } finally {
-      sample.stop(meterRegistry.timer("controller.listOperators.query.time"));
-    }
+    Page<Address> result = queryPage(organisationId, searchType, q, searchedCountryCodes, pageable);
+    List<OperatorResponse> items =
+        result.getContent().stream().map(operatorMapper::toResponse).toList();
+    return new OperatorPageResponse(
+        items, page, pageSize, (int) result.getTotalElements(), result.getTotalPages());
   }
 
   private int servedPageSize(Integer requestedPageSize) {

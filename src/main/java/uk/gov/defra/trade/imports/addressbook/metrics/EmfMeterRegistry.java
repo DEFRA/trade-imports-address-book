@@ -22,37 +22,39 @@ import software.amazon.cloudwatchlogs.emf.model.Unit;
 import software.amazon.cloudwatchlogs.emf.util.Validator;
 
 /**
- * A Micrometer registry that publishes the service's meters to CloudWatch as Embedded Metric
- * Format documents, once a minute, in the service's namespace.
+ * A Micrometer registry that writes the service's meters as Embedded Metric Format documents, once
+ * a minute, in one namespace.
  *
- * <p>Each meter is one document per publish, with its tags as the document's only dimensions.
- * Timers publish every duration they recorded since the last publish, in milliseconds, and
- * distribution summaries every amount, so CloudWatch computes the count, sum, average, maximum
- * and percentiles itself. Counters publish their count for the last minute, and gauges their
+ * <p>Each publish writes a meter's values with its tags as the documents' only dimensions, at most
+ * 100 values to a document, so a meter with more values is written as several documents. Timers
+ * write every duration they recorded since the last publish, in milliseconds, and distribution
+ * summaries every amount. Counters write their count for the last minute, and gauges their
  * current value when it is finite. Long task timers, function meters and time gauges are not
- * published. A failure to publish one meter is logged as a warning and the others are still
- * published.
+ * written. A failure to write one meter is logged as a warning and the others are still written.
  */
 @Slf4j
 public class EmfMeterRegistry extends StepMeterRegistry {
 
+  static final boolean NO_AGGREGABLE_PERCENTILES = false;
+
   private final String namespace;
-  private final Supplier<MetricsLogger> metricsLoggers;
+  private final Supplier<MetricsLogger> metricsLoggerFactory;
 
   /**
    * Builds the registry. It publishes nothing until started.
    *
    * @param namespace the CloudWatch namespace
    * @param clock the clock that steps are measured by
-   * @param metricsLoggers supplies a fresh logger for each document, so a test can capture them
-   * @throws InvalidNamespaceException when the namespace is blank or invalid, so a bad namespace
-   *     stops start-up instead of dropping every metric
+   * @param metricsLoggerFactory makes a new logger on each call, one for each meter written
+   * @throws InvalidNamespaceException when the namespace is blank or not a valid CloudWatch
+   *     namespace
    */
-  public EmfMeterRegistry(String namespace, Clock clock, Supplier<MetricsLogger> metricsLoggers) {
+  public EmfMeterRegistry(
+      String namespace, Clock clock, Supplier<MetricsLogger> metricsLoggerFactory) {
     super(EmfRegistryConfig.INSTANCE, clock);
     Validator.validateNamespace(namespace);
     this.namespace = namespace;
-    this.metricsLoggers = metricsLoggers;
+    this.metricsLoggerFactory = metricsLoggerFactory;
   }
 
   @Override
@@ -125,7 +127,7 @@ public class EmfMeterRegistry extends StepMeterRegistry {
     if (values.isEmpty()) {
       return;
     }
-    MetricsLogger metricsLogger = metricsLoggers.get();
+    MetricsLogger metricsLogger = metricsLoggerFactory.get();
     metricsLogger.setNamespace(namespace);
     metricsLogger.setDimensions(dimensionsOf(id));
     values.forEach(value -> metricsLogger.putMetric(id.getName(), value, unit));

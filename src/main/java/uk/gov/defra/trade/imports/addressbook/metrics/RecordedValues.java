@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-/** The values a meter recorded since they were last taken. Safe to record from any thread. */
 class RecordedValues {
 
   private final Queue<Double> values = new ConcurrentLinkedQueue<>();

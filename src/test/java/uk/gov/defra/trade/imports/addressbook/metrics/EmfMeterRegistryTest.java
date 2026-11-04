@@ -6,6 +6,7 @@ import static uk.gov.defra.trade.imports.addressbook.testsupport.CapturingEmfEnv
 
 import ch.qos.logback.classic.Level;
 import com.fasterxml.jackson.databind.JsonNode;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MockClock;
@@ -28,16 +29,13 @@ class EmfMeterRegistryTest {
 
   @Test
   void publish_shouldWriteEachTimedDurationInMilliseconds_withTheTagsAsTheOnlyDimensions() {
-    // Given
     Timer timer =
         registry.timer("ExternalCallDuration", "Dependency", "mongodb", "Operation", "find");
     timer.record(Duration.ofMillis(12));
     timer.record(Duration.ofMillis(250));
 
-    // When
     registry.publish();
 
-    // Then
     JsonNode document = environment.documents().getFirst();
     JsonNode directive = document.get("_aws").get("CloudWatchMetrics").get(0);
     assertThat(directive.get("Namespace").asText()).isEqualTo(NAMESPACE);
@@ -54,20 +52,16 @@ class EmfMeterRegistryTest {
 
   @Test
   void publish_shouldWriteEachDurationOnlyOnce() {
-    // Given
     registry.timer("controller.listOperators.time").record(Duration.ofMillis(5));
     registry.publish();
 
-    // When
     registry.publish();
 
-    // Then
     assertThat(environment.documents()).hasSize(1);
   }
 
   @Test
   void publish_shouldWriteEachAmountASummaryRecorded() {
-    // Given
     DistributionSummary failures =
         DistributionSummary.builder("ExternalCallFailure")
             .tags("Dependency", "mongodb", "Operation", "find")
@@ -76,25 +70,24 @@ class EmfMeterRegistryTest {
     failures.record(1);
     failures.record(0);
 
-    // When
     registry.publish();
 
-    // Then
     JsonNode document = environment.documents().getFirst();
     assertThat(numbers(document.get("ExternalCallFailure"))).containsExactly(0.0, 1.0, 0.0);
     assertThat(unitOf(document)).isEqualTo("Count");
   }
 
   @Test
-  void publish_shouldWriteACountersCountForTheLastMinute() {
-    // Given
-    registry.counter("AddressChange", "Action", "create").increment(3);
-    clock.add(Duration.ofMinutes(1));
+  void publish_shouldWriteACountersCountForTheLastClosedMinuteOnly() {
+    Counter changes = registry.counter("AddressChange", "Action", "create");
+    changes.increment(2);
+    startTheNextMinute(changes);
+    changes.increment(3);
+    startTheNextMinute(changes);
+    changes.increment(7);
 
-    // When
     registry.publish();
 
-    // Then
     JsonNode document = environment.documents().getFirst();
     assertThat(document.get("Action").asText()).isEqualTo("create");
     assertThat(document.get("AddressChange").asDouble()).isEqualTo(3.0);
@@ -102,31 +95,31 @@ class EmfMeterRegistryTest {
 
   @Test
   void publish_shouldWriteAGaugesValue_andNothingWhileItIsNotANumber() {
-    // Given
     AtomicReference<Double> available = new AtomicReference<>(Double.NaN);
     Gauge.builder("DependencyAvailable", available, AtomicReference::get)
         .tag("Dependency", "mongodb")
         .register(registry);
-    registry.publish();
-    available.set(1.0);
 
-    // When
-    registry.publish();
+    var logs =
+        CapturedLogs.loggedBy(
+            EmfMeterRegistry.class,
+            () -> {
+              registry.publish();
+              available.set(1.0);
+              registry.publish();
+            });
 
-    // Then
+    assertThat(logs).isEmpty();
     assertThat(environment.documents()).singleElement()
         .satisfies(document -> assertThat(document.get("DependencyAvailable").asDouble()).isEqualTo(1.0));
   }
 
   @Test
   void publish_shouldWriteAMeterWithNoTags_withNoDimensions() {
-    // Given
-    registry.timer("controller.listOperators.query.time").record(Duration.ofMillis(3));
+    registry.timer("service.listOperators.time").record(Duration.ofMillis(3));
 
-    // When
     registry.publish();
 
-    // Then
     JsonNode directive =
         environment.documents().getFirst().get("_aws").get("CloudWatchMetrics").get(0);
     assertThat(directive.get("Dimensions").get(0)).isEmpty();
@@ -134,16 +127,13 @@ class EmfMeterRegistryTest {
 
   @Test
   void publish_shouldSplitMoreThanAHundredDurationsAcrossDocuments() {
-    // Given
     Timer timer = registry.timer("controller.listOperators.time");
     for (int i = 0; i < 150; i++) {
       timer.record(Duration.ofMillis(i));
     }
 
-    // When
     registry.publish();
 
-    // Then
     assertThat(environment.documents())
         .extracting(document -> document.get("controller.listOperators.time").size())
         .containsExactly(100, 50);
@@ -151,15 +141,12 @@ class EmfMeterRegistryTest {
 
   @Test
   void publish_shouldLogAWarningAndCarryOn_whenOneMeterCannotBeWritten() {
-    // Given
     registry.counter("AddressChange", "Action", " ").increment();
     registry.counter("AddressSearch", "SearchType", "none").increment();
     clock.add(Duration.ofMinutes(1));
 
-    // When
     var logs = CapturedLogs.loggedBy(EmfMeterRegistry.class, registry::publish);
 
-    // Then
     assertThat(logs)
         .singleElement()
         .satisfies(
@@ -167,6 +154,7 @@ class EmfMeterRegistryTest {
               assertThat(event.getLevel()).isEqualTo(Level.WARN);
               assertThat(event.getFormattedMessage())
                   .isEqualTo("Could not publish metric AddressChange");
+              assertThat(event.getThrowableProxy()).isNotNull();
             });
     assertThat(environment.documents())
         .extracting(document -> document.get("SearchType").asText())
@@ -177,6 +165,11 @@ class EmfMeterRegistryTest {
   void constructor_shouldRejectABlankNamespace() {
     assertThatThrownBy(() -> new EmfMeterRegistry(" ", clock, environment::metricsLogger))
         .isInstanceOf(InvalidNamespaceException.class);
+  }
+
+  private void startTheNextMinute(Counter counter) {
+    clock.add(Duration.ofMinutes(1));
+    counter.count();
   }
 
   private static String unitOf(JsonNode document) {

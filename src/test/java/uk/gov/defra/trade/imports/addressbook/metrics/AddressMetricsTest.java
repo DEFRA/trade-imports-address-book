@@ -22,24 +22,30 @@ class AddressMetricsTest {
   })
   void recordSearch_shouldCountOneSearchTaggedByItsType(
       AddressSearchType searchType, String tagValue) {
-    // When
     metrics.recordSearch(searchType);
 
-    // Then
     assertThat(meterRegistry.get("AddressSearch").tag("SearchType", tagValue).counter().count())
         .isEqualTo(1.0);
   }
 
   @Test
-  void recordCreateUpdateAndDelete_shouldCountOneChangeOfEachAction() {
-    // When
+  void recordCreate_shouldCountOneCreateChange() {
     metrics.recordCreate();
+
+    assertThat(changesOf("create")).isEqualTo(1.0);
+  }
+
+  @Test
+  void recordUpdate_shouldCountOneUpdateChange() {
     metrics.recordUpdate();
+
+    assertThat(changesOf("update")).isEqualTo(1.0);
+  }
+
+  @Test
+  void recordDelete_shouldCountOneDeleteChange() {
     metrics.recordDelete();
 
-    // Then
-    assertThat(changesOf("create")).isEqualTo(1.0);
-    assertThat(changesOf("update")).isEqualTo(1.0);
     assertThat(changesOf("delete")).isEqualTo(1.0);
   }
 

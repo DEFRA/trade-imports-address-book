@@ -6,9 +6,9 @@ import org.springframework.stereotype.Component;
 import uk.gov.defra.trade.imports.addressbook.address.AddressSearchType;
 
 /**
- * Counts the address book's business events: {@code AddressSearch} by {@code SearchType} for each
- * list of addresses, and {@code AddressChange} by {@code Action} for each create, update and
- * delete.
+ * Counts address book events on the meter registry: {@code AddressSearch} tagged {@code
+ * SearchType}, and {@code AddressChange} tagged {@code Action} as {@code create}, {@code update}
+ * or {@code delete}. Each record method adds one to its counter.
  */
 @Component
 @RequiredArgsConstructor

@@ -3,7 +3,6 @@
     <!-- Import Spring Boot defaults -->
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
 
-    <!-- Service version from system property (set by LoggingConfiguration) -->
     <springProperty name="service.version" source="cdp.service-version"/>
     <springProperty name="service.name" source="spring.application.name"/>
 

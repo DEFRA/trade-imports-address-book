@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressRequest;
+import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
 import uk.gov.defra.trade.imports.addressbook.address.OperatorService;
 
 class OperatorServiceTimingIT extends IntegrationBase {
@@ -17,27 +18,51 @@ class OperatorServiceTimingIT extends IntegrationBase {
   @Autowired private MeterRegistry meterRegistry;
 
   @Test
-  void eachServiceOperation_shouldTimeOneCallOnItsOwnTimer() {
-    // Given
-    long listedBefore = timedCalls("service.listOperators.time");
-    long createdBefore = timedCalls("service.createOperator.time");
-    long gotBefore = timedCalls("service.getOperator.time");
-    long updatedBefore = timedCalls("service.updateOperator.time");
-    long deletedBefore = timedCalls("service.deleteOperator.time");
+  void create_shouldTimeOneCallOnTheCreateTimer() {
+    long before = timedCalls("service.createOperator.time");
 
-    // When
-    Address created = operatorService.create(request(), ORGANISATION_ID);
+    operatorService.create(request(), ORGANISATION_ID);
+
+    assertThat(timedCalls("service.createOperator.time")).isEqualTo(before + 1);
+  }
+
+  @Test
+  void list_shouldTimeOneCallOnTheListTimer() {
+    long before = timedCalls("service.listOperators.time");
+
     operatorService.list(ORGANISATION_ID, 1, null, null, null);
-    operatorService.get(created.getId(), ORGANISATION_ID);
-    operatorService.update(created.getId(), request(), ORGANISATION_ID);
-    operatorService.delete(created.getId(), ORGANISATION_ID);
 
-    // Then
-    assertThat(timedCalls("service.listOperators.time")).isEqualTo(listedBefore + 1);
-    assertThat(timedCalls("service.createOperator.time")).isEqualTo(createdBefore + 1);
-    assertThat(timedCalls("service.getOperator.time")).isEqualTo(gotBefore + 1);
-    assertThat(timedCalls("service.updateOperator.time")).isEqualTo(updatedBefore + 1);
-    assertThat(timedCalls("service.deleteOperator.time")).isEqualTo(deletedBefore + 1);
+    assertThat(timedCalls("service.listOperators.time")).isEqualTo(before + 1);
+  }
+
+  @Test
+  void get_shouldTimeOneCallOnTheGetTimer() {
+    Address stored = saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE));
+    long before = timedCalls("service.getOperator.time");
+
+    operatorService.get(stored.getId(), ORGANISATION_ID);
+
+    assertThat(timedCalls("service.getOperator.time")).isEqualTo(before + 1);
+  }
+
+  @Test
+  void update_shouldTimeOneCallOnTheUpdateTimer() {
+    Address stored = saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE));
+    long before = timedCalls("service.updateOperator.time");
+
+    operatorService.update(stored.getId(), request(), ORGANISATION_ID);
+
+    assertThat(timedCalls("service.updateOperator.time")).isEqualTo(before + 1);
+  }
+
+  @Test
+  void delete_shouldTimeOneCallOnTheDeleteTimer() {
+    Address stored = saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE));
+    long before = timedCalls("service.deleteOperator.time");
+
+    operatorService.delete(stored.getId(), ORGANISATION_ID);
+
+    assertThat(timedCalls("service.deleteOperator.time")).isEqualTo(before + 1);
   }
 
   private long timedCalls(String timerName) {
@@ -45,14 +70,15 @@ class OperatorServiceTimingIT extends IntegrationBase {
   }
 
   private static AddressRequest request() {
+    Address address = addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE).build();
     return AddressRequest.builder()
-        .name("Highland Livestock Ltd")
-        .addressLine1("14 Drover's Way")
-        .townOrCity("Inverness")
-        .postcode("IV2 3JH")
-        .countryCode("GB")
-        .phone("+44 1463 234567")
-        .email("exports@highlandlivestock.example.com")
+        .name(address.getName())
+        .addressLine1(address.getAddressLine1())
+        .townOrCity(address.getTownOrCity())
+        .postcode(address.getPostcode())
+        .countryCode(address.getCountryCode())
+        .phone(address.getPhone())
+        .email(address.getEmail())
         .build();
   }
 }

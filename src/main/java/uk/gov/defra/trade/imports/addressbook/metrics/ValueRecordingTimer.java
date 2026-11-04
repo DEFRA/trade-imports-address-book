@@ -7,7 +7,6 @@ import io.micrometer.core.instrument.step.StepTimer;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-/** A step timer that also keeps every duration it records, in milliseconds, until taken. */
 class ValueRecordingTimer extends StepTimer {
 
   private final RecordedValues recordedMilliseconds = new RecordedValues();
@@ -25,7 +24,7 @@ class ValueRecordingTimer extends StepTimer {
         pauseDetector,
         TimeUnit.MILLISECONDS,
         stepMillis,
-        false);
+        EmfMeterRegistry.NO_AGGREGABLE_PERCENTILES);
   }
 
   @Override

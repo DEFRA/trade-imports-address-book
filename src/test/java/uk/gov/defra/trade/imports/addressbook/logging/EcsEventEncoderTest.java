@@ -42,7 +42,6 @@ class EcsEventEncoderTest {
 
   @Test
   void encode_shouldNestEventKeyValuePairs_withANumericDuration() throws IOException {
-    // Given
     ILoggingEvent event =
         logged(
             log ->
@@ -53,10 +52,8 @@ class EcsEventEncoderTest {
                     .addKeyValue("event.duration", 203_000_000L)
                     .log("External call mongodb/find success in 203 ms"));
 
-    // When
-    JsonNode line = encode(event);
+    JsonNode line = encodeAsJson(event);
 
-    // Then
     JsonNode eventObject = line.path("event");
     assertThat(eventObject.isObject()).as("a nested event object").isTrue();
     assertThat(eventObject.path("category").asText()).isEqualTo("external-call");
@@ -67,8 +64,7 @@ class EcsEventEncoderTest {
   }
 
   @Test
-  void encode_shouldWriteNoFlatEventKeys() throws IOException {
-    // Given
+  void encode_shouldWriteEventKeyValuePairsNestedAndNotAsFlatKeys() throws IOException {
     ILoggingEvent event =
         logged(
             log ->
@@ -77,17 +73,16 @@ class EcsEventEncoderTest {
                     .addKeyValue("event.duration", 5L)
                     .log("External call"));
 
-    // When
-    JsonNode line = encode(event);
+    JsonNode line = encodeAsJson(event);
 
-    // Then
+    assertThat(line.path("event").path("category").asText()).isEqualTo("external-call");
+    assertThat(line.path("event").path("duration").asLong()).isEqualTo(5L);
     assertThat(line.has("event.category")).isFalse();
     assertThat(line.has("event.duration")).isFalse();
   }
 
   @Test
   void encode_shouldKeepTheParentsFields_includingTraceIdAndTheException() throws IOException {
-    // Given
     MDC.put("trace.id", "trace-from-the-caller");
     ILoggingEvent event =
         logged(
@@ -97,10 +92,8 @@ class EcsEventEncoderTest {
                     .setCause(new IllegalStateException("mongodb unavailable"))
                     .log("External call failed"));
 
-    // When
-    JsonNode line = encode(event);
+    JsonNode line = encodeAsJson(event);
 
-    // Then
     assertThat(line.path("message").asText()).isEqualTo("External call failed");
     assertThat(line.path("log.level").asText()).isEqualTo("WARN");
     assertThat(line.path("service.name").asText()).isEqualTo("trade-imports-address-book");
@@ -113,53 +106,47 @@ class EcsEventEncoderTest {
 
   @Test
   void encode_shouldWriteALineWithNoEventKeyValuePairs_exactlyAsTheEcsEncoderDoes() {
-    // Given
     MDC.put("trace.id", "trace-from-the-caller");
     ILoggingEvent event = logged(log -> log.info("Started"));
 
-    // When & Then
     assertThat(new String(encoder.encode(event)))
         .isEqualTo(new String(parentEncoder.encode(event)));
   }
 
   @Test
-  void encode_shouldIgnoreKeyValuePairsOutsideEvent() throws IOException {
-    // Given
+  void encode_shouldNestOnlyTheEventKeyValuePairs() throws IOException {
     ILoggingEvent event =
-        logged(log -> log.atInfo().addKeyValue("other.key", "value").log("Started"));
+        logged(
+            log ->
+                log.atInfo()
+                    .addKeyValue("event.outcome", "success")
+                    .addKeyValue("other.key", "value")
+                    .log("Started"));
 
-    // When
-    JsonNode line = encode(event);
+    JsonNode line = encodeAsJson(event);
 
-    // Then
-    assertThat(line.has("event")).isFalse();
+    assertThat(line.path("event").fieldNames()).toIterable().containsExactly("outcome");
     assertThat(line.has("other.key")).isFalse();
   }
 
   @Test
   void encode_shouldEscapeStringValues() throws IOException {
-    // Given
     ILoggingEvent event =
         logged(
             log -> log.atInfo().addKeyValue("event.action", "say \"hi\" \\ there").log("Escaped"));
 
-    // When
-    JsonNode line = encode(event);
+    JsonNode line = encodeAsJson(event);
 
-    // Then
     assertThat(line.path("event").path("action").asText()).isEqualTo("say \"hi\" \\ there");
   }
 
   @Test
   void encode_shouldWriteAJsonNull_whenAnEventValueIsNull() throws IOException {
-    // Given
     ILoggingEvent event =
         logged(log -> log.atInfo().addKeyValue("event.outcome", (Object) null).log("No outcome"));
 
-    // When
-    JsonNode line = encode(event);
+    JsonNode line = encodeAsJson(event);
 
-    // Then
     JsonNode outcome = line.path("event").path("outcome");
     assertThat(outcome.isMissingNode()).as("event.outcome is written").isFalse();
     assertThat(outcome.isNull()).isTrue();
@@ -167,7 +154,6 @@ class EcsEventEncoderTest {
 
   @Test
   void encode_shouldWriteANonFiniteNumberAsAString() throws IOException {
-    // Given
     ILoggingEvent event =
         logged(
             log ->
@@ -176,10 +162,8 @@ class EcsEventEncoderTest {
                     .addKeyValue("event.risk_score", Float.POSITIVE_INFINITY)
                     .log("Not a number"));
 
-    // When: JSON has no NaN or Infinity, so a bare one would fail to parse here
-    JsonNode line = encode(event);
+    JsonNode line = encodeAsJson(event);
 
-    // Then
     assertThat(line.path("event").path("duration").asText()).isEqualTo("NaN");
     assertThat(line.path("event").path("risk_score").asText()).isEqualTo("Infinity");
   }
@@ -188,7 +172,7 @@ class EcsEventEncoderTest {
     return CapturedLogs.loggedBy(EcsEventEncoderTest.class, () -> logging.accept(LOG)).getFirst();
   }
 
-  private JsonNode encode(ILoggingEvent event) throws IOException {
+  private JsonNode encodeAsJson(ILoggingEvent event) throws IOException {
     return JSON.readTree(encoder.encode(event));
   }
 }

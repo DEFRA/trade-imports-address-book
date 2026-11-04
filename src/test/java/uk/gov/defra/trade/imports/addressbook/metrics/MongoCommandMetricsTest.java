@@ -34,10 +34,8 @@ class MongoCommandMetricsTest {
   @ParameterizedTest
   @ValueSource(strings = {"find", "insert", "update", "aggregate", "createIndexes"})
   void commandSucceeded_shouldRecordASuccessfulCallNamedByTheCommand(String commandName) {
-    // When
     metrics.commandSucceeded(succeeded(commandName, Duration.ofMillis(12)));
 
-    // Then
     assertThat(durationOf(commandName).totalTime(TimeUnit.MILLISECONDS)).isEqualTo(12.0);
     assertThat(failuresOf(commandName).count()).isEqualTo(1);
     assertThat(failuresOf(commandName).totalAmount()).isZero();
@@ -45,24 +43,23 @@ class MongoCommandMetricsTest {
 
   @Test
   void commandSucceeded_shouldRecordAnUnknownCommandAsOther() {
-    // When
     metrics.commandSucceeded(succeeded("endSessions", Duration.ofMillis(1)));
 
-    // Then
     assertThat(durationOf("other").count()).isEqualTo(1);
   }
 
   @Test
-  void commandFailed_shouldRecordAFailedCall_andLogItsCause() {
-    // When
+  void commandFailed_shouldRecordAFailedCallWithItsDuration_andLogItsCause() {
     var logs =
         CapturedLogs.loggedBy(
             ExternalCallMetrics.class,
             () -> metrics.commandFailed(failed("find", Duration.ofMillis(30))));
 
-    // Then
     assertThat(failuresOf("find").totalAmount()).isEqualTo(1.0);
-    assertThat(keyValues(logs.getFirst())).containsEntry("event.action", "mongodb/find");
+    assertThat(durationOf("find").totalTime(TimeUnit.MILLISECONDS)).isEqualTo(30.0);
+    assertThat(keyValues(logs.getFirst()))
+        .containsEntry("event.action", "mongodb/find")
+        .containsEntry("event.duration", 30_000_000L);
     assertThat(logs.getFirst().getThrowableProxy().getMessage()).isEqualTo(CONNECTION_RESET);
   }
 

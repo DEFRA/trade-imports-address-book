@@ -17,15 +17,6 @@ public class CapturingEmfEnvironment implements Environment {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   private final List<String> serialised = new ArrayList<>();
-  private final boolean failing;
-
-  public CapturingEmfEnvironment() {
-    this(false);
-  }
-
-  public CapturingEmfEnvironment(boolean failing) {
-    this.failing = failing;
-  }
 
   public MetricsLogger metricsLogger() {
     return new MetricsLogger(this);
@@ -73,9 +64,6 @@ public class CapturingEmfEnvironment implements Environment {
     return new ISink() {
       @Override
       public void accept(MetricsContext context) {
-        if (failing) {
-          throw new IllegalStateException("sink unavailable");
-        }
         try {
           serialised.addAll(context.serialize());
         } catch (JsonProcessingException e) {

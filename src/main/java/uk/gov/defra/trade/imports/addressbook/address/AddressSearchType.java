@@ -14,9 +14,9 @@ public enum AddressSearchType {
   }
 
   /**
-   * The value published as the {@code SearchType} metric dimension.
+   * This search type as a lower-case, hyphenated metric value.
    *
-   * @return the dimension value, for example {@code query-and-country}
+   * @return the metric value, for example {@code query-and-country}
    */
   public String metricValue() {
     return metricValue;
