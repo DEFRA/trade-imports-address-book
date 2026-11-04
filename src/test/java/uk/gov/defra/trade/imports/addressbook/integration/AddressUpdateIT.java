@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.contains;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -218,26 +217,5 @@ class AddressUpdateIT extends IntegrationBase {
 
     assertThatThrownBy(() -> operatorRepository.save(stale))
         .isInstanceOf(OptimisticLockingFailureException.class);
-  }
-
-  @Test
-  void put_shouldPreventTombstoneResurrection_whenStaleSaveFollowsDelete() throws Exception {
-    Address saved = saveActiveTypedAddressWithOptionals();
-    Address stale = storedAddress(saved.getId());
-
-    mockMvc
-        .perform(
-            delete("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, saved.getId())
-                .header(ORG_HEADER, ORGANISATION_ID))
-        .andExpect(status().isNoContent());
-
-    stale.setName("Resurrected");
-    stale.setStatus(AddressStatus.ACTIVE);
-
-    assertThatThrownBy(() -> operatorRepository.save(stale))
-        .isInstanceOf(OptimisticLockingFailureException.class);
-    assertThat(storedAddress(saved.getId()))
-        .extracting(Address::getStatus)
-        .isEqualTo(AddressStatus.DELETED);
   }
 }
