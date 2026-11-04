@@ -315,6 +315,17 @@ class AddressSearchIT extends IntegrationBase {
   }
 
   @Test
+  void aBlankSearchUseIsDroppedAndTheOtherSearchUsesStillMatch() throws Exception {
+    Address consignor = saveAddress(londonDepot().name("Depot A").uses(List.of(AddressUse.CONSIGNOR)));
+    saveAddress(londonDepot().name("Depot B").uses(List.of(AddressUse.IMPORTER)));
+
+    listAddresses("searchUse", "CONSIGNOR", "searchUse", "")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(1))
+        .andExpect(jsonPath("$.items[0].id").value(consignor.getId()));
+  }
+
+  @Test
   void anUnknownSearchUseIsABadRequestWithNoErrorsMap() throws Exception {
     listAddresses("searchUse", "TRANSPORTER").andExpect(badRequestProblemWithNoErrors());
   }

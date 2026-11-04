@@ -5,8 +5,10 @@ import io.micrometer.core.instrument.Timer;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -103,7 +105,7 @@ public class OperatorService {
         filters.use(),
         searchPatternOf(filters.searchTerm()),
         nonBlankTrimmed(filters.countryCodes()),
-        filters.searchUses() == null ? List.of() : filters.searchUses());
+        presentElements(filters.searchUses()).toList());
   }
 
   private static String searchPatternOf(String searchTerm) {
@@ -111,13 +113,14 @@ public class OperatorService {
   }
 
   private static List<String> nonBlankTrimmed(List<String> countryCodes) {
-    if (countryCodes == null) {
-      return List.of();
-    }
-    return countryCodes.stream()
-        .filter(code -> code != null && !code.isBlank())
+    return presentElements(countryCodes)
+        .filter(code -> !code.isBlank())
         .map(String::trim)
         .toList();
+  }
+
+  private static <T> Stream<T> presentElements(List<T> values) {
+    return values == null ? Stream.empty() : values.stream().filter(Objects::nonNull);
   }
 
   private static String toPartialMatchRegex(String searchTerm) {
