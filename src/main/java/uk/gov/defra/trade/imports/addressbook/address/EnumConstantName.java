@@ -10,7 +10,7 @@ import java.lang.annotation.Target;
 
 /**
  * The annotated string, or every string in the annotated collection, must equal the name of a
- * constant of {@link #of()}. Null is valid.
+ * constant of {@link #of()}. A null value is valid; a null element in a collection is not.
  */
 @Documented
 @Constraint(validatedBy = EnumConstantNameValidator.class)
