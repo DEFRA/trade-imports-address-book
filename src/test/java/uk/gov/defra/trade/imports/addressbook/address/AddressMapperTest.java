@@ -2,6 +2,9 @@ package uk.gov.defra.trade.imports.addressbook.address;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport.replacementRequest;
+import static uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport.storedAddress;
+import static uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport.validRequest;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -28,41 +31,8 @@ class AddressMapperTest {
     mapper = builder.build().findAndRegisterModules();
   }
 
-  private static Address.AddressBuilder seededEntity(AddressStatus status) {
-    return Address.builder()
-        .id("665f1c2ab3e4d51a2c9d0e77")
-        .name("Acme Livestock")
-        .addressLine1("1 Market Street")
-        .addressLine2("Docklands")
-        .townOrCity("Hull")
-        .county("East Riding")
-        .postcode("HU1 1AA")
-        .countryCode("GB")
-        .phone("+441482000000")
-        .email("ops@acme.example")
-        .addressType(AddressType.DESTINATION_CONSIGNEE_OR_IMPORTER)
-        .uses(List.of(AddressUse.IMPORTER, AddressUse.CONSIGNEE))
-        .organisationId("ORG-001")
-        .status(status)
-        .createdAt(Instant.parse("2026-07-01T09:00:00Z"))
-        .modifiedAt(Instant.parse("2026-07-02T10:30:00Z"));
-  }
-
-  private static AddressRequest.AddressRequestBuilder validRequest() {
-    return AddressRequest.builder()
-        .name("Lowland Cattle Co")
-        .addressLine1("2 Market Street")
-        .townOrCity("Perth")
-        .postcode("PH1 5AA")
-        .countryCode("IE")
-        .phone("+44 1738 111222")
-        .email("ops@lowlandcattle.example.com")
-        .addressType("ORIGIN_OR_CONSIGNOR")
-        .uses(List.of("PLACE_OF_ORIGIN"));
-  }
-
   private AddressResponse responseFor(AddressStatus status) {
-    return addressMapper.toResponse(seededEntity(status).build());
+    return addressMapper.toResponse(storedAddress("ORG-001", status).build());
   }
 
   @Test
@@ -70,15 +40,15 @@ class AddressMapperTest {
     AddressResponse response = responseFor(AddressStatus.ACTIVE);
 
     assertThat(response.id()).isEqualTo("665f1c2ab3e4d51a2c9d0e77");
-    assertThat(response.name()).isEqualTo("Acme Livestock");
-    assertThat(response.addressLine1()).isEqualTo("1 Market Street");
-    assertThat(response.addressLine2()).isEqualTo("Docklands");
-    assertThat(response.townOrCity()).isEqualTo("Hull");
-    assertThat(response.county()).isEqualTo("East Riding");
-    assertThat(response.postcode()).isEqualTo("HU1 1AA");
+    assertThat(response.name()).isEqualTo("Highland Livestock Ltd");
+    assertThat(response.addressLine1()).isEqualTo("14 Drover's Way");
+    assertThat(response.addressLine2()).isEqualTo("Unit 3");
+    assertThat(response.townOrCity()).isEqualTo("Inverness");
+    assertThat(response.county()).isEqualTo("Highland");
+    assertThat(response.postcode()).isEqualTo("IV2 3JH");
     assertThat(response.countryCode()).isEqualTo("GB");
-    assertThat(response.phone()).isEqualTo("+441482000000");
-    assertThat(response.email()).isEqualTo("ops@acme.example");
+    assertThat(response.phone()).isEqualTo("+44 1463 234567");
+    assertThat(response.email()).isEqualTo("exports@highlandlivestock.example.com");
     assertThat(response.addressType()).isEqualTo(AddressType.DESTINATION_CONSIGNEE_OR_IMPORTER);
     assertThat(response.uses()).containsExactly(AddressUse.IMPORTER, AddressUse.CONSIGNEE);
     assertThat(response.organisationId()).isEqualTo("ORG-001");
@@ -97,7 +67,7 @@ class AddressMapperTest {
   @Test
   void toResponse_mapsOptionalFieldsWhenAbsent() {
     Address entity =
-        seededEntity(AddressStatus.ACTIVE)
+        storedAddress("ORG-001", AddressStatus.ACTIVE)
             .addressLine2(null)
             .county(null)
             .addressType(null)
@@ -110,12 +80,12 @@ class AddressMapperTest {
     assertThat(response.county()).isNull();
     assertThat(response.addressType()).isNull();
     assertThat(response.uses()).isNull();
-    assertThat(response.name()).isEqualTo("Acme Livestock");
+    assertThat(response.name()).isEqualTo("Highland Livestock Ltd");
   }
 
   @Test
   void toResponse_failsLoudWhenARequiredFieldIsNull() {
-    Address entity = seededEntity(AddressStatus.ACTIVE).phone(null).build();
+    Address entity = storedAddress("ORG-001", AddressStatus.ACTIVE).phone(null).build();
 
     assertThatThrownBy(() -> addressMapper.toResponse(entity))
         .isInstanceOf(NullPointerException.class)
@@ -144,11 +114,11 @@ class AddressMapperTest {
             "deleted",
             "createdAt",
             "modifiedAt");
-    assertThat(json.get("addressLine1").asText()).isEqualTo("1 Market Street");
-    assertThat(json.get("addressLine2").asText()).isEqualTo("Docklands");
-    assertThat(json.get("townOrCity").asText()).isEqualTo("Hull");
+    assertThat(json.get("addressLine1").asText()).isEqualTo("14 Drover's Way");
+    assertThat(json.get("addressLine2").asText()).isEqualTo("Unit 3");
+    assertThat(json.get("townOrCity").asText()).isEqualTo("Inverness");
     assertThat(json.get("countryCode").asText()).isEqualTo("GB");
-    assertThat(json.get("phone").asText()).isEqualTo("+441482000000");
+    assertThat(json.get("phone").asText()).isEqualTo("+44 1463 234567");
     assertThat(json.get("addressType").asText()).isEqualTo("DESTINATION_CONSIGNEE_OR_IMPORTER");
     assertThat(json.get("uses"))
         .extracting(JsonNode::asText)
@@ -227,9 +197,10 @@ class AddressMapperTest {
 
   @Test
   void updateEntity_replacesAllMutableFieldsAndClearsOmittedOptionals() {
-    Address existing = seededEntity(AddressStatus.ACTIVE).version(2L).build();
+    Address existing = storedAddress("ORG-001", AddressStatus.ACTIVE).version(2L).build();
 
-    addressMapper.updateEntity(validRequest().build(), existing);
+    addressMapper.updateEntity(
+        replacementRequest().addressLine2(null).county(null).build(), existing);
 
     assertThat(existing.getName()).isEqualTo("Lowland Cattle Co");
     assertThat(existing.getAddressLine1()).isEqualTo("2 Market Street");
@@ -250,7 +221,7 @@ class AddressMapperTest {
 
   @Test
   void updateEntity_replacesTheStoredAddressTypeAndUsesWithTheRequestsSet() {
-    Address existing = seededEntity(AddressStatus.ACTIVE).build();
+    Address existing = storedAddress("ORG-001", AddressStatus.ACTIVE).build();
     AddressRequest request =
         validRequest()
             .addressType("ORIGIN_OR_CONSIGNOR")

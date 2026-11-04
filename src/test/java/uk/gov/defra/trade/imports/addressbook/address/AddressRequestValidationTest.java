@@ -1,6 +1,7 @@
 package uk.gov.defra.trade.imports.addressbook.address;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport.validRequest;
 
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
@@ -32,19 +33,6 @@ class AddressRequestValidationTest {
   @AfterAll
   static void tearDown() {
     factory.close();
-  }
-
-  private static AddressRequest.AddressRequestBuilder validRequest() {
-    return AddressRequest.builder()
-        .name("Highland Livestock Ltd")
-        .addressLine1("14 Drover's Way")
-        .townOrCity("Inverness")
-        .postcode("IV2 3JH")
-        .countryCode("GB")
-        .phone("+44 1463 234567")
-        .email("exports@highlandlivestock.example.com")
-        .addressType("ORIGIN_OR_CONSIGNOR")
-        .uses(List.of("PLACE_OF_ORIGIN"));
   }
 
   private static String repeat(int length) {
