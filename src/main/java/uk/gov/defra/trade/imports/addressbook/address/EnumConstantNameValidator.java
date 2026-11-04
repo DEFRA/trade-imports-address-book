@@ -23,9 +23,8 @@ public class EnumConstantNameValidator implements ConstraintValidator<EnumConsta
   public boolean isValid(Object value, ConstraintValidatorContext context) {
     return switch (value) {
       case null -> true;
-      case String name -> constantNames.contains(name);
       case Collection<?> names -> names.stream().allMatch(this::isConstantName);
-      default -> false;
+      default -> isConstantName(value);
     };
   }
 
