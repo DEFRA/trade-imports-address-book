@@ -97,7 +97,12 @@ public record AddressRequest(
         String email,
     @NotBlank(message = "Select an address type")
         @EnumConstantName(of = AddressType.class, message = "Select a valid address type")
-        @Schema(implementation = AddressType.class, requiredMode = Schema.RequiredMode.REQUIRED)
+        @Schema(
+            implementation = AddressType.class,
+            description =
+                "The kind of address this is. Any use may be saved with any type; the list's"
+                    + " category picks addresses by their uses, not by this type",
+            requiredMode = Schema.RequiredMode.REQUIRED)
         String addressType,
     @NotEmpty(message = "Select what this address can be used for")
         @EnumConstantName(of = AddressUse.class, message = "Select valid address uses")

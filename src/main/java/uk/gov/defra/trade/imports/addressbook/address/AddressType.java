@@ -8,11 +8,6 @@ import java.util.List;
  * holds one of the type's uses, whatever address type it was saved with; any use may be saved with
  * any type.
  */
-@Schema(
-    description =
-        "The kind of address an entry is, and a group of uses. An address is listed under a type"
-            + " when it holds one of the type's uses, whatever address type it was saved with; any"
-            + " use may be saved with any type")
 public enum AddressType {
   @Schema(
       description =

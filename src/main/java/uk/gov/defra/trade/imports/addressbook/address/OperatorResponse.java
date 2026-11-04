@@ -43,8 +43,15 @@ public record OperatorResponse(
         String phone,
     @Schema(description = "Contact email address", requiredMode = Schema.RequiredMode.REQUIRED)
         String email,
-    @Schema(implementation = AddressType.class) AddressType addressType,
-    @ArraySchema(schema = @Schema(implementation = AddressUse.class)) List<AddressUse> uses,
+    @Schema(description = "Address type the address was saved with; null when it has none")
+        AddressType addressType,
+    @ArraySchema(
+            schema = @Schema(implementation = AddressUse.class),
+            arraySchema =
+                @Schema(
+                    description =
+                        "What the address can be used for; null or empty when it has none"))
+        List<AddressUse> uses,
     @Schema(
             description = "Organisation that owns this address",
             requiredMode = Schema.RequiredMode.REQUIRED)

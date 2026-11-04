@@ -213,7 +213,6 @@ paths:
         required: false
         schema:
           type: string
-          description: The kind of address an entry is, and a group of uses. An address is listed under a type when it holds one of the type's uses, whatever address type it was saved with; any use may be saved with any type
           enum:
           - ORIGIN_OR_CONSIGNOR
           - DESTINATION_CONSIGNEE_OR_IMPORTER
@@ -391,7 +390,7 @@ components:
           minLength: 1
         addressType:
           type: string
-          description: The kind of address an entry is, and a group of uses. An address is listed under a type when it holds one of the type's uses, whatever address type it was saved with; any use may be saved with any type
+          description: The kind of address this is. Any use may be saved with any type; the list's category picks addresses by their uses, not by this type
           enum:
           - ORIGIN_OR_CONSIGNOR
           - DESTINATION_CONSIGNEE_OR_IMPORTER
@@ -457,13 +456,14 @@ components:
           description: Contact email address
         addressType:
           type: string
-          description: The kind of address an entry is, and a group of uses. An address is listed under a type when it holds one of the type's uses, whatever address type it was saved with; any use may be saved with any type
+          description: Address type the address was saved with; null when it has none
           enum:
           - ORIGIN_OR_CONSIGNOR
           - DESTINATION_CONSIGNEE_OR_IMPORTER
           - BRANCH
         uses:
           type: array
+          description: What the address can be used for; null or empty when it has none
           items:
             type: string
             description: What an address can be used for
