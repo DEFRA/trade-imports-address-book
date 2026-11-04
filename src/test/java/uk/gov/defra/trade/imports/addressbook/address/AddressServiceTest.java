@@ -243,22 +243,20 @@ class AddressServiceTest {
     Address tombstone = storedAddress(ORG, AddressStatus.DELETED).build();
     when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", ORG))
         .thenReturn(Optional.of(tombstone));
+    AddressRequest request = replacementRequest().build();
 
     assertThatExceptionOfType(NotFoundException.class)
-        .isThrownBy(
-            () -> service.update("665f1c2ab3e4d51a2c9d0e77", replacementRequest().build(), ORG));
+        .isThrownBy(() -> service.update("665f1c2ab3e4d51a2c9d0e77", request, ORG));
   }
 
   @Test
   void update_ofAnotherOrganisationsIdThrowsNotFound() {
     when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", "org-other"))
         .thenReturn(Optional.empty());
+    AddressRequest request = replacementRequest().build();
 
     assertThatExceptionOfType(NotFoundException.class)
-        .isThrownBy(
-            () ->
-                service.update(
-                    "665f1c2ab3e4d51a2c9d0e77", replacementRequest().build(), "org-other"));
+        .isThrownBy(() -> service.update("665f1c2ab3e4d51a2c9d0e77", request, "org-other"));
   }
 
   @Test

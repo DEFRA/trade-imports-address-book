@@ -12,7 +12,6 @@ import org.springframework.boot.autoconfigure.data.mongo.MongoRepositoriesAutoCo
 import org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -21,6 +20,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import uk.gov.defra.trade.imports.addressbook.address.AddressRepository;
 import uk.gov.defra.trade.imports.addressbook.configuration.MongoConfig;
 import uk.gov.defra.trade.imports.addressbook.testsupport.ApiDocs;
@@ -34,9 +34,9 @@ class OpenApiArtifactGeneratorIT {
 
   @LocalServerPort int port;
 
-  @MockBean AddressRepository addressRepository;
+  @MockitoBean AddressRepository addressRepository;
 
-  @MockBean MongoTemplate mongoTemplate;
+  @MockitoBean MongoTemplate mongoTemplate;
 
   @Test
   void regenerateCommittedOpenApiArtifact() throws IOException {
@@ -44,7 +44,7 @@ class OpenApiArtifactGeneratorIT {
 
     Files.writeString(ApiDocs.COMMITTED_ARTIFACT, rendered);
 
-    assertThat(ApiDocs.COMMITTED_ARTIFACT).hasContent(rendered);
+    assertThat(Files.readString(ApiDocs.COMMITTED_ARTIFACT)).isEqualTo(rendered);
   }
 
   @SpringBootApplication(
