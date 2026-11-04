@@ -21,13 +21,13 @@ class OperatorListQueryImpl implements OperatorListQuery {
   @Override
   public Page<Address> listLiveAddresses(
       String organisationId, ListCriteria criteria, Pageable pageable) {
-    Query query = Query.query(liveAddressQuery(organisationId, criteria));
+    Query query = Query.query(liveAddressCriteria(organisationId, criteria));
     List<Address> content = mongoTemplate.find(Query.of(query).with(pageable), Address.class);
     return PageableExecutionUtils.getPage(
         content, pageable, () -> mongoTemplate.exactCount(query, Address.class));
   }
 
-  private static Criteria liveAddressQuery(String organisationId, ListCriteria criteria) {
+  private static Criteria liveAddressCriteria(String organisationId, ListCriteria criteria) {
     List<Criteria> clauses = new ArrayList<>();
     clauses.add(Criteria.where("organisationId").is(organisationId));
     clauses.add(Criteria.where("status").is(AddressStatus.ACTIVE));
@@ -46,12 +46,15 @@ class OperatorListQueryImpl implements OperatorListQuery {
   }
 
   private static Criteria listedUnder(AddressType category) {
-    Criteria holdsAUse = Criteria.where("uses").in(category.uses());
+    Criteria holdsOneOfTheTypesUses = Criteria.where("uses").in(category.uses());
     if (!category.listsAddressWithNoUses()) {
-      return holdsAUse;
+      return holdsOneOfTheTypesUses;
     }
     return new Criteria()
-        .orOperator(holdsAUse, Criteria.where("uses").is(null), Criteria.where("uses").size(0));
+        .orOperator(
+            holdsOneOfTheTypesUses,
+            Criteria.where("uses").is(null),
+            Criteria.where("uses").size(0));
   }
 
   private static Criteria searchClause(ListCriteria criteria) {
