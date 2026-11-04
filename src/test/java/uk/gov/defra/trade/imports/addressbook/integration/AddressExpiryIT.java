@@ -45,30 +45,25 @@ class AddressExpiryIT extends IntegrationBase {
 
   @Test
   void ttlIndex_isOnExpireAtAndExpiresDocumentsAtThatTime() {
-    // When
     Document ttlIndex =
         mongoTemplate.getCollection("addresses").listIndexes().into(new ArrayList<>()).stream()
             .filter(index -> TTL_INDEX.equals(index.getString("name")))
             .findFirst()
             .orElseThrow();
 
-    // Then
     assertThat(ttlIndex.get("key", Document.class)).isEqualTo(new Document("expireAt", 1));
     assertThat(ttlIndex.get("expireAfterSeconds", Number.class).longValue()).isZero();
   }
 
   @Test
   void post_givesTheNewAddressAnExpireAtSevenDaysAhead() throws Exception {
-    // Given
     String body = addressBody().json();
     Instant beforeAtMongoPrecision = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
-    // When
     postAddress(body)
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.expireAt").doesNotExist());
 
-    // Then
     Instant after = Instant.now();
     List<Address> addresses = activeAddressesFor(ORGANISATION_ID);
     assertThat(addresses).hasSize(1);
@@ -78,7 +73,6 @@ class AddressExpiryIT extends IntegrationBase {
 
   @Test
   void expiredAddresses_areRemovedByMongoWhileUndatedAndUnexpiredOnesStay() {
-    // Given
     Instant past = Instant.now().minus(1, ChronoUnit.HOURS);
     Instant future = Instant.now().plus(7, ChronoUnit.DAYS);
     String expiredActive = save("Expired Farm", AddressStatus.ACTIVE, past);
@@ -86,10 +80,8 @@ class AddressExpiryIT extends IntegrationBase {
     String undated = save("Created Before Expiry", AddressStatus.ACTIVE, null);
     String unexpired = save("Recent Farm", AddressStatus.ACTIVE, future);
 
-    // When
     setTtlMonitorSleepSecs(1);
 
-    // Then
     await()
         .atMost(Duration.ofSeconds(30))
         .untilAsserted(
