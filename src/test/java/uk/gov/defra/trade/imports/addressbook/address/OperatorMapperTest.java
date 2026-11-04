@@ -48,7 +48,7 @@ class OperatorMapperTest {
         .modifiedAt(Instant.parse("2026-07-02T10:30:00Z"));
   }
 
-  private static AddressRequest.AddressRequestBuilder replacementRequest() {
+  private static AddressRequest.AddressRequestBuilder validRequest() {
     return AddressRequest.builder()
         .name("Lowland Cattle Co")
         .addressLine1("2 Market Street")
@@ -212,7 +212,7 @@ class OperatorMapperTest {
   @Test
   void toEntity_mapsTheWireAddressTypeAndUsesOntoEnumsInOrder() {
     AddressRequest request =
-        replacementRequest()
+        validRequest()
             .addressType("BRANCH")
             .uses(List.of("BRANCH_ADDRESS", "CONSIGNOR", "PLACE_OF_ORIGIN"))
             .build();
@@ -229,7 +229,7 @@ class OperatorMapperTest {
   void updateEntity_replacesAllMutableFieldsAndClearsOmittedOptionals() {
     Address existing = seededEntity(AddressStatus.ACTIVE).version(2L).build();
 
-    operatorMapper.updateEntity(replacementRequest().build(), existing);
+    operatorMapper.updateEntity(validRequest().build(), existing);
 
     assertThat(existing.getName()).isEqualTo("Lowland Cattle Co");
     assertThat(existing.getAddressLine1()).isEqualTo("2 Market Street");
@@ -252,7 +252,7 @@ class OperatorMapperTest {
   void updateEntity_replacesTheStoredAddressTypeAndUsesWithTheRequestsSet() {
     Address existing = seededEntity(AddressStatus.ACTIVE).build();
     AddressRequest request =
-        replacementRequest()
+        validRequest()
             .addressType("ORIGIN_OR_CONSIGNOR")
             .uses(List.of("PLACE_OF_ORIGIN", "CONSIGNOR", "IMPORTER"))
             .build();
