@@ -7,8 +7,51 @@ public final class OperatorTestSupport {
 
   static final AddressTtlConfig NO_TTL = new AddressTtlConfig(null, "dev");
 
-  public static final ListCriteria NO_LIST_CRITERIA =
-      new ListCriteria(null, null, null, List.of(), List.of());
+  public static final ListCriteria NO_LIST_CRITERIA = listCriteria().build();
 
   private OperatorTestSupport() {}
+
+  public static ListCriteriaBuilder listCriteria() {
+    return new ListCriteriaBuilder();
+  }
+
+  public static final class ListCriteriaBuilder {
+
+    private AddressType category;
+    private AddressUse use;
+    private String searchPattern;
+    private List<String> countryCodes = List.of();
+    private List<AddressUse> searchUses = List.of();
+
+    private ListCriteriaBuilder() {}
+
+    public ListCriteriaBuilder category(AddressType category) {
+      this.category = category;
+      return this;
+    }
+
+    public ListCriteriaBuilder use(AddressUse use) {
+      this.use = use;
+      return this;
+    }
+
+    public ListCriteriaBuilder searchPattern(String searchPattern) {
+      this.searchPattern = searchPattern;
+      return this;
+    }
+
+    public ListCriteriaBuilder countryCodes(String... countryCodes) {
+      this.countryCodes = List.of(countryCodes);
+      return this;
+    }
+
+    public ListCriteriaBuilder searchUses(AddressUse... searchUses) {
+      this.searchUses = List.of(searchUses);
+      return this;
+    }
+
+    public ListCriteria build() {
+      return new ListCriteria(category, use, searchPattern, countryCodes, searchUses);
+    }
+  }
 }

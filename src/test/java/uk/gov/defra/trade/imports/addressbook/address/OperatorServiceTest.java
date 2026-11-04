@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static uk.gov.defra.trade.imports.addressbook.address.OperatorService.DEFAULT_PAGE_SIZE;
 import static uk.gov.defra.trade.imports.addressbook.address.OperatorTestSupport.NO_LIST_CRITERIA;
 import static uk.gov.defra.trade.imports.addressbook.address.OperatorTestSupport.NO_TTL;
+import static uk.gov.defra.trade.imports.addressbook.address.OperatorTestSupport.listCriteria;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -430,7 +431,7 @@ class OperatorServiceTest {
   @Test
   void list_withSeveralCountryCodesTrimsEachAndDropsBlanksAndNulls() {
     Address matching = persistedAddress("matching-id", ORG, AddressStatus.ACTIVE);
-    ListCriteria expected = new ListCriteria(null, null, null, List.of("FR", "GB"), List.of());
+    ListCriteria expected = listCriteria().countryCodes("FR", "GB").build();
     when(repository.listLiveAddresses(eq(ORG), eq(expected), any(Pageable.class)))
         .thenReturn(pageOf(List.of(matching), 0, DEFAULT_PAGE_SIZE, 1));
 
@@ -454,7 +455,7 @@ class OperatorServiceTest {
 
   @Test
   void list_passesTheSearchTermAsAPartialMatchPattern() {
-    ListCriteria expected = new ListCriteria(null, null, ".*\\Qfarm\\E.*", List.of(), List.of());
+    ListCriteria expected = listCriteria().searchPattern(".*\\Qfarm\\E.*").build();
     when(repository.listLiveAddresses(eq(ORG), eq(expected), any(Pageable.class)))
         .thenReturn(emptyFirstPage());
 
@@ -466,7 +467,7 @@ class OperatorServiceTest {
   @Test
   void list_trimsTheSearchTermBeforeBuildingThePattern() {
     Address matching = persistedAddress("matching-id", ORG, AddressStatus.ACTIVE);
-    ListCriteria expected = new ListCriteria(null, null, ".*\\Qfarm\\E.*", List.of(), List.of());
+    ListCriteria expected = listCriteria().searchPattern(".*\\Qfarm\\E.*").build();
     when(repository.listLiveAddresses(eq(ORG), eq(expected), any(Pageable.class)))
         .thenReturn(pageOf(List.of(matching), 0, DEFAULT_PAGE_SIZE, 1));
 
@@ -488,7 +489,7 @@ class OperatorServiceTest {
   @Test
   void list_passesTheSearchPatternAndTrimmedCountryCodesTogether() {
     ListCriteria expected =
-        new ListCriteria(null, null, ".*\\QFrance\\E.*", List.of("FR"), List.of());
+        listCriteria().searchPattern(".*\\QFrance\\E.*").countryCodes("FR").build();
     when(repository.listLiveAddresses(eq(ORG), eq(expected), any(Pageable.class)))
         .thenReturn(emptyFirstPage());
 
@@ -503,7 +504,11 @@ class OperatorServiceTest {
   void list_passesTheAddressTypeWithTheSearchAndCountryCodes(AddressType addressType) {
     Address matching = persistedAddress("matching-id", ORG, AddressStatus.ACTIVE);
     ListCriteria expected =
-        new ListCriteria(addressType, null, ".*\\Qfarm\\E.*", List.of("FR"), List.of());
+        listCriteria()
+            .category(addressType)
+            .searchPattern(".*\\Qfarm\\E.*")
+            .countryCodes("FR")
+            .build();
     when(repository.listLiveAddresses(eq(ORG), eq(expected), any(Pageable.class)))
         .thenReturn(pageOf(List.of(matching), 0, DEFAULT_PAGE_SIZE, 1));
 
