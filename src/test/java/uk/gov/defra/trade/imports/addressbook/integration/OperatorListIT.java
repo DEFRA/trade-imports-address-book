@@ -58,7 +58,7 @@ class OperatorListIT extends IntegrationBase {
     }
   }
 
-  private void saveHolding(String name, String countryCode, AddressUse... uses) {
+  private void saveActiveAddressWithUses(String name, String countryCode, AddressUse... uses) {
     saveAddress(
         addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE)
             .name(name)
@@ -66,11 +66,12 @@ class OperatorListIT extends IntegrationBase {
             .uses(List.of(uses)));
   }
 
-  private void seedAddressesHoldingEachUse() {
-    saveHolding(ORIGIN_AND_CONSIGNEE, "GB", AddressUse.PLACE_OF_ORIGIN, AddressUse.CONSIGNEE);
-    saveHolding(CONSIGNOR, "GB", AddressUse.CONSIGNOR);
-    saveHolding(IMPORTER, "FR", AddressUse.IMPORTER);
-    saveHolding(BRANCH, "FR", AddressUse.BRANCH_ADDRESS);
+  private void seedAddressesAcrossTabsUsesAndStatuses() {
+    saveActiveAddressWithUses(
+        ORIGIN_AND_CONSIGNEE, "GB", AddressUse.PLACE_OF_ORIGIN, AddressUse.CONSIGNEE);
+    saveActiveAddressWithUses(CONSIGNOR, "GB", AddressUse.CONSIGNOR);
+    saveActiveAddressWithUses(IMPORTER, "FR", AddressUse.IMPORTER);
+    saveActiveAddressWithUses(BRANCH, "FR", AddressUse.BRANCH_ADDRESS);
     saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE).name(NO_USES));
     saveAddress(
         addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE)
@@ -225,7 +226,7 @@ class OperatorListIT extends IntegrationBase {
 
   @Test
   void list_shouldReturnEveryLiveAddress_whenNoAddressTypeIsGiven() throws Exception {
-    seedAddressesHoldingEachUse();
+    seedAddressesAcrossTabsUsesAndStatuses();
 
     listAddresses()
         .andExpect(status().isOk())
@@ -245,7 +246,7 @@ class OperatorListIT extends IntegrationBase {
   @Test
   void list_shouldReturnAddressesHoldingAnOriginOrConsignorUseAndThoseHoldingNone_whenAddressTypeIsOriginOrConsignor()
       throws Exception {
-    seedAddressesHoldingEachUse();
+    seedAddressesAcrossTabsUsesAndStatuses();
 
     listAddresses("category", "ORIGIN_OR_CONSIGNOR")
         .andExpect(status().isOk())
@@ -260,7 +261,7 @@ class OperatorListIT extends IntegrationBase {
   @Test
   void list_shouldReturnAddressesHoldingADestinationConsigneeOrImporterUse_whenAddressTypeIsDestinationConsigneeOrImporter()
       throws Exception {
-    seedAddressesHoldingEachUse();
+    seedAddressesAcrossTabsUsesAndStatuses();
 
     listAddresses("category", "DESTINATION_CONSIGNEE_OR_IMPORTER")
         .andExpect(status().isOk())
@@ -271,7 +272,7 @@ class OperatorListIT extends IntegrationBase {
   @Test
   void list_shouldReturnOnlyTheLiveAddressHoldingABranchAddressUse_whenAddressTypeIsBranch()
       throws Exception {
-    seedAddressesHoldingEachUse();
+    seedAddressesAcrossTabsUsesAndStatuses();
 
     listAddresses("category", "BRANCH")
         .andExpect(status().isOk())
@@ -281,7 +282,7 @@ class OperatorListIT extends IntegrationBase {
 
   @Test
   void list_shouldCombineTheSearchTermWithTheAddressType() throws Exception {
-    seedAddressesHoldingEachUse();
+    seedAddressesAcrossTabsUsesAndStatuses();
 
     listAddresses("category", "DESTINATION_CONSIGNEE_OR_IMPORTER", "q", "Consign")
         .andExpect(status().isOk())
@@ -291,7 +292,7 @@ class OperatorListIT extends IntegrationBase {
 
   @Test
   void list_shouldCombineTheCountryCodeWithTheAddressType() throws Exception {
-    seedAddressesHoldingEachUse();
+    seedAddressesAcrossTabsUsesAndStatuses();
 
     listAddresses("category", "BRANCH", "countryCode", "FR")
         .andExpect(status().isOk())
@@ -304,7 +305,7 @@ class OperatorListIT extends IntegrationBase {
 
   @Test
   void list_shouldPageAndCountOnlyTheAddressesListedUnderTheAddressType() throws Exception {
-    seedAddressesHoldingEachUse();
+    seedAddressesAcrossTabsUsesAndStatuses();
 
     listAddresses("category", "ORIGIN_OR_CONSIGNOR", "pageSize", "1")
         .andExpect(status().isOk())
@@ -321,7 +322,7 @@ class OperatorListIT extends IntegrationBase {
 
   @Test
   void list_shouldReturnOnlyTheLiveAddressesHoldingTheUse_whenUseIsGiven() throws Exception {
-    seedAddressesHoldingEachUse();
+    seedAddressesAcrossTabsUsesAndStatuses();
 
     listAddresses("use", "CONSIGNOR")
         .andExpect(status().isOk())
@@ -336,7 +337,7 @@ class OperatorListIT extends IntegrationBase {
   @Test
   void list_shouldNotReturnAddressesWithNoUses_whenUseIsGivenWithOriginOrConsignor()
       throws Exception {
-    seedAddressesHoldingEachUse();
+    seedAddressesAcrossTabsUsesAndStatuses();
 
     listAddresses("category", "ORIGIN_OR_CONSIGNOR", "use", "PLACE_OF_ORIGIN")
         .andExpect(status().isOk())
@@ -346,7 +347,7 @@ class OperatorListIT extends IntegrationBase {
 
   @Test
   void list_shouldNarrowTheSearchByTheUse_whenUseAndSearchTermAreGiven() throws Exception {
-    seedAddressesHoldingEachUse();
+    seedAddressesAcrossTabsUsesAndStatuses();
 
     listAddresses("use", "CONSIGNEE", "q", "Consign")
         .andExpect(status().isOk())
@@ -360,9 +361,9 @@ class OperatorListIT extends IntegrationBase {
   @Test
   void list_shouldPageAndCountOverTheAddressesHoldingTheUse() throws Exception {
     for (int i = 0; i < 3; i++) {
-      saveHolding("Consignor " + i, "GB", AddressUse.CONSIGNOR);
+      saveActiveAddressWithUses("Consignor " + i, "GB", AddressUse.CONSIGNOR);
     }
-    saveHolding("Importer", "GB", AddressUse.IMPORTER);
+    saveActiveAddressWithUses("Importer", "GB", AddressUse.IMPORTER);
 
     listAddresses("use", "CONSIGNOR", "pageSize", "2")
         .andExpect(status().isOk())
