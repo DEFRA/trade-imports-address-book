@@ -56,7 +56,9 @@ class OperatorMapperTest {
         .postcode("PH1 5AA")
         .countryCode("IE")
         .phone("+44 1738 111222")
-        .email("ops@lowlandcattle.example.com");
+        .email("ops@lowlandcattle.example.com")
+        .addressType("ORIGIN_OR_CONSIGNOR")
+        .uses(List.of("PLACE_OF_ORIGIN"));
   }
 
   private OperatorResponse responseFor(AddressStatus status) {
@@ -238,8 +240,6 @@ class OperatorMapperTest {
     assertThat(existing.getCountryCode()).isEqualTo("IE");
     assertThat(existing.getPhone()).isEqualTo("+44 1738 111222");
     assertThat(existing.getEmail()).isEqualTo("ops@lowlandcattle.example.com");
-    assertThat(existing.getAddressType()).isNull();
-    assertThat(existing.getUses()).isNull();
     assertThat(existing.getId()).isEqualTo("665f1c2ab3e4d51a2c9d0e77");
     assertThat(existing.getOrganisationId()).isEqualTo("ORG-001");
     assertThat(existing.getStatus()).isEqualTo(AddressStatus.ACTIVE);
