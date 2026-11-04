@@ -42,9 +42,8 @@ class AddressUpdateIT extends IntegrationBase {
     assertThat(storedAddress(seeded.getId()))
         .satisfies(
             address -> {
-              assertThat(address.getAddressType()).isEqualTo(AddressType.ORIGIN_OR_CONSIGNOR);
-              assertThat(address.getUses())
-                  .containsExactly(AddressUse.PLACE_OF_ORIGIN, AddressUse.CONSIGNOR);
+              assertThat(address.getAddressType()).isEqualTo(seeded.getAddressType());
+              assertThat(address.getUses()).containsExactlyElementsOf(seeded.getUses());
             });
   }
 
