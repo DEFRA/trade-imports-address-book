@@ -249,7 +249,7 @@ class AddressSearchIT extends IntegrationBase {
   }
 
   @Test
-  void searchUseAloneMatchesExactlyTheAddressesHoldingIt() throws Exception {
+  void list_withASearchUseAloneMatchesExactlyTheAddressesHoldingIt() throws Exception {
     Address consignor = saveAddress(londonDepot().name("Depot A").uses(List.of(AddressUse.CONSIGNOR)));
     saveAddress(londonDepot().name("Depot B").uses(List.of(AddressUse.IMPORTER)));
     saveAddress(londonDepot().name("Depot C"));
@@ -261,7 +261,7 @@ class AddressSearchIT extends IntegrationBase {
   }
 
   @Test
-  void searchUseMatchesAnAddressHoldingAnyOfSeveralSearchUses() throws Exception {
+  void list_withSeveralSearchUsesMatchesAnAddressHoldingAnyOfThem() throws Exception {
     Address consignor = saveAddress(londonDepot().name("Depot A").uses(List.of(AddressUse.CONSIGNOR)));
     Address consignee = saveAddress(londonDepot().name("Depot B").uses(List.of(AddressUse.CONSIGNEE)));
     saveAddress(londonDepot().name("Depot C").uses(List.of(AddressUse.IMPORTER)));
@@ -273,7 +273,7 @@ class AddressSearchIT extends IntegrationBase {
   }
 
   @Test
-  void searchUseWidensTheSearchTermToAnAddressHoldingTheUse() throws Exception {
+  void list_withASearchUseWidensTheSearchTermToAnAddressHoldingTheUse() throws Exception {
     Address byName = saveAddress(londonDepot().name("Green Farm"));
     Address byUse = saveAddress(londonDepot().name("Depot B").uses(List.of(AddressUse.CONSIGNOR)));
     saveAddress(londonDepot().name("Depot C").uses(List.of(AddressUse.IMPORTER)));
@@ -285,7 +285,7 @@ class AddressSearchIT extends IntegrationBase {
   }
 
   @Test
-  void searchUseTermAndCountryCodeTogetherReturnTheUnionOfTheirMatches() throws Exception {
+  void list_withASearchUseTermAndCountryCodeReturnsTheUnionOfTheirMatches() throws Exception {
     Address byName = saveAddress(londonDepot().name("Green Farm"));
     Address byCountry = saveAddress(parisDepot());
     Address byUse = saveAddress(londonDepot().name("Depot B").uses(List.of(AddressUse.CONSIGNOR)));
@@ -301,7 +301,7 @@ class AddressSearchIT extends IntegrationBase {
   }
 
   @Test
-  void searchUseStaysWithinTheAddressType() throws Exception {
+  void list_withASearchUseStaysWithinTheAddressType() throws Exception {
     Address consignor = saveAddress(londonDepot().name("Depot A").uses(List.of(AddressUse.CONSIGNOR)));
     saveAddress(londonDepot().name("Depot B").uses(List.of(AddressUse.IMPORTER)));
 
@@ -315,7 +315,7 @@ class AddressSearchIT extends IntegrationBase {
   }
 
   @Test
-  void aBlankSearchUseIsDroppedAndTheOtherSearchUsesStillMatch() throws Exception {
+  void list_withABlankSearchUseDropsItAndStillMatchesTheOtherSearchUses() throws Exception {
     Address consignor = saveAddress(londonDepot().name("Depot A").uses(List.of(AddressUse.CONSIGNOR)));
     saveAddress(londonDepot().name("Depot B").uses(List.of(AddressUse.IMPORTER)));
 
@@ -326,7 +326,7 @@ class AddressSearchIT extends IntegrationBase {
   }
 
   @Test
-  void anUnknownSearchUseIsABadRequestWithNoErrorsMap() throws Exception {
+  void list_withAnUnknownSearchUseIsABadRequestWithNoErrorsMap() throws Exception {
     listAddresses("searchUse", "TRANSPORTER").andExpect(badRequestProblemWithNoErrors());
   }
 

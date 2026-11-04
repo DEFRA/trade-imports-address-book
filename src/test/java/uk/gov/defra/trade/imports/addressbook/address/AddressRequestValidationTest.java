@@ -194,7 +194,7 @@ class AddressRequestValidationTest {
 
   @ParameterizedTest(name = "{0} -> only violation on {2}: {3}")
   @MethodSource("invalidFields")
-  void invalidFieldProducesOnlyTheDeclaredMessageOnThatField(
+  void validate_producesOnlyTheDeclaredMessageOnAnInvalidField(
       String description, AddressRequest request, String expectedProperty, String expectedMessage) {
     Set<ConstraintViolation<AddressRequest>> violations = validator.validate(request);
 
@@ -233,7 +233,7 @@ class AddressRequestValidationTest {
 
   @ParameterizedTest
   @EnumSource(AddressType.class)
-  void everyAddressTypeWithEveryUseHasNoViolations(AddressType addressType) {
+  void validate_findsNoViolationForEveryAddressTypeWithEveryUse(AddressType addressType) {
     List<String> allUses = Arrays.stream(AddressUse.values()).map(Enum::name).toList();
     AddressRequest request = validRequest().addressType(addressType.name()).uses(allUses).build();
 

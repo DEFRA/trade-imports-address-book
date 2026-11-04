@@ -9,24 +9,24 @@ import org.junit.jupiter.api.Test;
 class AddressTypeTest {
 
   @Test
-  void originOrConsignorListsPlaceOfOriginAndConsignor() {
+  void uses_listsPlaceOfOriginAndConsignorForOriginOrConsignor() {
     assertThat(AddressType.ORIGIN_OR_CONSIGNOR.uses())
         .containsExactly(AddressUse.PLACE_OF_ORIGIN, AddressUse.CONSIGNOR);
   }
 
   @Test
-  void destinationConsigneeOrImporterListsPlaceOfDestinationConsigneeAndImporter() {
+  void uses_listsPlaceOfDestinationConsigneeAndImporterForDestinationConsigneeOrImporter() {
     assertThat(AddressType.DESTINATION_CONSIGNEE_OR_IMPORTER.uses())
         .containsExactly(AddressUse.PLACE_OF_DESTINATION, AddressUse.CONSIGNEE, AddressUse.IMPORTER);
   }
 
   @Test
-  void branchListsBranchAddress() {
+  void uses_listsBranchAddressForBranch() {
     assertThat(AddressType.BRANCH.uses()).containsExactly(AddressUse.BRANCH_ADDRESS);
   }
 
   @Test
-  void everyUseIsListedByExactlyOneType() {
+  void uses_listEveryUseUnderExactlyOneType() {
     List<AddressUse> listedUses =
         Arrays.stream(AddressType.values()).flatMap(type -> type.uses().stream()).toList();
 
@@ -34,7 +34,7 @@ class AddressTypeTest {
   }
 
   @Test
-  void onlyOriginOrConsignorListsAnAddressWithNoUses() {
+  void listsAddressWithNoUses_isTrueOnlyForOriginOrConsignor() {
     assertThat(Arrays.stream(AddressType.values()).filter(AddressType::listsAddressWithNoUses))
         .containsExactly(AddressType.ORIGIN_OR_CONSIGNOR);
   }
