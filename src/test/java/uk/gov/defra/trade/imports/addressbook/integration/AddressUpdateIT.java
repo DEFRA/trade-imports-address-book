@@ -25,7 +25,7 @@ import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 @MockitoSpyBean(types = OperatorRepository.class)
 class AddressUpdateIT extends IntegrationBase {
 
-  private Address saveActiveWithOptionals() {
+  private Address saveActiveTypedAddressWithOptionals() {
     return saveAddress(
         addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE)
             .addressLine2("Unit 3")
@@ -49,7 +49,7 @@ class AddressUpdateIT extends IntegrationBase {
 
   @Test
   void put_shouldReplaceAllFieldsAndClearOmittedOptionals_whenBodyIsValid() throws Exception {
-    Address saved = saveActiveWithOptionals();
+    Address saved = saveActiveTypedAddressWithOptionals();
     AddressBody body =
         addressBody()
             .with("name", "Lowland Cattle Co")
@@ -98,7 +98,7 @@ class AddressUpdateIT extends IntegrationBase {
   @Test
   void put_shouldReturn400NamingBothAndKeepStoredValues_whenBodyOmitsTypeAndUses()
       throws Exception {
-    Address saved = saveActiveWithOptionals();
+    Address saved = saveActiveTypedAddressWithOptionals();
 
     putAddress(saved.getId(), addressBody().without("addressType").without("uses"))
         .andExpect(status().isBadRequest())
@@ -112,7 +112,7 @@ class AddressUpdateIT extends IntegrationBase {
 
   @Test
   void put_shouldReturn400KeyedByUsesAndKeepStoredValues_whenAUseIsUnknown() throws Exception {
-    Address saved = saveActiveWithOptionals();
+    Address saved = saveActiveTypedAddressWithOptionals();
     AddressBody body = addressBody().with("uses", List.of("IMPORTER", "TRANSPORTER"));
 
     putAddress(saved.getId(), body)
@@ -126,7 +126,7 @@ class AddressUpdateIT extends IntegrationBase {
   @Test
   void put_shouldReturn400KeyedByAddressTypeAndKeepStoredValues_whenTheTypeIsUnknown()
       throws Exception {
-    Address saved = saveActiveWithOptionals();
+    Address saved = saveActiveTypedAddressWithOptionals();
     AddressBody body = addressBody().with("addressType", "TRANSPORTER");
 
     putAddress(saved.getId(), body)
@@ -139,7 +139,7 @@ class AddressUpdateIT extends IntegrationBase {
 
   @Test
   void put_shouldReturn400PerFieldErrorsAndLeaveRowUntouched_whenBodyIsInvalid() throws Exception {
-    Address saved = saveActiveWithOptionals();
+    Address saved = saveActiveTypedAddressWithOptionals();
     AddressBody body = addressBody().blank("addressLine1").with("email", "not-an-email");
 
     putAddress(saved.getId(), body)
@@ -179,7 +179,7 @@ class AddressUpdateIT extends IntegrationBase {
 
   @Test
   void put_shouldBumpModifiedAtAndPreserveCreatedAt_whenReplaceSucceeds() throws Exception {
-    Address saved = saveActiveWithOptionals();
+    Address saved = saveActiveTypedAddressWithOptionals();
     Instant createdAt = saved.getCreatedAt();
     Instant baselineModifiedAt = saved.getModifiedAt();
 
@@ -195,7 +195,7 @@ class AddressUpdateIT extends IntegrationBase {
 
   @Test
   void put_shouldReturn409ConflictProblem_whenOptimisticLockingFails() throws Exception {
-    Address saved = saveActiveWithOptionals();
+    Address saved = saveActiveTypedAddressWithOptionals();
     doThrow(new OptimisticLockingFailureException("stale"))
         .when(operatorRepository)
         .save(any(Address.class));
@@ -209,7 +209,7 @@ class AddressUpdateIT extends IntegrationBase {
 
   @Test
   void put_shouldRejectStaleVersion_whenRowWasUpdatedConcurrently() throws Exception {
-    Address saved = saveActiveWithOptionals();
+    Address saved = saveActiveTypedAddressWithOptionals();
     Address stale = storedAddress(saved.getId());
 
     putAddress(saved.getId(), addressBody()).andExpect(status().isOk());
@@ -222,7 +222,7 @@ class AddressUpdateIT extends IntegrationBase {
 
   @Test
   void put_shouldPreventTombstoneResurrection_whenStaleSaveFollowsDelete() throws Exception {
-    Address saved = saveActiveWithOptionals();
+    Address saved = saveActiveTypedAddressWithOptionals();
     Address stale = storedAddress(saved.getId());
 
     mockMvc
