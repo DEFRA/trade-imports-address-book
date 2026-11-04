@@ -68,20 +68,11 @@ public class AddressController {
    * @param organisationId the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
    * @param page the 1-based page number (default 1)
    * @param pageSize the number of addresses a page, or null for the default
-   * @param q optional case-insensitive partial-word search over name, address line 1, address line
-   *     2, town or city, county and postcode
-   * @param countryCodes optional ISO alpha-2 country codes; an address in any of them matches. With
-   *     {@code q} or the search uses, an address matching {@code q}, one of these codes or one of
-   *     the search uses is returned
-   * @param addressType the address type whose uses the listing filters by; {@code
-   *     ORIGIN_OR_CONSIGNOR} also lists an address with no uses; narrows the search ({@code q},
-   *     {@code countryCode} and {@code searchUse}) and combines with {@code use}; an unknown value
-   *     is refused with 400
-   * @param use optional use an address must hold; narrows the search ({@code q}, {@code
-   *     countryCode} and {@code searchUse}) and combines with the address type; an unknown value
-   *     is refused with 400
-   * @param searchUses optional uses that make an address match the search, as {@code q} and the
-   *     country codes do; an unknown value is refused with 400
+   * @param q the optional search term, as its {@code @Parameter} describes
+   * @param countryCodes the optional country codes, as their {@code @Parameter} describes
+   * @param addressType the optional address type, as its {@code @Parameter} describes
+   * @param use the optional use, as its {@code @Parameter} describes
+   * @param searchUses the optional search uses, as their {@code @Parameter} describes
    * @return 200 with one page of live addresses
    */
   @GetMapping
@@ -147,14 +138,27 @@ public class AddressController {
                       defaultValue = "" + AddressService.DEFAULT_PAGE_SIZE))
           @RequestParam(required = false)
           Integer pageSize,
-      @RequestParam(required = false) String q,
-      @RequestParam(name = "countryCode", required = false) List<String> countryCodes,
+      @Parameter(
+              description =
+                  "Case-insensitive partial-word search over name, address line 1, address line"
+                      + " 2, town or city, county and postcode. An address matching q, a"
+                      + " countryCode or a searchUse is returned.")
+          @RequestParam(required = false)
+          String q,
+      @Parameter(
+              description =
+                  "ISO alpha-2 country codes. Repeatable. An address in any of them matches the"
+                      + " search, as one matching q or a searchUse does.")
+          @RequestParam(name = "countryCode", required = false)
+          List<String> countryCodes,
       @Parameter(
               description =
                   "The address type to list. The listing returns addresses holding any of the"
-                      + " type's uses; ORIGIN_OR_CONSIGNOR also lists an address with no uses."
-                      + " Narrows the search (q, countryCode and searchUse) and combines with use"
-                      + " (AND). An unknown value is refused with 400.",
+                      + " type's uses: ORIGIN_OR_CONSIGNOR holds PLACE_OF_ORIGIN and CONSIGNOR,"
+                      + " and also lists an address with no uses; DESTINATION_CONSIGNEE_OR_IMPORTER"
+                      + " holds PLACE_OF_DESTINATION, CONSIGNEE and IMPORTER; BRANCH holds"
+                      + " BRANCH_ADDRESS. Narrows the search (q, countryCode and searchUse) and"
+                      + " combines with use (AND). An unknown value is refused with 400.",
               schema = @Schema(implementation = AddressType.class))
           @RequestParam(required = false)
           AddressType addressType,

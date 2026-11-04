@@ -51,13 +51,7 @@ public class AddressService {
    * @param page the 1-based page number
    * @param requestedPageSize the page size from {@link #MIN_PAGE_SIZE} to {@link #MAX_PAGE_SIZE},
    *     or null for {@link #DEFAULT_PAGE_SIZE}
-   * @param filters the request's filters, each optional. The search term is a case-insensitive
-   *     partial-word search over name, address line 1, address line 2, town or city, county and
-   *     postcode; an address in any of the country codes, or holding any of the search uses,
-   *     matches too, so an address matching the term, a code or a search use is returned. The
-   *     address type lists the addresses holding its uses ({@code ORIGIN_OR_CONSIGNOR} also lists
-   *     an address with no uses), and the use keeps only addresses holding it; both combine with
-   *     the search
+   * @param filters the request's filters, each optional
    * @return one page of live addresses with pagination metadata
    * @throws BadRequestException if {@code page} is less than 1 or {@code requestedPageSize} is
    *     outside {@link #MIN_PAGE_SIZE} to {@link #MAX_PAGE_SIZE}

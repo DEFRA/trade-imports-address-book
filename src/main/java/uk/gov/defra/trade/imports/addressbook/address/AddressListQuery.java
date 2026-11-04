@@ -7,9 +7,7 @@ import org.springframework.data.domain.Pageable;
 public interface AddressListQuery {
 
   /**
-   * One page of the organisation's {@code ACTIVE} addresses. The criteria's address type and use
-   * narrow the listing; its search pattern, country codes and search uses form one search group,
-   * and an address matching any of them is returned.
+   * One page of the organisation's {@code ACTIVE} addresses that match the criteria.
    *
    * @param organisationId the owning organisation id; the query never reads another organisation
    * @param criteria the filters to match

@@ -197,11 +197,13 @@ paths:
           minimum: 1
       - name: q
         in: query
+        description: Case-insensitive partial-word search over name, address line 1, address line 2, town or city, county and postcode. An address matching q, a countryCode or a searchUse is returned.
         required: false
         schema:
           type: string
       - name: countryCode
         in: query
+        description: ISO alpha-2 country codes. Repeatable. An address in any of them matches the search, as one matching q or a searchUse does.
         required: false
         schema:
           type: array
@@ -209,7 +211,7 @@ paths:
             type: string
       - name: addressType
         in: query
-        description: The address type to list. The listing returns addresses holding any of the type's uses; ORIGIN_OR_CONSIGNOR also lists an address with no uses. Narrows the search (q, countryCode and searchUse) and combines with use (AND). An unknown value is refused with 400.
+        description: 'The address type to list. The listing returns addresses holding any of the type''s uses: ORIGIN_OR_CONSIGNOR holds PLACE_OF_ORIGIN and CONSIGNOR, and also lists an address with no uses; DESTINATION_CONSIGNEE_OR_IMPORTER holds PLACE_OF_DESTINATION, CONSIGNEE and IMPORTER; BRANCH holds BRANCH_ADDRESS. Narrows the search (q, countryCode and searchUse) and combines with use (AND). An unknown value is refused with 400.'
         required: false
         schema:
           type: string
