@@ -207,7 +207,7 @@ paths:
           type: array
           items:
             type: string
-      - name: category
+      - name: addressType
         in: query
         description: The address type to list. The listing returns addresses holding any of the type's uses; ORIGIN_OR_CONSIGNOR also lists an address with no uses. Narrows the search (q, countryCode and searchUse) and combines with use (AND). An unknown value is refused with 400.
         required: false
@@ -219,7 +219,7 @@ paths:
           - BRANCH
       - name: use
         in: query
-        description: Keeps only addresses holding this use. Narrows the search (q, countryCode and searchUse) and combines with category (AND); an address with no uses never matches. An unknown value is refused with 400.
+        description: Keeps only addresses holding this use. Narrows the search (q, countryCode and searchUse) and combines with addressType (AND); an address with no uses never matches. An unknown value is refused with 400.
         required: false
         schema:
           type: string
@@ -388,7 +388,7 @@ components:
           minLength: 1
         addressType:
           type: string
-          description: The kind of address this is. Any use may be saved with any type; the list's category picks addresses by their uses, not by this type
+          description: The kind of address this is. Any use may be saved with any type; the list's addressType parameter picks addresses by their uses, not by this type
           enum:
           - ORIGIN_OR_CONSIGNOR
           - DESTINATION_CONSIGNEE_OR_IMPORTER

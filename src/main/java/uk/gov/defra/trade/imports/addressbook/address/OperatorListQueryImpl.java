@@ -31,8 +31,8 @@ class OperatorListQueryImpl implements OperatorListQuery {
     List<Criteria> clauses = new ArrayList<>();
     clauses.add(Criteria.where("organisationId").is(organisationId));
     clauses.add(Criteria.where("status").is(AddressStatus.ACTIVE));
-    if (criteria.category() != null) {
-      clauses.add(listedUnder(criteria.category()));
+    if (criteria.addressType() != null) {
+      clauses.add(listedUnder(criteria.addressType()));
     }
     if (criteria.use() != null) {
       clauses.add(Criteria.where("uses").is(criteria.use()));
@@ -45,9 +45,9 @@ class OperatorListQueryImpl implements OperatorListQuery {
     return new Criteria().andOperator(clauses);
   }
 
-  private static Criteria listedUnder(AddressType category) {
-    Criteria holdsOneOfTheTypesUses = Criteria.where("uses").in(category.uses());
-    if (!category.listsAddressWithNoUses()) {
+  private static Criteria listedUnder(AddressType addressType) {
+    Criteria holdsOneOfTheTypesUses = Criteria.where("uses").in(addressType.uses());
+    if (!addressType.listsAddressWithNoUses()) {
       return holdsOneOfTheTypesUses;
     }
     return new Criteria()

@@ -6,7 +6,7 @@ import org.springframework.lang.Nullable;
 /**
  * The filters of a list query, as the query matches them.
  *
- * @param category when not null, the listing filters by its {@link AddressType#uses()}
+ * @param addressType when not null, the listing filters by its {@link AddressType#uses()}
  * @param use when not null, an address must hold this use
  * @param searchPattern when not null, a regular expression that an address's name, address lines,
  *     town or city, county or postcode matches, case-insensitively
@@ -15,7 +15,7 @@ import org.springframework.lang.Nullable;
  * @param searchUses uses an address may hold to match the search; must not be null, empty for none
  */
 public record ListCriteria(
-    @Nullable AddressType category,
+    @Nullable AddressType addressType,
     @Nullable AddressUse use,
     @Nullable String searchPattern,
     List<String> countryCodes,

@@ -101,7 +101,7 @@ public class OperatorService {
 
   private static ListCriteria criteriaOf(RequestedListFilters filters) {
     return new ListCriteria(
-        filters.category(),
+        filters.addressType(),
         filters.use(),
         searchPatternOf(filters.searchTerm()),
         nonBlankTrimmed(filters.countryCodes()),

@@ -112,7 +112,7 @@ class OperatorRepositoryIT extends IntegrationBase {
             .name("Org A deleted branch")
             .uses(List.of(AddressUse.BRANCH_ADDRESS)));
 
-    Page<Address> page = listLive(ORG_A, listCriteria().category(AddressType.BRANCH).build());
+    Page<Address> page = listLive(ORG_A, listCriteria().addressType(AddressType.BRANCH).build());
 
     assertThat(page.getContent()).singleElement().extracting(Address::getName).isEqualTo("Org A branch");
   }

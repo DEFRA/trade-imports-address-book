@@ -305,10 +305,10 @@ class AddressSearchIT extends IntegrationBase {
     Address consignor = saveAddress(londonDepot().name("Depot A").uses(List.of(AddressUse.CONSIGNOR)));
     saveAddress(londonDepot().name("Depot B").uses(List.of(AddressUse.IMPORTER)));
 
-    listAddresses("category", "BRANCH", "searchUse", "CONSIGNOR")
+    listAddresses("addressType", "BRANCH", "searchUse", "CONSIGNOR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(0));
-    listAddresses("category", "ORIGIN_OR_CONSIGNOR", "searchUse", "CONSIGNOR")
+    listAddresses("addressType", "ORIGIN_OR_CONSIGNOR", "searchUse", "CONSIGNOR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].id").value(consignor.getId()));

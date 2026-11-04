@@ -17,7 +17,7 @@ public final class OperatorTestSupport {
 
   public static final class ListCriteriaBuilder {
 
-    private AddressType category;
+    private AddressType addressType;
     private AddressUse use;
     private String searchPattern;
     private List<String> countryCodes = List.of();
@@ -25,8 +25,8 @@ public final class OperatorTestSupport {
 
     private ListCriteriaBuilder() {}
 
-    public ListCriteriaBuilder category(AddressType category) {
-      this.category = category;
+    public ListCriteriaBuilder addressType(AddressType addressType) {
+      this.addressType = addressType;
       return this;
     }
 
@@ -51,7 +51,7 @@ public final class OperatorTestSupport {
     }
 
     public ListCriteria build() {
-      return new ListCriteria(category, use, searchPattern, countryCodes, searchUses);
+      return new ListCriteria(addressType, use, searchPattern, countryCodes, searchUses);
     }
   }
 }

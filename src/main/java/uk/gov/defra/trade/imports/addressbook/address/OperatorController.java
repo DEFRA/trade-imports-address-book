@@ -73,7 +73,7 @@ public class OperatorController {
    * @param countryCodes optional ISO alpha-2 country codes; an address in any of them matches. With
    *     {@code q} or the search uses, an address matching {@code q}, one of these codes or one of
    *     the search uses is returned
-   * @param category the address type whose uses the listing filters by; {@code
+   * @param addressType the address type whose uses the listing filters by; {@code
    *     ORIGIN_OR_CONSIGNOR} also lists an address with no uses; narrows the search ({@code q},
    *     {@code countryCode} and {@code searchUse}) and combines with {@code use}; an unknown value
    *     is refused with 400
@@ -157,11 +157,11 @@ public class OperatorController {
                       + " (AND). An unknown value is refused with 400.",
               schema = @Schema(implementation = AddressType.class))
           @RequestParam(required = false)
-          AddressType category,
+          AddressType addressType,
       @Parameter(
               description =
                   "Keeps only addresses holding this use. Narrows the search (q, countryCode and"
-                      + " searchUse) and combines with category (AND); an address with no uses"
+                      + " searchUse) and combines with addressType (AND); an address with no uses"
                       + " never matches. An unknown value is refused with 400.",
               schema = @Schema(implementation = AddressUse.class))
           @RequestParam(required = false)
@@ -176,20 +176,20 @@ public class OperatorController {
           List<AddressUse> searchUses) {
     authoriseOrg(orgId, organisationId);
     log.info(
-        "GET addresses - page {}, pageSize {}, q present {}, countryCodes {}, category {}, use {},"
-            + " searchUses {}",
+        "GET addresses - page {}, pageSize {}, q present {}, countryCodes {}, addressType {},"
+            + " use {}, searchUses {}",
         page,
         pageSize,
         q != null,
         countryCodes,
-        category,
+        addressType,
         use,
         searchUses);
     return operatorService.list(
         organisationId,
         page,
         pageSize,
-        new RequestedListFilters(q, countryCodes, category, use, searchUses));
+        new RequestedListFilters(q, countryCodes, addressType, use, searchUses));
   }
 
   /**

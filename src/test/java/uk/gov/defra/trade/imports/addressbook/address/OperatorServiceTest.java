@@ -505,7 +505,7 @@ class OperatorServiceTest {
     Address matching = persistedAddress("matching-id", ORG, AddressStatus.ACTIVE);
     ListCriteria expected =
         listCriteria()
-            .category(addressType)
+            .addressType(addressType)
             .searchPattern(".*\\Qfarm\\E.*")
             .countryCodes("FR")
             .build();

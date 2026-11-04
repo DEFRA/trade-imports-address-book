@@ -248,7 +248,7 @@ class OperatorListIT extends IntegrationBase {
       throws Exception {
     seedAddressesAcrossTabsUsesAndStatuses();
 
-    listAddresses("category", "ORIGIN_OR_CONSIGNOR")
+    listAddresses("addressType", "ORIGIN_OR_CONSIGNOR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(4))
         .andExpect(
@@ -263,7 +263,7 @@ class OperatorListIT extends IntegrationBase {
       throws Exception {
     seedAddressesAcrossTabsUsesAndStatuses();
 
-    listAddresses("category", "DESTINATION_CONSIGNEE_OR_IMPORTER")
+    listAddresses("addressType", "DESTINATION_CONSIGNEE_OR_IMPORTER")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(2))
         .andExpect(jsonPath("$.items[*].name", containsInAnyOrder(ORIGIN_AND_CONSIGNEE, IMPORTER)));
@@ -274,7 +274,7 @@ class OperatorListIT extends IntegrationBase {
       throws Exception {
     seedAddressesAcrossTabsUsesAndStatuses();
 
-    listAddresses("category", "BRANCH")
+    listAddresses("addressType", "BRANCH")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[*].name", contains(BRANCH)));
@@ -284,7 +284,7 @@ class OperatorListIT extends IntegrationBase {
   void list_shouldCombineTheSearchTermWithTheAddressType() throws Exception {
     seedAddressesAcrossTabsUsesAndStatuses();
 
-    listAddresses("category", "DESTINATION_CONSIGNEE_OR_IMPORTER", "q", "Consign")
+    listAddresses("addressType", "DESTINATION_CONSIGNEE_OR_IMPORTER", "q", "Consign")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[*].name", contains(ORIGIN_AND_CONSIGNEE)));
@@ -294,11 +294,11 @@ class OperatorListIT extends IntegrationBase {
   void list_shouldCombineTheCountryCodeWithTheAddressType() throws Exception {
     seedAddressesAcrossTabsUsesAndStatuses();
 
-    listAddresses("category", "BRANCH", "countryCode", "FR")
+    listAddresses("addressType", "BRANCH", "countryCode", "FR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[*].name", contains(BRANCH)));
-    listAddresses("category", "ORIGIN_OR_CONSIGNOR", "countryCode", "FR")
+    listAddresses("addressType", "ORIGIN_OR_CONSIGNOR", "countryCode", "FR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(0));
   }
@@ -307,7 +307,7 @@ class OperatorListIT extends IntegrationBase {
   void list_shouldPageAndCountOnlyTheAddressesListedUnderTheAddressType() throws Exception {
     seedAddressesAcrossTabsUsesAndStatuses();
 
-    listAddresses("category", "ORIGIN_OR_CONSIGNOR", "pageSize", "1")
+    listAddresses("addressType", "ORIGIN_OR_CONSIGNOR", "pageSize", "1")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items.length()").value(1))
         .andExpect(jsonPath("$.totalItems").value(4))
@@ -317,7 +317,7 @@ class OperatorListIT extends IntegrationBase {
   @Test
   void list_shouldReturn400BadRequestProblemWithNoErrorsMap_whenAddressTypeIsUnknown()
       throws Exception {
-    listAddresses("category", "TRANSPORTER").andExpect(badRequestProblemWithNoErrors());
+    listAddresses("addressType", "TRANSPORTER").andExpect(badRequestProblemWithNoErrors());
   }
 
   @Test
@@ -339,7 +339,7 @@ class OperatorListIT extends IntegrationBase {
       throws Exception {
     seedAddressesAcrossTabsUsesAndStatuses();
 
-    listAddresses("category", "ORIGIN_OR_CONSIGNOR", "use", "PLACE_OF_ORIGIN")
+    listAddresses("addressType", "ORIGIN_OR_CONSIGNOR", "use", "PLACE_OF_ORIGIN")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[*].name", contains(ORIGIN_AND_CONSIGNEE)));

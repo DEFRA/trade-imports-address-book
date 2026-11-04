@@ -169,7 +169,7 @@ class OperatorComplianceIT extends IntegrationBase {
     Map<String, Object> live = ApiDocs.fetchLive(port);
     Map<String, Object> locked = lockedContract();
 
-    for (String parameter : List.of("category", "use", "searchUse")) {
+    for (String parameter : List.of("addressType", "use", "searchUse")) {
       assertThat(listParameterAllowedValues(locked, parameter))
           .as("locked list %s parameter must list its allowed values", parameter)
           .isNotEmpty();

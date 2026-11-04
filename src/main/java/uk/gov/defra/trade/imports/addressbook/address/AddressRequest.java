@@ -101,7 +101,7 @@ public record AddressRequest(
             implementation = AddressType.class,
             description =
                 "The kind of address this is. Any use may be saved with any type; the list's"
-                    + " category picks addresses by their uses, not by this type",
+                    + " addressType parameter picks addresses by their uses, not by this type",
             requiredMode = Schema.RequiredMode.REQUIRED)
         String addressType,
     @NotEmpty(message = "Select what this address can be used for")
