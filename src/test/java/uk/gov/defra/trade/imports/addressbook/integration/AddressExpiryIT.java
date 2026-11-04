@@ -77,7 +77,7 @@ class AddressExpiryIT extends IntegrationBase {
     Instant future = Instant.now().plus(7, ChronoUnit.DAYS);
     String expiredActive = save("Expired Farm", AddressStatus.ACTIVE, past);
     String expiredTombstone = save("Expired Tombstone", AddressStatus.DELETED, past);
-    String undated = save("Created Before Expiry", AddressStatus.ACTIVE, null);
+    String undated = save("Undated Farm", AddressStatus.ACTIVE, null);
     String unexpired = save("Recent Farm", AddressStatus.ACTIVE, future);
 
     setTtlMonitorSleepSecs(1);
