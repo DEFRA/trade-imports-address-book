@@ -3,11 +3,16 @@ package uk.gov.defra.trade.imports.addressbook.address;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 
-/** The kind of address an entry is and the tab it is listed under, holding the uses it lists. */
+/**
+ * The kind of address an entry is, and a group of uses. An address is listed under a type when it
+ * holds one of the type's uses, whatever address type it was saved with; any use may be saved with
+ * any type.
+ */
 @Schema(
     description =
-        "The kind of address an entry is and the tab it is listed under, holding the uses it"
-            + " lists")
+        "The kind of address an entry is, and a group of uses. An address is listed under a type"
+            + " when it holds one of the type's uses, whatever address type it was saved with; any"
+            + " use may be saved with any type")
 public enum AddressType {
   @Schema(
       description =
