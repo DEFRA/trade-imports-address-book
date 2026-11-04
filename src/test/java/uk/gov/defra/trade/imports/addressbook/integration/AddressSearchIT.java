@@ -3,36 +3,25 @@ package uk.gov.defra.trade.imports.addressbook.integration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasItem;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
 import uk.gov.defra.trade.imports.addressbook.address.AddressUse;
 
 class AddressSearchIT extends IntegrationBase {
 
-  @Autowired private ObjectMapper objectMapper;
-
   @Test
   void partialWordSearchMatchesNameCaseInsensitively() throws Exception {
     Address match = saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE).name("Green Farm"));
     saveAddress(perthAddress("Blue Barn"));
 
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .param("q", "gree"))
+    listAddresses("q", "gree")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].id").value(match.getId()));
@@ -43,11 +32,7 @@ class AddressSearchIT extends IntegrationBase {
     Address match = saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE).name("North Depot"));
     saveAddress(perthAddress("South Depot"));
 
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .param("q", "inver"))
+    listAddresses("q", "inver")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].id").value(match.getId()));
@@ -60,20 +45,12 @@ class AddressSearchIT extends IntegrationBase {
             addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE).name("Green Valley Livestock Farm"));
     saveAddress(perthAddress("Blue Barn"));
 
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .param("q", "green valley"))
+    listAddresses("q", "green valley")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].id").value(match.getId()));
 
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .param("q", "GREEN"))
+    listAddresses("q", "GREEN")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].id").value(match.getId()));
@@ -85,11 +62,7 @@ class AddressSearchIT extends IntegrationBase {
         saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE).name("Highland Livestock"));
     saveAddress(perthAddress("Lowland Cattle"));
 
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .param("q", "iv2"))
+    listAddresses("q", "iv2")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].id").value(match.getId()));
@@ -100,11 +73,7 @@ class AddressSearchIT extends IntegrationBase {
     Address match = saveAddress(perthAddress("North Depot").addressLine1("Green Lane"));
     saveAddress(perthAddress("South Depot"));
 
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .param("q", "GREEN la"))
+    listAddresses("q", "GREEN la")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].id").value(match.getId()));
@@ -124,11 +93,7 @@ class AddressSearchIT extends IntegrationBase {
             .addressLine2("Station Road")
             .county("Down"));
 
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .param("q", "ballymore"))
+    listAddresses("q", "ballymore")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].id").value(match.getId()));
@@ -148,11 +113,7 @@ class AddressSearchIT extends IntegrationBase {
             .addressLine2("Station Road")
             .county("County Down"));
 
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .param("q", "ANTRIM"))
+    listAddresses("q", "ANTRIM")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].id").value(match.getId()));
@@ -171,11 +132,7 @@ class AddressSearchIT extends IntegrationBase {
                 .countryCode("IE"));
     saveAddress(londonDepot());
 
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .param("countryCode", "FR", "IE"))
+    listAddresses("countryCode", "FR", "countryCode", "IE")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(2))
         .andExpect(jsonPath("$.items[*].id", hasItem(french.getId())))
@@ -187,11 +144,7 @@ class AddressSearchIT extends IntegrationBase {
     saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE).name("Green Farm"));
     saveAddress(perthAddress("Blue Barn"));
 
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .param("q", ".*"))
+    listAddresses("q", ".*")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(0));
   }
@@ -208,11 +161,7 @@ class AddressSearchIT extends IntegrationBase {
             .postcode("69001")
             .countryCode("FR"));
 
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .param("countryCode", "FR"))
+    listAddresses("countryCode", "FR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].id").value(french.getId()));
@@ -229,11 +178,7 @@ class AddressSearchIT extends IntegrationBase {
             .postcode("75002")
             .countryCode("FR"));
 
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .param("countryCode", "FR"))
+    listAddresses("countryCode", "FR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].id").value(live.getId()));
@@ -245,12 +190,7 @@ class AddressSearchIT extends IntegrationBase {
     Address textOnly =
         saveAddress(londonDepot().name("France Freight").addressLine1("1 France Yard"));
 
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .param("q", "France")
-                .param("countryCode", "FR"))
+    listAddresses("q", "France", "countryCode", "FR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(2))
         .andExpect(jsonPath("$.items[*].id", hasItem(french.getId())))
@@ -271,11 +211,7 @@ class AddressSearchIT extends IntegrationBase {
             .townOrCity("Glasgow")
             .postcode("G1 1AA"));
 
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .param("q", "green"))
+    listAddresses("q", "green")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].id").value(live.getId()));
@@ -291,13 +227,7 @@ class AddressSearchIT extends IntegrationBase {
     }
 
     String page1Body =
-        mockMvc
-            .perform(
-                get("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                    .header(ORG_HEADER, ORGANISATION_ID)
-                    .param("q", "green")
-                    .param("countryCode", "GB")
-                    .param("page", "1"))
+        listAddresses("q", "green", "countryCode", "GB", "page", "1")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.items.length()").value(25))
             .andReturn()
@@ -305,13 +235,7 @@ class AddressSearchIT extends IntegrationBase {
             .getContentAsString();
 
     String page2Body =
-        mockMvc
-            .perform(
-                get("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                    .header(ORG_HEADER, ORGANISATION_ID)
-                    .param("q", "green")
-                    .param("countryCode", "GB")
-                    .param("page", "2"))
+        listAddresses("q", "green", "countryCode", "GB", "page", "2")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.items.length()").value(5))
             .andReturn()
@@ -330,8 +254,7 @@ class AddressSearchIT extends IntegrationBase {
     saveAddress(londonDepot().name("Depot B").uses(List.of(AddressUse.IMPORTER)));
     saveAddress(londonDepot().name("Depot C"));
 
-    mockMvc
-        .perform(listRequest().param("searchUse", "CONSIGNOR"))
+    listAddresses("searchUse", "CONSIGNOR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].id").value(consignor.getId()));
@@ -343,8 +266,7 @@ class AddressSearchIT extends IntegrationBase {
     Address consignee = saveAddress(londonDepot().name("Depot B").uses(List.of(AddressUse.CONSIGNEE)));
     saveAddress(londonDepot().name("Depot C").uses(List.of(AddressUse.IMPORTER)));
 
-    mockMvc
-        .perform(listRequest().param("searchUse", "CONSIGNOR", "CONSIGNEE"))
+    listAddresses("searchUse", "CONSIGNOR", "searchUse", "CONSIGNEE")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(2))
         .andExpect(jsonPath("$.items[*].id", containsInAnyOrder(consignor.getId(), consignee.getId())));
@@ -356,8 +278,7 @@ class AddressSearchIT extends IntegrationBase {
     Address byUse = saveAddress(londonDepot().name("Depot B").uses(List.of(AddressUse.CONSIGNOR)));
     saveAddress(londonDepot().name("Depot C").uses(List.of(AddressUse.IMPORTER)));
 
-    mockMvc
-        .perform(listRequest().param("q", "green").param("searchUse", "CONSIGNOR"))
+    listAddresses("q", "green", "searchUse", "CONSIGNOR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(2))
         .andExpect(jsonPath("$.items[*].id", containsInAnyOrder(byName.getId(), byUse.getId())));
@@ -370,9 +291,7 @@ class AddressSearchIT extends IntegrationBase {
     Address byUse = saveAddress(londonDepot().name("Depot B").uses(List.of(AddressUse.CONSIGNOR)));
     saveAddress(londonDepot().name("Depot C").uses(List.of(AddressUse.IMPORTER)));
 
-    mockMvc
-        .perform(
-            listRequest().param("q", "green").param("countryCode", "FR").param("searchUse", "CONSIGNOR"))
+    listAddresses("q", "green", "countryCode", "FR", "searchUse", "CONSIGNOR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(3))
         .andExpect(
@@ -386,16 +305,10 @@ class AddressSearchIT extends IntegrationBase {
     Address consignor = saveAddress(londonDepot().name("Depot A").uses(List.of(AddressUse.CONSIGNOR)));
     saveAddress(londonDepot().name("Depot B").uses(List.of(AddressUse.IMPORTER)));
 
-    mockMvc
-        .perform(
-            listRequest().param("addressType", "BRANCH").param("searchUse", "CONSIGNOR"))
+    listAddresses("category", "BRANCH", "searchUse", "CONSIGNOR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(0));
-    mockMvc
-        .perform(
-            listRequest()
-                .param("addressType", "ORIGIN_OR_CONSIGNOR")
-                .param("searchUse", "CONSIGNOR"))
+    listAddresses("category", "ORIGIN_OR_CONSIGNOR", "searchUse", "CONSIGNOR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].id").value(consignor.getId()));
@@ -403,13 +316,7 @@ class AddressSearchIT extends IntegrationBase {
 
   @Test
   void anUnknownSearchUseIsABadRequestWithNoErrorsMap() throws Exception {
-    mockMvc
-        .perform(listRequest().param("searchUse", "TRANSPORTER"))
-        .andExpect(badRequestProblemWithNoErrors());
-  }
-
-  private static MockHttpServletRequestBuilder listRequest() {
-    return get("/organisation/{orgId}/addresses", ORGANISATION_ID).header(ORG_HEADER, ORGANISATION_ID);
+    listAddresses("searchUse", "TRANSPORTER").andExpect(badRequestProblemWithNoErrors());
   }
 
   private static Address.AddressBuilder perthAddress(String name) {
@@ -435,12 +342,5 @@ class AddressSearchIT extends IntegrationBase {
         .addressLine1("10 Downing Street")
         .townOrCity("London")
         .postcode("SW1A 1AA");
-  }
-
-  private Set<String> readIds(String body) throws Exception {
-    Set<String> ids = new HashSet<>();
-    JsonNode items = objectMapper.readTree(body).get("items");
-    items.forEach(item -> ids.add(item.get("id").asText()));
-    return ids;
   }
 }

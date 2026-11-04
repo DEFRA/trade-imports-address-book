@@ -2,7 +2,6 @@ package uk.gov.defra.trade.imports.addressbook.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -18,7 +17,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressExpiryIndex;
@@ -75,12 +73,7 @@ class AddressExpiryIT extends IntegrationBase {
     Instant beforeAtMongoPrecision = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
     // When
-    mockMvc
-        .perform(
-            post("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body))
+    postAddress(body)
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.expireAt").doesNotExist());
 

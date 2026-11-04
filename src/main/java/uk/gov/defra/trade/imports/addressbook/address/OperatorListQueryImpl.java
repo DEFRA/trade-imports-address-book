@@ -21,18 +21,18 @@ class OperatorListQueryImpl implements OperatorListQuery {
   @Override
   public Page<Address> listLiveAddresses(
       String organisationId, ListCriteria criteria, Pageable pageable) {
-    Query query = Query.query(matching(organisationId, criteria));
+    Query query = Query.query(liveAddressQuery(organisationId, criteria));
     List<Address> content = mongoTemplate.find(Query.of(query).with(pageable), Address.class);
     return PageableExecutionUtils.getPage(
         content, pageable, () -> mongoTemplate.exactCount(query, Address.class));
   }
 
-  private static Criteria matching(String organisationId, ListCriteria criteria) {
+  private static Criteria liveAddressQuery(String organisationId, ListCriteria criteria) {
     List<Criteria> clauses = new ArrayList<>();
     clauses.add(Criteria.where("organisationId").is(organisationId));
     clauses.add(Criteria.where("status").is(AddressStatus.ACTIVE));
-    if (criteria.addressType() != null) {
-      clauses.add(listedUnder(criteria.addressType()));
+    if (criteria.category() != null) {
+      clauses.add(listedUnder(criteria.category()));
     }
     if (criteria.use() != null) {
       clauses.add(Criteria.where("uses").is(criteria.use()));
@@ -40,38 +40,52 @@ class OperatorListQueryImpl implements OperatorListQuery {
     if (criteria.searchPattern() != null
         || !criteria.countryCodes().isEmpty()
         || !criteria.searchUses().isEmpty()) {
-      clauses.add(matchesSearch(criteria));
+      clauses.add(searchClause(criteria));
     }
     return new Criteria().andOperator(clauses);
   }
 
-  private static Criteria listedUnder(AddressType addressType) {
-    Criteria holdsAUse = Criteria.where("uses").in(addressType.uses());
-    if (!addressType.listsAddressWithNoUses()) {
+  private static Criteria listedUnder(AddressType category) {
+    Criteria holdsAUse = Criteria.where("uses").in(category.uses());
+    if (!category.listsAddressWithNoUses()) {
       return holdsAUse;
     }
     return new Criteria()
         .orOperator(holdsAUse, Criteria.where("uses").is(null), Criteria.where("uses").size(0));
   }
 
-  private static Criteria matchesSearch(ListCriteria criteria) {
-    List<String> searchedFields =
-        List.of("name", "addressLine1", "addressLine2", "townOrCity", "county", "postcode");
-    Stream<Criteria> inSearchedField =
-        criteria.searchPattern() == null
-            ? Stream.empty()
-            : searchedFields.stream()
-                .map(field -> Criteria.where(field).regex(criteria.searchPattern(), "i"));
-    Stream<Criteria> inCountry =
-        criteria.countryCodes().isEmpty()
-            ? Stream.empty()
-            : Stream.of(Criteria.where("countryCode").in(criteria.countryCodes()));
-    Stream<Criteria> holdingSearchUse =
-        criteria.searchUses().isEmpty()
-            ? Stream.empty()
-            : Stream.of(Criteria.where("uses").in(criteria.searchUses()));
+  private static Criteria searchClause(ListCriteria criteria) {
     return new Criteria()
         .orOperator(
-            Stream.of(inSearchedField, inCountry, holdingSearchUse).flatMap(s -> s).toList());
+            Stream.of(
+                    searchedFieldClauses(criteria),
+                    countryClauses(criteria),
+                    searchUseClauses(criteria))
+                .flatMap(List::stream)
+                .toList());
+  }
+
+  private static List<Criteria> searchedFieldClauses(ListCriteria criteria) {
+    if (criteria.searchPattern() == null) {
+      return List.of();
+    }
+    return List.of("name", "addressLine1", "addressLine2", "townOrCity", "county", "postcode")
+        .stream()
+        .map(field -> Criteria.where(field).regex(criteria.searchPattern(), "i"))
+        .toList();
+  }
+
+  private static List<Criteria> countryClauses(ListCriteria criteria) {
+    if (criteria.countryCodes().isEmpty()) {
+      return List.of();
+    }
+    return List.of(Criteria.where("countryCode").in(criteria.countryCodes()));
+  }
+
+  private static List<Criteria> searchUseClauses(ListCriteria criteria) {
+    if (criteria.searchUses().isEmpty()) {
+      return List.of();
+    }
+    return List.of(Criteria.where("uses").in(criteria.searchUses()));
   }
 }

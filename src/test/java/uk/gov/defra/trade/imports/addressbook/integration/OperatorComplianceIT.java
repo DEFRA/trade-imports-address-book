@@ -6,10 +6,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static uk.gov.defra.trade.imports.addressbook.address.OperatorService.DEFAULT_PAGE_SIZE;
+import static uk.gov.defra.trade.imports.addressbook.testsupport.ApiDocs.lockedContract;
+import static uk.gov.defra.trade.imports.addressbook.testsupport.ApiDocs.nested;
+import static uk.gov.defra.trade.imports.addressbook.testsupport.ApiDocs.requiredProperties;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -167,7 +169,7 @@ class OperatorComplianceIT extends IntegrationBase {
     Map<String, Object> live = ApiDocs.fetchLive(port);
     Map<String, Object> locked = lockedContract();
 
-    for (String parameter : List.of("addressType", "use", "searchUse")) {
+    for (String parameter : List.of("category", "use", "searchUse")) {
       assertThat(listParameterAllowedValues(locked, parameter))
           .as("locked list %s parameter must list its allowed values", parameter)
           .isNotEmpty();
@@ -196,11 +198,6 @@ class OperatorComplianceIT extends IntegrationBase {
     assertThat(requiredProperties(ApiDocs.fetchLive(port), "AddressRequest"))
         .as("required properties of AddressRequest must match the locked contract")
         .containsExactlyInAnyOrderElementsOf(lockedRequired);
-  }
-
-  @SuppressWarnings("unchecked")
-  private static List<Object> requiredProperties(Map<String, Object> doc, String schema) {
-    return (List<Object>) nested(doc, "components", "schemas", schema, "required");
   }
 
   @SuppressWarnings("unchecked")
@@ -273,11 +270,6 @@ class OperatorComplianceIT extends IntegrationBase {
         });
   }
 
-  private static Map<String, Object> lockedContract() throws IOException {
-    Path lockedContract = Path.of("docs/openapi/api-contract.locked.yaml");
-    return ApiDocs.loadYaml(lockedContract);
-  }
-
   private static Set<String> httpMethods(Map<String, Object> pathItem) {
     Set<String> httpMethodNames =
         Set.of("get", "put", "post", "delete", "patch", "head", "options", "trace");
@@ -325,19 +317,19 @@ class OperatorComplianceIT extends IntegrationBase {
           httpMethods(lockedOpMap)
               .forEach(
                   method -> {
-                    List<Map<String, Object>> liveParams =
-                        parameterNames(liveOps.get(method));
-                    List<Map<String, Object>> lockedParams =
-                        parameterNames(lockedOpMap.get(method));
-                    assertThat(liveParams)
+                    List<Map<String, Object>> liveParameterNamesAndLocations =
+                        parameterNamesAndLocations(liveOps.get(method));
+                    List<Map<String, Object>> lockedParameterNamesAndLocations =
+                        parameterNamesAndLocations(lockedOpMap.get(method));
+                    assertThat(liveParameterNamesAndLocations)
                         .as("parameters for %s %s must match the locked contract", method, path)
-                        .isEqualTo(lockedParams);
+                        .isEqualTo(lockedParameterNamesAndLocations);
                   });
         });
   }
 
   @SuppressWarnings("unchecked")
-  private static List<Map<String, Object>> parameterNames(Object operation) {
+  private static List<Map<String, Object>> parameterNamesAndLocations(Object operation) {
     if (!(operation instanceof Map<?, ?> operationMap)) {
       return List.of();
     }
@@ -389,18 +381,5 @@ class OperatorComplianceIT extends IntegrationBase {
     List<Map<String, Object>> branches = (List<Map<String, Object>>) schema.get("anyOf");
     assertThat(branches).hasSize(2);
     return branches.stream().map(b -> (String) b.get("$ref")).sorted().toList();
-  }
-
-  @SuppressWarnings("unchecked")
-  private static Object nested(Map<String, Object> root, String... keys) {
-    Object current = root;
-    for (String key : keys) {
-      current = ((Map<String, Object>) current).get(key);
-      if (current == null) {
-        throw new AssertionError(
-            "missing key '" + key + "' while navigating " + String.join(".", keys));
-      }
-    }
-    return current;
   }
 }

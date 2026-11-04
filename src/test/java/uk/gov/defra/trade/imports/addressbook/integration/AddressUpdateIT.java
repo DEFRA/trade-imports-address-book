@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.contains;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -14,7 +13,6 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.ResultActions;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
 import uk.gov.defra.trade.imports.addressbook.address.AddressType;
@@ -29,14 +27,6 @@ class AddressUpdateIT extends IntegrationBase {
             .county("Highland")
             .addressType(AddressType.ORIGIN_OR_CONSIGNOR)
             .uses(List.of(AddressUse.PLACE_OF_ORIGIN, AddressUse.CONSIGNOR)));
-  }
-
-  private ResultActions putAddress(String addressId, AddressBody body) throws Exception {
-    return mockMvc.perform(
-        put("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, addressId)
-            .header(ORG_HEADER, ORGANISATION_ID)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(body.json()));
   }
 
   private Address storedAddress(String addressId) {

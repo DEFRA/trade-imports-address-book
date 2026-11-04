@@ -3,17 +3,21 @@ package uk.gov.defra.trade.imports.addressbook.integration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static uk.gov.defra.trade.imports.addressbook.address.OperatorTestSupport.NO_LIST_CRITERIA;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.UncheckedIOException;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.bson.Document;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +53,8 @@ abstract class IntegrationBase {
   protected static final String ORGANISATION_ID = "5a8d2b19-6f4e-4d21-9c1b-7e3f0a2d5c88";
   protected static final String OTHER_ORG = "9c1b7e3f-0a2d-5c88-5a8d-2b196f4e4d21";
   protected static final String UNKNOWN_ID = "665f1c2ab3e4d51a2c9d0e77";
+
+  private static final ObjectMapper RESPONSE_MAPPER = new ObjectMapper();
 
   protected static final String VALIDATION_ERROR_TYPE =
       "https://api.cdp.defra.cloud/problems/validation-error";
@@ -135,6 +141,53 @@ abstract class IntegrationBase {
 
   protected ResultActions postAddress(String json) throws Exception {
     return mockMvc.perform(postAddressRequest(json));
+  }
+
+  protected ResultActions postAddress(String orgId, String callerOrganisationId, AddressBody body)
+      throws Exception {
+    return mockMvc.perform(
+        post("/organisation/{orgId}/addresses", orgId)
+            .header(ORG_HEADER, callerOrganisationId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body.json()));
+  }
+
+  protected ResultActions putAddress(String addressId, AddressBody body) throws Exception {
+    return putAddress(addressId, body.json());
+  }
+
+  protected ResultActions putAddress(String addressId, String json) throws Exception {
+    return putAddress(ORGANISATION_ID, ORGANISATION_ID, addressId, json);
+  }
+
+  protected ResultActions putAddress(
+      String orgId, String callerOrganisationId, String addressId, AddressBody body)
+      throws Exception {
+    return putAddress(orgId, callerOrganisationId, addressId, body.json());
+  }
+
+  private ResultActions putAddress(
+      String orgId, String callerOrganisationId, String addressId, String json) throws Exception {
+    return mockMvc.perform(
+        put("/organisation/{orgId}/addresses/{operator-id}", orgId, addressId)
+            .header(ORG_HEADER, callerOrganisationId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(json));
+  }
+
+  protected ResultActions listAddresses(String... queryParameterNamesAndValues) throws Exception {
+    var request = get("/organisation/{orgId}/addresses", ORGANISATION_ID);
+    for (int i = 0; i < queryParameterNamesAndValues.length; i += 2) {
+      request = request.param(queryParameterNamesAndValues[i], queryParameterNamesAndValues[i + 1]);
+    }
+    return mockMvc.perform(request.header(ORG_HEADER, ORGANISATION_ID));
+  }
+
+  protected static Set<String> readIds(String body) throws Exception {
+    Set<String> ids = new HashSet<>();
+    JsonNode items = RESPONSE_MAPPER.readTree(body).get("items");
+    items.forEach(item -> ids.add(item.get("id").asText()));
+    return ids;
   }
 
   protected ResultActions getAddress(String addressId) throws Exception {

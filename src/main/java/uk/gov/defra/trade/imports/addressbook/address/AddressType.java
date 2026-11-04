@@ -3,8 +3,11 @@ package uk.gov.defra.trade.imports.addressbook.address;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 
-/** The category an address is listed under, holding the uses it lists. */
-@Schema(description = "The kind of address an entry is")
+/** The kind of address an entry is and the tab it is listed under, holding the uses it lists. */
+@Schema(
+    description =
+        "The kind of address an entry is and the tab it is listed under, holding the uses it"
+            + " lists")
 public enum AddressType {
   @Schema(
       description =

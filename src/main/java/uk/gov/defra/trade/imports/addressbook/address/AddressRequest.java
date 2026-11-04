@@ -20,8 +20,8 @@ import lombok.Builder;
  * reported as a per-field validation error. Both are hidden from the OpenAPI schema.
  *
  * <p>{@code addressType} is required and {@code uses} must hold at least one entry. A value that
- * is not the name of an {@link AddressType} or {@link AddressUse} constant is a validation error on that
- * field.
+ * is not the name of an {@link AddressType} or {@link AddressUse} constant is a validation error
+ * on that field.
  *
  * <p>{@code countryCode} is validated for presence only and stored exactly as given.
  */

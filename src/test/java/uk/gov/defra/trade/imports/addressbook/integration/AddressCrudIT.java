@@ -6,7 +6,6 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.startsWith;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -187,13 +186,7 @@ class AddressCrudIT extends IntegrationBase {
   void put_shouldReturn400BadRequestProblem_whenJsonBodyIsEmpty() throws Exception {
     Address saved = saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE));
 
-    mockMvc
-        .perform(
-            put("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, saved.getId())
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(""))
-        .andExpect(badRequestProblemWithNoErrors());
+    putAddress(saved.getId(), "").andExpect(badRequestProblemWithNoErrors());
   }
 
   @Test

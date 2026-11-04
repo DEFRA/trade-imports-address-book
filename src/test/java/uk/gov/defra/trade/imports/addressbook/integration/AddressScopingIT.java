@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -22,24 +21,11 @@ class AddressScopingIT extends IntegrationBase {
   private static final String ORG_A = ORGANISATION_ID;
   private static final String ORG_B = OTHER_ORG;
 
-  private static final String CREATE_BODY = addressBody().json();
-
   @Autowired private OperatorRepository repository;
   @Autowired private ObjectMapper objectMapper;
 
   private String createAsOrgA() throws Exception {
-    String location =
-        mockMvc
-            .perform(
-                post("/organisation/{orgId}/addresses", ORG_A)
-                    .header(ORG_HEADER, ORG_A)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(CREATE_BODY))
-            .andExpect(status().isCreated())
-            .andReturn()
-            .getResponse()
-            .getHeader("Location");
-    return location.substring(location.lastIndexOf('/') + 1);
+    return createdAddressId(postAddress(ORG_A, ORG_A, addressBody()));
   }
 
   @Test
@@ -55,13 +41,7 @@ class AddressScopingIT extends IntegrationBase {
         .perform(
             get("/organisation/{orgId}/addresses/{operator-id}", ORG_B, id).header(ORG_HEADER, ORG_B))
         .andExpect(status().isNotFound());
-    mockMvc
-        .perform(
-            put("/organisation/{orgId}/addresses/{operator-id}", ORG_B, id)
-                .header(ORG_HEADER, ORG_B)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(CREATE_BODY))
-        .andExpect(status().isNotFound());
+    putAddress(ORG_B, ORG_B, id, addressBody()).andExpect(status().isNotFound());
     mockMvc
         .perform(
             delete("/organisation/{orgId}/addresses/{operator-id}", ORG_B, id)
@@ -85,13 +65,7 @@ class AddressScopingIT extends IntegrationBase {
     mockMvc
         .perform(get("/organisation/{orgId}/addresses", ORG_A).header(ORG_HEADER, ORG_B))
         .andExpect(status().isNotFound());
-    mockMvc
-        .perform(
-            put("/organisation/{orgId}/addresses/{operator-id}", ORG_A, id)
-                .header(ORG_HEADER, ORG_B)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(CREATE_BODY))
-        .andExpect(status().isNotFound());
+    putAddress(ORG_A, ORG_B, id, addressBody()).andExpect(status().isNotFound());
     mockMvc
         .perform(
             delete("/organisation/{orgId}/addresses/{operator-id}", ORG_A, id).header(ORG_HEADER, ORG_B))
@@ -100,13 +74,7 @@ class AddressScopingIT extends IntegrationBase {
         .get()
         .extracting("status")
         .isEqualTo(AddressStatus.ACTIVE);
-    mockMvc
-        .perform(
-            post("/organisation/{orgId}/addresses", ORG_A)
-                .header(ORG_HEADER, ORG_B)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(CREATE_BODY))
-        .andExpect(status().isNotFound());
+    postAddress(ORG_A, ORG_B, addressBody()).andExpect(status().isNotFound());
     assertThat(activeAddressesFor(ORG_A)).singleElement();
   }
 
@@ -130,7 +98,7 @@ class AddressScopingIT extends IntegrationBase {
         .perform(
             post("/organisation/{orgId}/addresses", ORG_A)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(CREATE_BODY))
+                .content(addressBody().json()))
         .andExpect(badRequestProblemWithNoErrors());
 
     assertThat(activeAddressesFor(ORG_A)).isEmpty();

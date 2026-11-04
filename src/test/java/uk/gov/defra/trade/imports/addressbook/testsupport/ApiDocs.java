@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.springframework.web.client.RestClient;
 import org.yaml.snakeyaml.DumperOptions;
@@ -13,6 +14,7 @@ import org.yaml.snakeyaml.Yaml;
 public final class ApiDocs {
 
   public static final Path COMMITTED_ARTIFACT = Path.of("docs/openapi/operators.yml");
+  private static final Path LOCKED_CONTRACT = Path.of("docs/openapi/api-contract.locked.yaml");
 
   private ApiDocs() {}
 
@@ -39,6 +41,28 @@ public final class ApiDocs {
 
   public static Map<String, Object> loadYaml(Path file) throws IOException {
     return yaml().load(Files.readString(file));
+  }
+
+  public static Map<String, Object> lockedContract() throws IOException {
+    return loadYaml(LOCKED_CONTRACT);
+  }
+
+  @SuppressWarnings("unchecked")
+  public static List<Object> requiredProperties(Map<String, Object> doc, String schema) {
+    return (List<Object>) nested(doc, "components", "schemas", schema, "required");
+  }
+
+  @SuppressWarnings("unchecked")
+  public static Object nested(Map<String, Object> root, String... keys) {
+    Object current = root;
+    for (String key : keys) {
+      current = ((Map<String, Object>) current).get(key);
+      if (current == null) {
+        throw new AssertionError(
+            "missing key '" + key + "' while navigating " + String.join(".", keys));
+      }
+    }
+    return current;
   }
 
   private static Yaml yaml() {

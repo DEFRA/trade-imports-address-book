@@ -25,14 +25,14 @@ info:
     **Country codes:** `countryCode` is ISO 3166-1 alpha-2 (e.g. "GB"), stored as given with
     presence-only validation; consumers resolve it to a display name.
 
-    **Address type and uses:** `addressType` and `uses` are optional on create and update and
-    are returned on read. `addressType` is one of ORIGIN_OR_CONSIGNOR,
+    **Address type and uses:** `addressType` and at least one `uses` entry are required on create
+    and update, and are returned on read. `addressType` is one of ORIGIN_OR_CONSIGNOR,
     DESTINATION_CONSIGNEE_OR_IMPORTER or BRANCH. `uses` is a list of PLACE_OF_ORIGIN, CONSIGNOR,
-    PLACE_OF_DESTINATION, CONSIGNEE, IMPORTER or BRANCH_ADDRESS. A value outside those lists is a
-    400 validation problem keyed by `addressType` or `uses`, and nothing is saved. An update
+    PLACE_OF_DESTINATION, CONSIGNEE, IMPORTER or BRANCH_ADDRESS. A missing value, or one outside
+    its list, is a 400 validation problem keyed by that field, and nothing is saved. An update
     replaces both.
 
-    **Listing by address type:** the list's `addressType` query parameter returns only the
+    **Listing by address type:** the list's `category` query parameter returns only the
     addresses holding one of that type's uses, so an address holding uses of two types is listed
     under both. ORIGIN_OR_CONSIGNOR holds PLACE_OF_ORIGIN and CONSIGNOR and also lists an address
     with no uses; DESTINATION_CONSIGNEE_OR_IMPORTER holds PLACE_OF_DESTINATION, CONSIGNEE and
@@ -43,7 +43,7 @@ info:
     **Listing by use:** the list's `use` query parameter returns only the addresses holding that
     use, one of PLACE_OF_ORIGIN, CONSIGNOR, PLACE_OF_DESTINATION, CONSIGNEE, IMPORTER or
     BRANCH_ADDRESS. It narrows the search (`q`, `countryCode` and `searchUse`) and combines with
-    `addressType` (AND), an address with no uses never matches it, and an unknown value is a 400.
+    `category` (AND), an address with no uses never matches it, and an unknown value is a 400.
 servers:
   - url: http://localhost:8089
     description: Local dev
@@ -242,7 +242,7 @@ paths:
           type: array
           items:
             type: string
-      - name: addressType
+      - name: category
         in: query
         required: false
         schema:

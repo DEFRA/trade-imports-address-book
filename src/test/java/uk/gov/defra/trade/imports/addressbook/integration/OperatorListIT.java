@@ -12,10 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static uk.gov.defra.trade.imports.addressbook.address.OperatorService.DEFAULT_PAGE_SIZE;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -27,7 +24,6 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
-import org.springframework.test.web.servlet.ResultActions;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
 import uk.gov.defra.trade.imports.addressbook.address.AddressType;
@@ -43,7 +39,6 @@ class OperatorListIT extends IntegrationBase {
   private static final String EMPTY_USES = "Empty Uses";
 
   @Autowired private MongoTemplate mongoTemplate;
-  @Autowired private ObjectMapper objectMapper;
 
   private Address saveWithCreatedAt(String org, AddressStatus status, String name, Instant createdAt) {
     Address saved = saveAddress(addressBuilder(org, status).name(name));
@@ -90,14 +85,6 @@ class OperatorListIT extends IntegrationBase {
         addressBuilder(OTHER_ORG, AddressStatus.ACTIVE)
             .name("Other Organisation Consignor")
             .uses(List.of(AddressUse.CONSIGNOR)));
-  }
-
-  private ResultActions listAddresses(String... queryParameterNamesAndValues) throws Exception {
-    var request = get("/organisation/{orgId}/addresses", ORGANISATION_ID);
-    for (int i = 0; i < queryParameterNamesAndValues.length; i += 2) {
-      request = request.param(queryParameterNamesAndValues[i], queryParameterNamesAndValues[i + 1]);
-    }
-    return mockMvc.perform(request.header(ORG_HEADER, ORGANISATION_ID));
   }
 
   @Test
@@ -260,7 +247,7 @@ class OperatorListIT extends IntegrationBase {
       throws Exception {
     seedAddressesHoldingEachUse();
 
-    listAddresses("addressType", "ORIGIN_OR_CONSIGNOR")
+    listAddresses("category", "ORIGIN_OR_CONSIGNOR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(4))
         .andExpect(
@@ -275,7 +262,7 @@ class OperatorListIT extends IntegrationBase {
       throws Exception {
     seedAddressesHoldingEachUse();
 
-    listAddresses("addressType", "DESTINATION_CONSIGNEE_OR_IMPORTER")
+    listAddresses("category", "DESTINATION_CONSIGNEE_OR_IMPORTER")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(2))
         .andExpect(jsonPath("$.items[*].name", containsInAnyOrder(ORIGIN_AND_CONSIGNEE, IMPORTER)));
@@ -286,7 +273,7 @@ class OperatorListIT extends IntegrationBase {
       throws Exception {
     seedAddressesHoldingEachUse();
 
-    listAddresses("addressType", "BRANCH")
+    listAddresses("category", "BRANCH")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[*].name", contains(BRANCH)));
@@ -296,7 +283,7 @@ class OperatorListIT extends IntegrationBase {
   void list_shouldCombineTheSearchTermWithTheAddressType() throws Exception {
     seedAddressesHoldingEachUse();
 
-    listAddresses("addressType", "DESTINATION_CONSIGNEE_OR_IMPORTER", "q", "Consign")
+    listAddresses("category", "DESTINATION_CONSIGNEE_OR_IMPORTER", "q", "Consign")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[*].name", contains(ORIGIN_AND_CONSIGNEE)));
@@ -306,11 +293,11 @@ class OperatorListIT extends IntegrationBase {
   void list_shouldCombineTheCountryCodeWithTheAddressType() throws Exception {
     seedAddressesHoldingEachUse();
 
-    listAddresses("addressType", "BRANCH", "countryCode", "FR")
+    listAddresses("category", "BRANCH", "countryCode", "FR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[*].name", contains(BRANCH)));
-    listAddresses("addressType", "ORIGIN_OR_CONSIGNOR", "countryCode", "FR")
+    listAddresses("category", "ORIGIN_OR_CONSIGNOR", "countryCode", "FR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(0));
   }
@@ -319,7 +306,7 @@ class OperatorListIT extends IntegrationBase {
   void list_shouldPageAndCountOnlyTheAddressesListedUnderTheAddressType() throws Exception {
     seedAddressesHoldingEachUse();
 
-    listAddresses("addressType", "ORIGIN_OR_CONSIGNOR", "pageSize", "1")
+    listAddresses("category", "ORIGIN_OR_CONSIGNOR", "pageSize", "1")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items.length()").value(1))
         .andExpect(jsonPath("$.totalItems").value(4))
@@ -329,7 +316,7 @@ class OperatorListIT extends IntegrationBase {
   @Test
   void list_shouldReturn400BadRequestProblemWithNoErrorsMap_whenAddressTypeIsUnknown()
       throws Exception {
-    listAddresses("addressType", "TRANSPORTER").andExpect(badRequestProblemWithNoErrors());
+    listAddresses("category", "TRANSPORTER").andExpect(badRequestProblemWithNoErrors());
   }
 
   @Test
@@ -351,7 +338,7 @@ class OperatorListIT extends IntegrationBase {
       throws Exception {
     seedAddressesHoldingEachUse();
 
-    listAddresses("addressType", "ORIGIN_OR_CONSIGNOR", "use", "PLACE_OF_ORIGIN")
+    listAddresses("category", "ORIGIN_OR_CONSIGNOR", "use", "PLACE_OF_ORIGIN")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[*].name", contains(ORIGIN_AND_CONSIGNEE)));
@@ -387,12 +374,5 @@ class OperatorListIT extends IntegrationBase {
   @Test
   void list_shouldReturn400BadRequestProblemWithNoErrorsMap_whenUseIsUnknown() throws Exception {
     listAddresses("use", "TRANSPORTER").andExpect(badRequestProblemWithNoErrors());
-  }
-
-  private Set<String> readIds(String body) throws Exception {
-    Set<String> ids = new HashSet<>();
-    JsonNode items = objectMapper.readTree(body).get("items");
-    items.forEach(item -> ids.add(item.get("id").asText()));
-    return ids;
   }
 }

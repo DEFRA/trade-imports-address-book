@@ -207,20 +207,20 @@ paths:
           type: array
           items:
             type: string
-      - name: addressType
+      - name: category
         in: query
         description: The address type to list. The listing returns addresses holding any of the type's uses; ORIGIN_OR_CONSIGNOR also lists an address with no uses. Narrows the search (q, countryCode and searchUse) and combines with use (AND). An unknown value is refused with 400.
         required: false
         schema:
           type: string
-          description: The kind of address an entry is
+          description: The kind of address an entry is and the tab it is listed under, holding the uses it lists
           enum:
           - ORIGIN_OR_CONSIGNOR
           - DESTINATION_CONSIGNEE_OR_IMPORTER
           - BRANCH
       - name: use
         in: query
-        description: Keeps only addresses holding this use. Narrows the search (q, countryCode and searchUse) and combines with addressType (AND); an address with no uses never matches. An unknown value is refused with 400.
+        description: Keeps only addresses holding this use. Narrows the search (q, countryCode and searchUse) and combines with category (AND); an address with no uses never matches. An unknown value is refused with 400.
         required: false
         schema:
           type: string
@@ -391,7 +391,7 @@ components:
           minLength: 1
         addressType:
           type: string
-          description: The kind of address an entry is
+          description: The kind of address an entry is and the tab it is listed under, holding the uses it lists
           enum:
           - ORIGIN_OR_CONSIGNOR
           - DESTINATION_CONSIGNEE_OR_IMPORTER
@@ -457,7 +457,7 @@ components:
           description: Contact email address
         addressType:
           type: string
-          description: The kind of address an entry is
+          description: The kind of address an entry is and the tab it is listed under, holding the uses it lists
           enum:
           - ORIGIN_OR_CONSIGNOR
           - DESTINATION_CONSIGNEE_OR_IMPORTER

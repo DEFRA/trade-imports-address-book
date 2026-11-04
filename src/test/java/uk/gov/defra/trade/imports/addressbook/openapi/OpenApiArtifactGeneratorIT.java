@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -39,12 +40,18 @@ class OpenApiArtifactGeneratorIT {
   @MockBean MongoTemplate mongoTemplate;
 
   @Test
+  @SuppressWarnings("unchecked")
   void regenerateCommittedOpenApiArtifact() throws IOException {
-    String committedForm = ApiDocs.renderCommittedForm(ApiDocs.fetchLive(port));
+    Files.writeString(
+        ApiDocs.COMMITTED_ARTIFACT, ApiDocs.renderCommittedForm(ApiDocs.fetchLive(port)));
 
-    Files.writeString(ApiDocs.COMMITTED_ARTIFACT, committedForm);
-
-    assertThat(Files.readString(ApiDocs.COMMITTED_ARTIFACT)).isEqualTo(committedForm);
+    Map<String, Object> regenerated = ApiDocs.loadYaml(ApiDocs.COMMITTED_ARTIFACT);
+    Map<String, Object> locked = ApiDocs.lockedContract();
+    assertThat(((Map<String, Object>) regenerated.get("paths")).keySet())
+        .containsAll(((Map<String, Object>) locked.get("paths")).keySet());
+    assertThat(ApiDocs.requiredProperties(regenerated, "AddressRequest"))
+        .containsExactlyInAnyOrderElementsOf(ApiDocs.requiredProperties(locked, "AddressRequest"))
+        .contains("addressType", "uses");
   }
 
   @SpringBootApplication(
