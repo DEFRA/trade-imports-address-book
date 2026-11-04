@@ -2,6 +2,7 @@ package uk.gov.defra.trade.imports.addressbook.address;
 
 import org.mapstruct.BeanMapping;
 import org.mapstruct.CollectionMappingStrategy;
+import org.mapstruct.InheritConfiguration;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
@@ -32,13 +33,6 @@ public interface OperatorMapper {
   Address toEntity(AddressRequest request);
 
   /** Replaces every client-supplied field of an existing entity with the request's value. */
-  @BeanMapping(ignoreUnmappedSourceProperties = {"type", "role"})
-  @Mapping(target = "id", ignore = true)
-  @Mapping(target = "organisationId", ignore = true)
-  @Mapping(target = "status", ignore = true)
-  @Mapping(target = "createdAt", ignore = true)
-  @Mapping(target = "modifiedAt", ignore = true)
-  @Mapping(target = "version", ignore = true)
-  @Mapping(target = "expireAt", ignore = true)
+  @InheritConfiguration(name = "toEntity")
   void updateEntity(AddressRequest request, @MappingTarget Address address);
 }
