@@ -7,7 +7,6 @@ import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static uk.gov.defra.trade.imports.addressbook.address.AddressService.DEFAULT_PAGE_SIZE;
@@ -207,9 +206,7 @@ class AddressListIT extends IntegrationBase {
 
   @Test
   void list_shouldReturn400BadRequestWithNoErrorsMap_whenOrgHeaderMissing() throws Exception {
-    mockMvc
-        .perform(get("/organisation/{orgId}/addresses", ORGANISATION_ID))
-        .andExpect(badRequestProblemWithNoErrors());
+    listAddressesAs(ORGANISATION_ID, null).andExpect(badRequestProblemWithNoErrors());
   }
 
   @Test

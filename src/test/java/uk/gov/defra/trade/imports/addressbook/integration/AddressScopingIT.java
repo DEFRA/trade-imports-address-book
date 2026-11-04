@@ -1,9 +1,6 @@
 package uk.gov.defra.trade.imports.addressbook.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -11,17 +8,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
-import uk.gov.defra.trade.imports.addressbook.address.AddressRepository;
 
 class AddressScopingIT extends IntegrationBase {
 
   private static final String ORG_A = ORGANISATION_ID;
   private static final String ORG_B = OTHER_ORG;
 
-  @Autowired private AddressRepository repository;
   @Autowired private ObjectMapper objectMapper;
 
   private String createAsOrgA() throws Exception {
@@ -32,24 +26,14 @@ class AddressScopingIT extends IntegrationBase {
   void orgBBrowsingItsOwnPathCannotSeeOrReachOrgAsAddress() throws Exception {
     String id = createAsOrgA();
 
-    mockMvc
-        .perform(get("/organisation/{orgId}/addresses", ORG_B).header(ORG_HEADER, ORG_B))
+    listAddressesAs(ORG_B, ORG_B)
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items").isEmpty())
         .andExpect(jsonPath("$.totalItems").value(0));
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses/{address-id}", ORG_B, id).header(ORG_HEADER, ORG_B))
-        .andExpect(status().isNotFound());
+    getAddressAs(ORG_B, ORG_B, id).andExpect(status().isNotFound());
     putAddress(ORG_B, ORG_B, id, addressBody()).andExpect(status().isNotFound());
-    mockMvc
-        .perform(
-            delete("/organisation/{orgId}/addresses/{address-id}", ORG_B, id)
-                .header(ORG_HEADER, ORG_B))
-        .andExpect(status().isNotFound());
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses/{address-id}", ORG_A, id).header(ORG_HEADER, ORG_A))
+    deleteAddressAs(ORG_B, ORG_B, id).andExpect(status().isNotFound());
+    getAddressAs(ORG_A, ORG_A, id)
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.deleted").value(false));
   }
@@ -58,19 +42,11 @@ class AddressScopingIT extends IntegrationBase {
   void forwardedOrgHeaderDisagreeingWithThePathOrgIdIs404() throws Exception {
     String id = createAsOrgA();
 
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses/{address-id}", ORG_A, id).header(ORG_HEADER, ORG_B))
-        .andExpect(status().isNotFound());
-    mockMvc
-        .perform(get("/organisation/{orgId}/addresses", ORG_A).header(ORG_HEADER, ORG_B))
-        .andExpect(status().isNotFound());
+    getAddressAs(ORG_A, ORG_B, id).andExpect(status().isNotFound());
+    listAddressesAs(ORG_A, ORG_B).andExpect(status().isNotFound());
     putAddress(ORG_A, ORG_B, id, addressBody()).andExpect(status().isNotFound());
-    mockMvc
-        .perform(
-            delete("/organisation/{orgId}/addresses/{address-id}", ORG_A, id).header(ORG_HEADER, ORG_B))
-        .andExpect(status().isNotFound());
-    assertThat(repository.findByIdAndOrganisationId(id, ORG_A))
+    deleteAddressAs(ORG_A, ORG_B, id).andExpect(status().isNotFound());
+    assertThat(addressRepository.findByIdAndOrganisationId(id, ORG_A))
         .get()
         .extracting("status")
         .isEqualTo(AddressStatus.ACTIVE);
@@ -80,26 +56,17 @@ class AddressScopingIT extends IntegrationBase {
 
   @Test
   void missingOrgHeaderIsAPlatformAuthRejection400WithNoErrorsMap() throws Exception {
-    mockMvc
-        .perform(get("/organisation/{orgId}/addresses", ORG_A))
-        .andExpect(badRequestProblemWithNoErrors());
+    listAddressesAs(ORG_A, null).andExpect(badRequestProblemWithNoErrors());
   }
 
   @Test
   void blankOrgHeaderIsAPlatformAuthRejection400WithNoErrorsMap() throws Exception {
-    mockMvc
-        .perform(get("/organisation/{orgId}/addresses", ORG_A).header(ORG_HEADER, "   "))
-        .andExpect(badRequestProblemWithNoErrors());
+    listAddressesAs(ORG_A, "   ").andExpect(badRequestProblemWithNoErrors());
   }
 
   @Test
   void missingOrgHeaderOnPostIsAPlatformAuthRejection400AndPersistsNothing() throws Exception {
-    mockMvc
-        .perform(
-            post("/organisation/{orgId}/addresses", ORG_A)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(addressBody().json()))
-        .andExpect(badRequestProblemWithNoErrors());
+    postAddress(ORG_A, null, addressBody()).andExpect(badRequestProblemWithNoErrors());
 
     assertThat(activeAddressesFor(ORG_A)).isEmpty();
   }
@@ -108,18 +75,15 @@ class AddressScopingIT extends IntegrationBase {
   void organisationIdIsStampedOnCreateAndScopesReads() throws Exception {
     String id = createAsOrgA();
 
-    assertThat(repository.findByIdAndOrganisationId(id, ORG_A))
+    assertThat(addressRepository.findByIdAndOrganisationId(id, ORG_A))
         .get()
         .satisfies(address -> assertThat(address.getOrganisationId()).isEqualTo(ORG_A));
 
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses/{address-id}", ORG_A, id).header(ORG_HEADER, ORG_A))
+    getAddressAs(ORG_A, ORG_A, id)
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(id))
         .andExpect(jsonPath("$.organisationId").value(ORG_A));
-    mockMvc
-        .perform(get("/organisation/{orgId}/addresses", ORG_A).header(ORG_HEADER, ORG_A))
+    listAddressesAs(ORG_A, ORG_A)
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1));
   }
@@ -129,19 +93,9 @@ class AddressScopingIT extends IntegrationBase {
     String liveId = createAsOrgA();
 
     MvcResult crossOrg =
-        mockMvc
-            .perform(
-                get("/organisation/{orgId}/addresses/{address-id}", ORG_B, liveId)
-                    .header(ORG_HEADER, ORG_B))
-            .andExpect(status().isNotFound())
-            .andReturn();
+        getAddressAs(ORG_B, ORG_B, liveId).andExpect(status().isNotFound()).andReturn();
     MvcResult unknown =
-        mockMvc
-            .perform(
-                get("/organisation/{orgId}/addresses/{address-id}", ORG_B, UNKNOWN_ID)
-                    .header(ORG_HEADER, ORG_B))
-            .andExpect(status().isNotFound())
-            .andReturn();
+        getAddressAs(ORG_B, ORG_B, UNKNOWN_ID).andExpect(status().isNotFound()).andReturn();
     assertThat(problemBody(crossOrg)).isEqualTo(problemBody(unknown));
     assertThat(problemBody(crossOrg)).doesNotContainKey("instance");
     assertThat(problemBody(unknown)).doesNotContainKey("instance");

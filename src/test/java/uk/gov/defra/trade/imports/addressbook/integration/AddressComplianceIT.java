@@ -1,7 +1,6 @@
 package uk.gov.defra.trade.imports.addressbook.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -43,10 +42,7 @@ class AddressComplianceIT extends IntegrationBase {
   void listResponseIsATopLevelObjectNeverABareArray() throws Exception {
     postAddress(addressBody()).andExpect(status().isCreated());
 
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID))
+    listAddresses()
         .andExpect(status().isOk())
         .andExpect(jsonPath("$").isMap())
         .andExpect(jsonPath("$.items").isArray())
@@ -62,10 +58,7 @@ class AddressComplianceIT extends IntegrationBase {
     String traceId = UUID.randomUUID().toString();
 
     mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses/{address-id}", ORGANISATION_ID, UNKNOWN_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .header("x-cdp-request-id", traceId))
+        .perform(getAddressRequest(UNKNOWN_ID).header("x-cdp-request-id", traceId))
         .andExpect(status().isNotFound())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
         .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/not-found"))

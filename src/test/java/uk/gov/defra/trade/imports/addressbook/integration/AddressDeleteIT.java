@@ -6,8 +6,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -38,10 +36,7 @@ class AddressDeleteIT extends IntegrationBase {
     Instant modifiedAtBeforeDelete = saved.getModifiedAt();
 
     // When
-    mockMvc
-        .perform(
-            delete("/organisation/{orgId}/addresses/{address-id}", ORGANISATION_ID, saved.getId())
-                .header(ORG_HEADER, ORGANISATION_ID))
+    deleteAddress(saved.getId())
         .andExpect(status().isNoContent());
 
     // Then
@@ -62,23 +57,16 @@ class AddressDeleteIT extends IntegrationBase {
     String id = saved.getId();
 
     // When
-    mockMvc
-        .perform(
-            delete("/organisation/{orgId}/addresses/{address-id}", ORGANISATION_ID, id)
-                .header(ORG_HEADER, ORGANISATION_ID))
+    deleteAddress(id)
         .andExpect(status().isNoContent());
 
     // Then
-    mockMvc
-        .perform(get("/organisation/{orgId}/addresses", ORGANISATION_ID).header(ORG_HEADER, ORGANISATION_ID))
+    listAddresses()
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(0))
         .andExpect(jsonPath("$.items").isEmpty());
 
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses/{address-id}", ORGANISATION_ID, id)
-                .header(ORG_HEADER, ORGANISATION_ID))
+    getAddress(id)
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(id))
         .andExpect(jsonPath("$.deleted").value(true));
@@ -90,20 +78,14 @@ class AddressDeleteIT extends IntegrationBase {
     Address saved = saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE));
     String id = saved.getId();
 
-    mockMvc
-        .perform(
-            delete("/organisation/{orgId}/addresses/{address-id}", ORGANISATION_ID, id)
-                .header(ORG_HEADER, ORGANISATION_ID))
+    deleteAddress(id)
         .andExpect(status().isNoContent());
     clearInvocations(repository);
     Instant modifiedAtAfterFirstDelete =
         repository.findByIdAndOrganisationId(id, ORGANISATION_ID).orElseThrow().getModifiedAt();
 
     // When
-    mockMvc
-        .perform(
-            delete("/organisation/{orgId}/addresses/{address-id}", ORGANISATION_ID, id)
-                .header(ORG_HEADER, ORGANISATION_ID))
+    deleteAddress(id)
         .andExpect(status().isNoContent());
 
     // Then
@@ -120,10 +102,7 @@ class AddressDeleteIT extends IntegrationBase {
   @Test
   void delete_shouldReturn404NotFoundProblem_whenIdIsUnknown() throws Exception {
     // When / Then
-    mockMvc
-        .perform(
-            delete("/organisation/{orgId}/addresses/{address-id}", ORGANISATION_ID, UNKNOWN_ID)
-                .header(ORG_HEADER, ORGANISATION_ID))
+    deleteAddress(UNKNOWN_ID)
         .andExpect(status().isNotFound())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
         .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/not-found"))
@@ -136,10 +115,7 @@ class AddressDeleteIT extends IntegrationBase {
     Address saved = saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE));
 
     // When
-    mockMvc
-        .perform(
-            delete("/organisation/{orgId}/addresses/{address-id}", OTHER_ORG, saved.getId())
-                .header(ORG_HEADER, OTHER_ORG))
+    deleteAddressAs(OTHER_ORG, OTHER_ORG, saved.getId())
         .andExpect(status().isNotFound());
 
     // Then
@@ -155,10 +131,7 @@ class AddressDeleteIT extends IntegrationBase {
     Address saved = saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE));
 
     // When
-    mockMvc
-        .perform(
-            delete("/organisation/{orgId}/addresses/{address-id}", ORGANISATION_ID, saved.getId())
-                .header(ORG_HEADER, OTHER_ORG))
+    deleteAddressAs(ORGANISATION_ID, OTHER_ORG, saved.getId())
         .andExpect(status().isNotFound());
 
     // Then
@@ -176,10 +149,7 @@ class AddressDeleteIT extends IntegrationBase {
         repository.findByIdAndOrganisationId(saved.getId(), ORGANISATION_ID).orElseThrow();
 
     // When
-    mockMvc
-        .perform(
-            delete("/organisation/{orgId}/addresses/{address-id}", ORGANISATION_ID, saved.getId())
-                .header(ORG_HEADER, ORGANISATION_ID))
+    deleteAddress(saved.getId())
         .andExpect(status().isNoContent());
 
     stale.setName("Resurrected");

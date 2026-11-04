@@ -1,6 +1,5 @@
 package uk.gov.defra.trade.imports.addressbook.integration;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -22,10 +21,7 @@ class AddressGetIT extends IntegrationBase {
     Address saved = saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE));
 
     // When / Then
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses/{address-id}", ORGANISATION_ID, saved.getId())
-                .header(ORG_HEADER, ORGANISATION_ID))
+    getAddress(saved.getId())
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(saved.getId()))
         .andExpect(jsonPath("$.name").value("Highland Livestock Ltd"))
@@ -47,10 +43,7 @@ class AddressGetIT extends IntegrationBase {
     Address saved = saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.DELETED));
 
     // When / Then
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses/{address-id}", ORGANISATION_ID, saved.getId())
-                .header(ORG_HEADER, ORGANISATION_ID))
+    getAddress(saved.getId())
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(saved.getId()))
         .andExpect(jsonPath("$.deleted").value(true));
@@ -59,10 +52,7 @@ class AddressGetIT extends IntegrationBase {
   @Test
   void get_shouldReturn404NotFoundProblem_whenIdIsUnknown() throws Exception {
     // When / Then
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses/{address-id}", ORGANISATION_ID, UNKNOWN_ID)
-                .header(ORG_HEADER, ORGANISATION_ID))
+    getAddress(UNKNOWN_ID)
         .andExpect(status().isNotFound())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
         .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/not-found"))

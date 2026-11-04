@@ -1,9 +1,7 @@
 package uk.gov.defra.trade.imports.addressbook.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -26,7 +24,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.lang.Nullable;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -54,7 +54,10 @@ abstract class IntegrationBase {
   protected static final String OTHER_ORG = "9c1b7e3f-0a2d-5c88-5a8d-2b196f4e4d21";
   protected static final String UNKNOWN_ID = "665f1c2ab3e4d51a2c9d0e77";
 
-  private static final ObjectMapper RESPONSE_MAPPER = new ObjectMapper();
+  private static final ObjectMapper JSON = new ObjectMapper();
+
+  private static final String ADDRESSES_PATH = "/organisation/{orgId}/addresses";
+  private static final String ADDRESS_PATH = ADDRESSES_PATH + "/{address-id}";
 
   protected static final String VALIDATION_ERROR_TYPE =
       "https://api.cdp.defra.cloud/problems/validation-error";
@@ -129,10 +132,8 @@ abstract class IntegrationBase {
   }
 
   protected static MockHttpServletRequestBuilder postAddressRequest(String json) {
-    return post("/organisation/{orgId}/addresses", ORGANISATION_ID)
-        .header(ORG_HEADER, ORGANISATION_ID)
-        .contentType(MediaType.APPLICATION_JSON)
-        .content(json);
+    return withJson(
+        addressesRequest(HttpMethod.POST, ORGANISATION_ID, ADDRESSES_PATH, ORGANISATION_ID), json);
   }
 
   protected ResultActions postAddress(AddressBody body) throws Exception {
@@ -146,10 +147,9 @@ abstract class IntegrationBase {
   protected ResultActions postAddress(String orgId, String callerOrganisationId, AddressBody body)
       throws Exception {
     return mockMvc.perform(
-        post("/organisation/{orgId}/addresses", orgId)
-            .header(ORG_HEADER, callerOrganisationId)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(body.json()));
+        withJson(
+            addressesRequest(HttpMethod.POST, callerOrganisationId, ADDRESSES_PATH, orgId),
+            body.json()));
   }
 
   protected ResultActions putAddress(String addressId, AddressBody body) throws Exception {
@@ -169,31 +169,73 @@ abstract class IntegrationBase {
   private ResultActions putAddress(
       String orgId, String callerOrganisationId, String addressId, String json) throws Exception {
     return mockMvc.perform(
-        put("/organisation/{orgId}/addresses/{address-id}", orgId, addressId)
-            .header(ORG_HEADER, callerOrganisationId)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(json));
+        withJson(
+            addressesRequest(HttpMethod.PUT, callerOrganisationId, ADDRESS_PATH, orgId, addressId),
+            json));
   }
 
   protected ResultActions listAddresses(String... queryParameterNamesAndValues) throws Exception {
-    var request = get("/organisation/{orgId}/addresses", ORGANISATION_ID);
+    MockHttpServletRequestBuilder request =
+        addressesRequest(HttpMethod.GET, ORGANISATION_ID, ADDRESSES_PATH, ORGANISATION_ID);
     for (int i = 0; i < queryParameterNamesAndValues.length; i += 2) {
       request = request.param(queryParameterNamesAndValues[i], queryParameterNamesAndValues[i + 1]);
     }
-    return mockMvc.perform(request.header(ORG_HEADER, ORGANISATION_ID));
+    return mockMvc.perform(request);
+  }
+
+  protected ResultActions listAddressesAs(String orgId, String callerOrganisationId)
+      throws Exception {
+    return mockMvc.perform(
+        addressesRequest(HttpMethod.GET, callerOrganisationId, ADDRESSES_PATH, orgId));
   }
 
   protected static Set<String> readIds(String body) throws Exception {
     Set<String> ids = new HashSet<>();
-    JsonNode items = RESPONSE_MAPPER.readTree(body).get("items");
+    JsonNode items = JSON.readTree(body).get("items");
     items.forEach(item -> ids.add(item.get("id").asText()));
     return ids;
   }
 
+  protected static MockHttpServletRequestBuilder getAddressRequest(String addressId) {
+    return addressesRequest(
+        HttpMethod.GET, ORGANISATION_ID, ADDRESS_PATH, ORGANISATION_ID, addressId);
+  }
+
   protected ResultActions getAddress(String addressId) throws Exception {
+    return mockMvc.perform(getAddressRequest(addressId));
+  }
+
+  protected ResultActions getAddressAs(String orgId, String callerOrganisationId, String addressId)
+      throws Exception {
     return mockMvc.perform(
-        get("/organisation/{orgId}/addresses/{address-id}", ORGANISATION_ID, addressId)
-            .header(ORG_HEADER, ORGANISATION_ID));
+        addressesRequest(HttpMethod.GET, callerOrganisationId, ADDRESS_PATH, orgId, addressId));
+  }
+
+  protected ResultActions deleteAddress(String addressId) throws Exception {
+    return deleteAddressAs(ORGANISATION_ID, ORGANISATION_ID, addressId);
+  }
+
+  protected ResultActions deleteAddressAs(
+      String orgId, String callerOrganisationId, String addressId) throws Exception {
+    return mockMvc.perform(
+        addressesRequest(
+            HttpMethod.DELETE, callerOrganisationId, ADDRESS_PATH, orgId, addressId));
+  }
+
+  private static MockHttpServletRequestBuilder addressesRequest(
+      HttpMethod method,
+      @Nullable String callerOrganisationId,
+      String path,
+      Object... pathVariables) {
+    MockHttpServletRequestBuilder request = request(method, path, pathVariables);
+    return callerOrganisationId == null
+        ? request
+        : request.header(ORG_HEADER, callerOrganisationId);
+  }
+
+  private static MockHttpServletRequestBuilder withJson(
+      MockHttpServletRequestBuilder request, String json) {
+    return request.contentType(MediaType.APPLICATION_JSON).content(json);
   }
 
   protected String createdAddressId(ResultActions created) throws Exception {
@@ -214,8 +256,6 @@ abstract class IntegrationBase {
   }
 
   protected static final class AddressBody {
-
-    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final Map<String, Object> fields = new LinkedHashMap<>();
 
@@ -247,7 +287,7 @@ abstract class IntegrationBase {
 
     String json() {
       try {
-        return MAPPER.writeValueAsString(fields);
+        return JSON.writeValueAsString(fields);
       } catch (JsonProcessingException e) {
         throw new UncheckedIOException(e);
       }
