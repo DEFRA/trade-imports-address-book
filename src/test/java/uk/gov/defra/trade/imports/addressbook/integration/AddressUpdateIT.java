@@ -3,6 +3,8 @@ package uk.gov.defra.trade.imports.addressbook.integration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.contains;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -13,11 +15,14 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
 import uk.gov.defra.trade.imports.addressbook.address.AddressType;
 import uk.gov.defra.trade.imports.addressbook.address.AddressUse;
+import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 
+@MockitoSpyBean(types = OperatorRepository.class)
 class AddressUpdateIT extends IntegrationBase {
 
   private Address saveActiveWithOptionals() {
@@ -187,6 +192,20 @@ class AddressUpdateIT extends IntegrationBase {
               assertThat(address.getCreatedAt().toEpochMilli()).isEqualTo(createdAt.toEpochMilli());
               assertThat(address.getModifiedAt()).isAfter(baselineModifiedAt);
             });
+  }
+
+  @Test
+  void put_shouldReturn409ConflictProblem_whenOptimisticLockingFails() throws Exception {
+    Address saved = saveActiveWithOptionals();
+    doThrow(new OptimisticLockingFailureException("stale"))
+        .when(operatorRepository)
+        .save(any(Address.class));
+
+    putAddress(saved.getId(), addressBody())
+        .andExpect(status().isConflict())
+        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/conflict"))
+        .andExpect(jsonPath("$.title").value("Conflict"));
   }
 
   @Test
