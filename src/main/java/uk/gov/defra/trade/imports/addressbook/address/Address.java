@@ -16,7 +16,10 @@ import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 /**
- * An organisation-owned address-book entry that can carry its address type and uses.
+ * An organisation-owned address-book entry.
+ *
+ * <p>{@code addressType} and {@code uses} are set on every create and update; a stored entry may
+ * hold neither, so either can be null and {@code uses} can be empty.
  *
  * <p>{@code countryCode} is stored as an ISO 3166-1 alpha-2 code, exactly as supplied.
  *
