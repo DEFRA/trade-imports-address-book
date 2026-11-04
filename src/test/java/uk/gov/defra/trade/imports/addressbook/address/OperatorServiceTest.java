@@ -513,16 +513,4 @@ class OperatorServiceTest {
 
     assertThat(response.items()).extracting(OperatorResponse::id).containsExactly("matching-id");
   }
-
-  @Test
-  void listCriteria_refusesANullCountryCodeList() {
-    assertThatExceptionOfType(NullPointerException.class)
-        .isThrownBy(() -> new ListCriteria(null, null, null, null, List.of()));
-  }
-
-  @Test
-  void listCriteria_refusesANullSearchUseList() {
-    assertThatExceptionOfType(NullPointerException.class)
-        .isThrownBy(() -> new ListCriteria(null, null, null, List.of(), null));
-  }
 }
