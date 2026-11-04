@@ -14,14 +14,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
-import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
+import uk.gov.defra.trade.imports.addressbook.address.AddressRepository;
 
 class AddressScopingIT extends IntegrationBase {
 
   private static final String ORG_A = ORGANISATION_ID;
   private static final String ORG_B = OTHER_ORG;
 
-  @Autowired private OperatorRepository repository;
+  @Autowired private AddressRepository repository;
   @Autowired private ObjectMapper objectMapper;
 
   private String createAsOrgA() throws Exception {
@@ -39,17 +39,17 @@ class AddressScopingIT extends IntegrationBase {
         .andExpect(jsonPath("$.totalItems").value(0));
     mockMvc
         .perform(
-            get("/organisation/{orgId}/addresses/{operator-id}", ORG_B, id).header(ORG_HEADER, ORG_B))
+            get("/organisation/{orgId}/addresses/{address-id}", ORG_B, id).header(ORG_HEADER, ORG_B))
         .andExpect(status().isNotFound());
     putAddress(ORG_B, ORG_B, id, addressBody()).andExpect(status().isNotFound());
     mockMvc
         .perform(
-            delete("/organisation/{orgId}/addresses/{operator-id}", ORG_B, id)
+            delete("/organisation/{orgId}/addresses/{address-id}", ORG_B, id)
                 .header(ORG_HEADER, ORG_B))
         .andExpect(status().isNotFound());
     mockMvc
         .perform(
-            get("/organisation/{orgId}/addresses/{operator-id}", ORG_A, id).header(ORG_HEADER, ORG_A))
+            get("/organisation/{orgId}/addresses/{address-id}", ORG_A, id).header(ORG_HEADER, ORG_A))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.deleted").value(false));
   }
@@ -60,7 +60,7 @@ class AddressScopingIT extends IntegrationBase {
 
     mockMvc
         .perform(
-            get("/organisation/{orgId}/addresses/{operator-id}", ORG_A, id).header(ORG_HEADER, ORG_B))
+            get("/organisation/{orgId}/addresses/{address-id}", ORG_A, id).header(ORG_HEADER, ORG_B))
         .andExpect(status().isNotFound());
     mockMvc
         .perform(get("/organisation/{orgId}/addresses", ORG_A).header(ORG_HEADER, ORG_B))
@@ -68,7 +68,7 @@ class AddressScopingIT extends IntegrationBase {
     putAddress(ORG_A, ORG_B, id, addressBody()).andExpect(status().isNotFound());
     mockMvc
         .perform(
-            delete("/organisation/{orgId}/addresses/{operator-id}", ORG_A, id).header(ORG_HEADER, ORG_B))
+            delete("/organisation/{orgId}/addresses/{address-id}", ORG_A, id).header(ORG_HEADER, ORG_B))
         .andExpect(status().isNotFound());
     assertThat(repository.findByIdAndOrganisationId(id, ORG_A))
         .get()
@@ -114,7 +114,7 @@ class AddressScopingIT extends IntegrationBase {
 
     mockMvc
         .perform(
-            get("/organisation/{orgId}/addresses/{operator-id}", ORG_A, id).header(ORG_HEADER, ORG_A))
+            get("/organisation/{orgId}/addresses/{address-id}", ORG_A, id).header(ORG_HEADER, ORG_A))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(id))
         .andExpect(jsonPath("$.organisationId").value(ORG_A));
@@ -131,14 +131,14 @@ class AddressScopingIT extends IntegrationBase {
     MvcResult crossOrg =
         mockMvc
             .perform(
-                get("/organisation/{orgId}/addresses/{operator-id}", ORG_B, liveId)
+                get("/organisation/{orgId}/addresses/{address-id}", ORG_B, liveId)
                     .header(ORG_HEADER, ORG_B))
             .andExpect(status().isNotFound())
             .andReturn();
     MvcResult unknown =
         mockMvc
             .perform(
-                get("/organisation/{orgId}/addresses/{operator-id}", ORG_B, UNKNOWN_ID)
+                get("/organisation/{orgId}/addresses/{address-id}", ORG_B, UNKNOWN_ID)
                     .header(ORG_HEADER, ORG_B))
             .andExpect(status().isNotFound())
             .andReturn();

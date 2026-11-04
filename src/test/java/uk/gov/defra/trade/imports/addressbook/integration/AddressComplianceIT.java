@@ -5,7 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static uk.gov.defra.trade.imports.addressbook.address.OperatorService.DEFAULT_PAGE_SIZE;
+import static uk.gov.defra.trade.imports.addressbook.address.AddressService.DEFAULT_PAGE_SIZE;
 import static uk.gov.defra.trade.imports.addressbook.testsupport.ApiDocs.lockedContract;
 import static uk.gov.defra.trade.imports.addressbook.testsupport.ApiDocs.nested;
 import static uk.gov.defra.trade.imports.addressbook.testsupport.ApiDocs.requiredProperties;
@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import uk.gov.defra.trade.imports.addressbook.testsupport.ApiDocs;
 
-class OperatorComplianceIT extends IntegrationBase {
+class AddressComplianceIT extends IntegrationBase {
 
   @Test
   void createAndReadEmitCamelCasePropertiesAndADerivedDeletedBoolean() throws Exception {
@@ -63,7 +63,7 @@ class OperatorComplianceIT extends IntegrationBase {
 
     mockMvc
         .perform(
-            get("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, UNKNOWN_ID)
+            get("/organisation/{orgId}/addresses/{address-id}", ORGANISATION_ID, UNKNOWN_ID)
                 .header(ORG_HEADER, ORGANISATION_ID)
                 .header("x-cdp-request-id", traceId))
         .andExpect(status().isNotFound())
@@ -100,7 +100,7 @@ class OperatorComplianceIT extends IntegrationBase {
     assertThat(page).doesNotContainEntry("type", "array");
     assertThat(pageProps).containsKeys("items", "page", "pageSize", "totalItems", "totalPages");
     assertThat(nested(pageProps, "items", "type")).isEqualTo("array");
-    assertThat(listResponseSchemaRef(doc)).endsWith("/OperatorPageResponse");
+    assertThat(listResponseSchemaRef(doc)).endsWith("/AddressPageResponse");
   }
 
   @Test
@@ -160,7 +160,7 @@ class OperatorComplianceIT extends IntegrationBase {
     Map<String, Object> locked = lockedContract();
 
     assertAnyOfProblem(live, locked, "/organisation/{orgId}/addresses", "post");
-    assertAnyOfProblem(live, locked, "/organisation/{orgId}/addresses/{operator-id}", "put");
+    assertAnyOfProblem(live, locked, "/organisation/{orgId}/addresses/{address-id}", "put");
   }
 
   @Test
@@ -178,7 +178,7 @@ class OperatorComplianceIT extends IntegrationBase {
           .isEqualTo(listParameterAllowedValues(locked, parameter));
     }
 
-    for (String schema : List.of("AddressRequest", "OperatorResponse")) {
+    for (String schema : List.of("AddressRequest", "AddressResponse")) {
       for (String property : List.of("addressType", "uses")) {
         assertThat(allowedValues(locked, schema, property))
             .as("locked %s.%s must list its allowed values", schema, property)

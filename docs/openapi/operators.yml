@@ -9,7 +9,7 @@ tags:
 - name: addresses
   description: Address book, scoped to the caller's organisation
 paths:
-  /organisation/{orgId}/addresses/{operator-id}:
+  /organisation/{orgId}/addresses/{address-id}:
     get:
       tags:
       - addresses
@@ -26,7 +26,7 @@ paths:
         required: true
         schema:
           type: string
-      - name: operator-id
+      - name: address-id
         in: path
         required: true
         schema:
@@ -37,7 +37,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OperatorResponse'
+                $ref: '#/components/schemas/AddressResponse'
         '404':
           description: Unknown id, or an id outside the caller's organisation scope
           content:
@@ -68,7 +68,7 @@ paths:
         required: true
         schema:
           type: string
-      - name: operator-id
+      - name: address-id
         in: path
         required: true
         schema:
@@ -85,7 +85,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OperatorResponse'
+                $ref: '#/components/schemas/AddressResponse'
         '400':
           description: Validation error, or a missing org header
           content:
@@ -131,7 +131,7 @@ paths:
         required: true
         schema:
           type: string
-      - name: operator-id
+      - name: address-id
         in: path
         required: true
         schema:
@@ -253,7 +253,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OperatorPageResponse'
+                $ref: '#/components/schemas/AddressPageResponse'
         '400':
           description: An out-of-range or non-numeric page or page size, an unknown address type, use or search use, or a missing org header
           content:
@@ -308,7 +308,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OperatorResponse'
+                $ref: '#/components/schemas/AddressResponse'
         '400':
           description: Validation error, or a missing identity header
           content:
@@ -417,7 +417,7 @@ components:
       - postcode
       - townOrCity
       - uses
-    OperatorResponse:
+    AddressResponse:
       description: An address in the caller's organisation-scoped address book
       properties:
         id:
@@ -542,14 +542,14 @@ components:
       - status
       - title
       - type
-    OperatorPageResponse:
+    AddressPageResponse:
       description: Paginated list of live addresses (never a bare array)
       properties:
         items:
           type: array
           description: Addresses on this page
           items:
-            $ref: '#/components/schemas/OperatorResponse'
+            $ref: '#/components/schemas/AddressResponse'
         page:
           type: integer
           format: int32

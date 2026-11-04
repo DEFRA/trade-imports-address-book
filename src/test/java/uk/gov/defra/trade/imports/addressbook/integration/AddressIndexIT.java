@@ -2,7 +2,7 @@ package uk.gov.defra.trade.imports.addressbook.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
-import static uk.gov.defra.trade.imports.addressbook.address.OperatorService.DEFAULT_PAGE_SIZE;
+import static uk.gov.defra.trade.imports.addressbook.address.AddressService.DEFAULT_PAGE_SIZE;
 
 import java.util.List;
 import org.bson.Document;
@@ -15,7 +15,7 @@ import org.springframework.data.mongodb.core.index.IndexInfo;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
 
-class OperatorIndexIT extends IntegrationBase {
+class AddressIndexIT extends IntegrationBase {
 
   @Autowired private MongoTemplate mongoTemplate;
 

@@ -49,8 +49,8 @@ class GlobalExceptionHandlerTest {
     ResponseEntity<ValidationProblem> response =
         exceptionHandler.handleValidationException(
             validationException(
-                new FieldError("operatorRequest", "addressLine1", "Enter address line 1"),
-                new FieldError("operatorRequest", "email", "Enter an email address")));
+                new FieldError("addressRequest", "addressLine1", "Enter address line 1"),
+                new FieldError("addressRequest", "email", "Enter an email address")));
 
     // Then
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
@@ -79,8 +79,8 @@ class GlobalExceptionHandlerTest {
     ResponseEntity<ValidationProblem> response =
         exceptionHandler.handleValidationException(
             validationException(
-                new FieldError("operatorRequest", "name", "must not be blank"),
-                new FieldError("operatorRequest", "name", "size must be at most 255")));
+                new FieldError("addressRequest", "name", "must not be blank"),
+                new FieldError("addressRequest", "name", "size must be at most 255")));
 
     // Then
     assertThat(response.getBody().errors().get("name"))
@@ -121,7 +121,7 @@ class GlobalExceptionHandlerTest {
         exceptionHandler
             .handleValidationException(
                 validationException(
-                    new FieldError("operatorRequest", "postcode", "Enter a postcode")))
+                    new FieldError("addressRequest", "postcode", "Enter a postcode")))
             .getBody();
     Problem badRequest =
         exceptionHandler
@@ -141,7 +141,7 @@ class GlobalExceptionHandlerTest {
 
     // When
     ResponseEntity<Problem> response =
-        exceptionHandler.handleNotFoundException(new NotFoundException("Operator not found"));
+        exceptionHandler.handleNotFoundException(new NotFoundException("Address not found"));
 
     // Then
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
@@ -151,7 +151,7 @@ class GlobalExceptionHandlerTest {
     assertThat(body.type())
         .isEqualTo("https://api.cdp.defra.cloud/problems/not-found");
     assertThat(body.title()).isEqualTo("Resource Not Found");
-    assertThat(body.detail()).isEqualTo("Operator not found");
+    assertThat(body.detail()).isEqualTo("Address not found");
     assertThat(body.traceId()).isEqualTo("trace-404");
   }
 

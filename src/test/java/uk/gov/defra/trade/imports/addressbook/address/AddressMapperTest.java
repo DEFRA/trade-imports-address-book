@@ -15,9 +15,9 @@ import org.mapstruct.factory.Mappers;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import uk.gov.defra.trade.imports.addressbook.configuration.JacksonConfig;
 
-class OperatorMapperTest {
+class AddressMapperTest {
 
-  private final OperatorMapper operatorMapper = Mappers.getMapper(OperatorMapper.class);
+  private final AddressMapper addressMapper = Mappers.getMapper(AddressMapper.class);
 
   private ObjectMapper mapper;
 
@@ -61,13 +61,13 @@ class OperatorMapperTest {
         .uses(List.of("PLACE_OF_ORIGIN"));
   }
 
-  private OperatorResponse responseFor(AddressStatus status) {
-    return operatorMapper.toResponse(seededEntity(status).build());
+  private AddressResponse responseFor(AddressStatus status) {
+    return addressMapper.toResponse(seededEntity(status).build());
   }
 
   @Test
   void toResponse_copiesEveryFieldFromTheEntityAndDerivesDeletedFalseForAnActiveRow() {
-    OperatorResponse response = responseFor(AddressStatus.ACTIVE);
+    AddressResponse response = responseFor(AddressStatus.ACTIVE);
 
     assertThat(response.id()).isEqualTo("665f1c2ab3e4d51a2c9d0e77");
     assertThat(response.name()).isEqualTo("Acme Livestock");
@@ -89,7 +89,7 @@ class OperatorMapperTest {
 
   @Test
   void toResponse_derivesDeletedTrueForATombstone() {
-    OperatorResponse response = responseFor(AddressStatus.DELETED);
+    AddressResponse response = responseFor(AddressStatus.DELETED);
 
     assertThat(response.deleted()).isTrue();
   }
@@ -104,7 +104,7 @@ class OperatorMapperTest {
             .uses(null)
             .build();
 
-    OperatorResponse response = operatorMapper.toResponse(entity);
+    AddressResponse response = addressMapper.toResponse(entity);
 
     assertThat(response.addressLine2()).isNull();
     assertThat(response.county()).isNull();
@@ -117,7 +117,7 @@ class OperatorMapperTest {
   void toResponse_failsLoudWhenARequiredFieldIsNull() {
     Address entity = seededEntity(AddressStatus.ACTIVE).phone(null).build();
 
-    assertThatThrownBy(() -> operatorMapper.toResponse(entity))
+    assertThatThrownBy(() -> addressMapper.toResponse(entity))
         .isInstanceOf(NullPointerException.class)
         .hasMessage("phone");
   }
@@ -191,7 +191,7 @@ class OperatorMapperTest {
         """;
 
     AddressRequest request = mapper.readValue(body, AddressRequest.class);
-    Address entity = operatorMapper.toEntity(request);
+    Address entity = addressMapper.toEntity(request);
 
     assertThat(entity.getName()).isEqualTo("Port Importers Ltd");
     assertThat(entity.getAddressLine1()).isEqualTo("7 Quay Road");
@@ -217,7 +217,7 @@ class OperatorMapperTest {
             .uses(List.of("BRANCH_ADDRESS", "CONSIGNOR", "PLACE_OF_ORIGIN"))
             .build();
 
-    Address entity = operatorMapper.toEntity(request);
+    Address entity = addressMapper.toEntity(request);
 
     assertThat(entity.getAddressType()).isEqualTo(AddressType.BRANCH);
     assertThat(entity.getUses())
@@ -229,7 +229,7 @@ class OperatorMapperTest {
   void updateEntity_replacesAllMutableFieldsAndClearsOmittedOptionals() {
     Address existing = seededEntity(AddressStatus.ACTIVE).version(2L).build();
 
-    operatorMapper.updateEntity(validRequest().build(), existing);
+    addressMapper.updateEntity(validRequest().build(), existing);
 
     assertThat(existing.getName()).isEqualTo("Lowland Cattle Co");
     assertThat(existing.getAddressLine1()).isEqualTo("2 Market Street");
@@ -257,7 +257,7 @@ class OperatorMapperTest {
             .uses(List.of("PLACE_OF_ORIGIN", "CONSIGNOR", "IMPORTER"))
             .build();
 
-    operatorMapper.updateEntity(request, existing);
+    addressMapper.updateEntity(request, existing);
 
     assertThat(existing.getAddressType()).isEqualTo(AddressType.ORIGIN_OR_CONSIGNOR);
     assertThat(existing.getUses())

@@ -24,7 +24,7 @@ class AddressGetIT extends IntegrationBase {
     // When / Then
     mockMvc
         .perform(
-            get("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, saved.getId())
+            get("/organisation/{orgId}/addresses/{address-id}", ORGANISATION_ID, saved.getId())
                 .header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(saved.getId()))
@@ -49,7 +49,7 @@ class AddressGetIT extends IntegrationBase {
     // When / Then
     mockMvc
         .perform(
-            get("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, saved.getId())
+            get("/organisation/{orgId}/addresses/{address-id}", ORGANISATION_ID, saved.getId())
                 .header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(saved.getId()))
@@ -61,7 +61,7 @@ class AddressGetIT extends IntegrationBase {
     // When / Then
     mockMvc
         .perform(
-            get("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, UNKNOWN_ID)
+            get("/organisation/{orgId}/addresses/{address-id}", ORGANISATION_ID, UNKNOWN_ID)
                 .header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isNotFound())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))

@@ -4,7 +4,7 @@ import java.util.Optional;
 import org.springframework.data.repository.Repository;
 
 @org.springframework.stereotype.Repository
-public interface OperatorRepository extends Repository<Address, String>, OperatorListQuery {
+public interface AddressRepository extends Repository<Address, String>, AddressListQuery {
 
   Address save(Address address);
 

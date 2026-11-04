@@ -2,7 +2,7 @@ package uk.gov.defra.trade.imports.addressbook.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.data.domain.PageRequest.of;
-import static uk.gov.defra.trade.imports.addressbook.address.OperatorTestSupport.listCriteria;
+import static uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport.listCriteria;
 
 import java.util.List;
 import java.util.Map;
@@ -17,20 +17,20 @@ import uk.gov.defra.trade.imports.addressbook.address.AddressType;
 import uk.gov.defra.trade.imports.addressbook.address.AddressUse;
 import uk.gov.defra.trade.imports.addressbook.address.ListCriteria;
 
-class OperatorRepositoryIT extends IntegrationBase {
+class AddressRepositoryIT extends IntegrationBase {
 
   private static final String ORG_A = "ORG-A";
   private static final String ORG_B = "ORG-B";
 
   private Page<Address> listLive(String organisationId, ListCriteria criteria) {
-    return operatorRepository.listLiveAddresses(organisationId, criteria, of(0, 10));
+    return addressRepository.listLiveAddresses(organisationId, criteria, of(0, 10));
   }
 
   @Test
   void findByIdAndOrganisationId_returnsAddress_whenOrganisationMatches() {
     Address saved = saveAddress(addressBuilder(ORG_A, AddressStatus.ACTIVE).name("Acme Farms"));
 
-    assertThat(operatorRepository.findByIdAndOrganisationId(saved.getId(), ORG_A))
+    assertThat(addressRepository.findByIdAndOrganisationId(saved.getId(), ORG_A))
         .isPresent()
         .get()
         .extracting(Address::getName)
@@ -43,7 +43,7 @@ class OperatorRepositoryIT extends IntegrationBase {
     saveAddress(addressBuilder(ORG_A, AddressStatus.ACTIVE).name("Org A Two"));
     saveAddress(addressBuilder(ORG_B, AddressStatus.ACTIVE).name("Org B One"));
 
-    assertThat(operatorRepository.findByIdAndOrganisationId(orgA1.getId(), ORG_B)).isEmpty();
+    assertThat(addressRepository.findByIdAndOrganisationId(orgA1.getId(), ORG_B)).isEmpty();
   }
 
   @Test

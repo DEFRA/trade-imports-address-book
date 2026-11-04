@@ -5,11 +5,11 @@ import java.util.List;
 
 /** {@code items} is copied and never null. */
 @Schema(description = "Paginated list of live addresses (never a bare array)")
-public record OperatorPageResponse(
+public record AddressPageResponse(
     @Schema(
             description = "Addresses on this page",
             requiredMode = Schema.RequiredMode.REQUIRED)
-        List<OperatorResponse> items,
+        List<AddressResponse> items,
     @Schema(
             description = "Current 1-based page number",
             requiredMode = Schema.RequiredMode.REQUIRED,
@@ -31,7 +31,7 @@ public record OperatorPageResponse(
             minimum = "0")
         int totalPages) {
 
-  public OperatorPageResponse {
+  public AddressPageResponse {
     items = List.copyOf(items);
   }
 }

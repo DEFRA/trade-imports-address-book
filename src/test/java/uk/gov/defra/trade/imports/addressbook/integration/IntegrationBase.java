@@ -7,7 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static uk.gov.defra.trade.imports.addressbook.address.OperatorTestSupport.NO_LIST_CRITERIA;
+import static uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport.NO_LIST_CRITERIA;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -40,7 +40,7 @@ import org.testcontainers.utility.DockerImageName;
 import uk.gov.defra.trade.imports.addressbook.Application;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
-import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
+import uk.gov.defra.trade.imports.addressbook.address.AddressRepository;
 
 @SpringBootTest(
     classes = Application.class,
@@ -84,7 +84,7 @@ abstract class IntegrationBase {
   private MongoTemplate mongoTemplate;
 
   @Autowired
-  protected OperatorRepository operatorRepository;
+  protected AddressRepository addressRepository;
 
   @DynamicPropertySource
   static void setProperties(DynamicPropertyRegistry registry) {
@@ -119,11 +119,11 @@ abstract class IntegrationBase {
   }
 
   protected Address saveAddress(Address.AddressBuilder address) {
-    return operatorRepository.save(address.build());
+    return addressRepository.save(address.build());
   }
 
   protected List<Address> activeAddressesFor(String organisationId) {
-    return operatorRepository
+    return addressRepository
         .listLiveAddresses(organisationId, NO_LIST_CRITERIA, PageRequest.of(0, 100))
         .getContent();
   }
@@ -169,7 +169,7 @@ abstract class IntegrationBase {
   private ResultActions putAddress(
       String orgId, String callerOrganisationId, String addressId, String json) throws Exception {
     return mockMvc.perform(
-        put("/organisation/{orgId}/addresses/{operator-id}", orgId, addressId)
+        put("/organisation/{orgId}/addresses/{address-id}", orgId, addressId)
             .header(ORG_HEADER, callerOrganisationId)
             .contentType(MediaType.APPLICATION_JSON)
             .content(json));
@@ -192,7 +192,7 @@ abstract class IntegrationBase {
 
   protected ResultActions getAddress(String addressId) throws Exception {
     return mockMvc.perform(
-        get("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, addressId)
+        get("/organisation/{orgId}/addresses/{address-id}", ORGANISATION_ID, addressId)
             .header(ORG_HEADER, ORGANISATION_ID));
   }
 

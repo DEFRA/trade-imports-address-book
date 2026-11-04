@@ -19,7 +19,7 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.MediaType;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
-import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
+import uk.gov.defra.trade.imports.addressbook.address.AddressRepository;
 
 /**
  * DELETE /organisation/{orgId}/addresses/{id} soft-delete. Returns 204 without
@@ -28,7 +28,7 @@ import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
  */
 class AddressDeleteIT extends IntegrationBase {
 
-  @SpyBean private OperatorRepository repository;
+  @SpyBean private AddressRepository repository;
 
   @Test
   void delete_shouldReturn204AndTombstoneRow_whenAddressIsLive() throws Exception {
@@ -40,7 +40,7 @@ class AddressDeleteIT extends IntegrationBase {
     // When
     mockMvc
         .perform(
-            delete("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, saved.getId())
+            delete("/organisation/{orgId}/addresses/{address-id}", ORGANISATION_ID, saved.getId())
                 .header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isNoContent());
 
@@ -64,7 +64,7 @@ class AddressDeleteIT extends IntegrationBase {
     // When
     mockMvc
         .perform(
-            delete("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, id)
+            delete("/organisation/{orgId}/addresses/{address-id}", ORGANISATION_ID, id)
                 .header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isNoContent());
 
@@ -77,7 +77,7 @@ class AddressDeleteIT extends IntegrationBase {
 
     mockMvc
         .perform(
-            get("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, id)
+            get("/organisation/{orgId}/addresses/{address-id}", ORGANISATION_ID, id)
                 .header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(id))
@@ -92,7 +92,7 @@ class AddressDeleteIT extends IntegrationBase {
 
     mockMvc
         .perform(
-            delete("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, id)
+            delete("/organisation/{orgId}/addresses/{address-id}", ORGANISATION_ID, id)
                 .header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isNoContent());
     clearInvocations(repository);
@@ -102,7 +102,7 @@ class AddressDeleteIT extends IntegrationBase {
     // When
     mockMvc
         .perform(
-            delete("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, id)
+            delete("/organisation/{orgId}/addresses/{address-id}", ORGANISATION_ID, id)
                 .header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isNoContent());
 
@@ -122,7 +122,7 @@ class AddressDeleteIT extends IntegrationBase {
     // When / Then
     mockMvc
         .perform(
-            delete("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, UNKNOWN_ID)
+            delete("/organisation/{orgId}/addresses/{address-id}", ORGANISATION_ID, UNKNOWN_ID)
                 .header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isNotFound())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
@@ -138,7 +138,7 @@ class AddressDeleteIT extends IntegrationBase {
     // When
     mockMvc
         .perform(
-            delete("/organisation/{orgId}/addresses/{operator-id}", OTHER_ORG, saved.getId())
+            delete("/organisation/{orgId}/addresses/{address-id}", OTHER_ORG, saved.getId())
                 .header(ORG_HEADER, OTHER_ORG))
         .andExpect(status().isNotFound());
 
@@ -157,7 +157,7 @@ class AddressDeleteIT extends IntegrationBase {
     // When
     mockMvc
         .perform(
-            delete("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, saved.getId())
+            delete("/organisation/{orgId}/addresses/{address-id}", ORGANISATION_ID, saved.getId())
                 .header(ORG_HEADER, OTHER_ORG))
         .andExpect(status().isNotFound());
 
@@ -178,7 +178,7 @@ class AddressDeleteIT extends IntegrationBase {
     // When
     mockMvc
         .perform(
-            delete("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, saved.getId())
+            delete("/organisation/{orgId}/addresses/{address-id}", ORGANISATION_ID, saved.getId())
                 .header(ORG_HEADER, ORGANISATION_ID))
         .andExpect(status().isNoContent());
 

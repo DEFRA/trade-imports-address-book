@@ -3,13 +3,13 @@ package uk.gov.defra.trade.imports.addressbook.address;
 import java.util.List;
 import uk.gov.defra.trade.imports.addressbook.configuration.AddressTtlConfig;
 
-public final class OperatorTestSupport {
+public final class AddressTestSupport {
 
   static final AddressTtlConfig NO_TTL = new AddressTtlConfig(null, "dev");
 
   public static final ListCriteria NO_LIST_CRITERIA = listCriteria().build();
 
-  private OperatorTestSupport() {}
+  private AddressTestSupport() {}
 
   public static ListCriteriaBuilder listCriteria() {
     return new ListCriteriaBuilder();

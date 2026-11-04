@@ -46,10 +46,10 @@ import uk.gov.defra.trade.imports.addressbook.filter.IdentityHeaderFilter;
 @SecurityRequirement(name = "Trade-Imports-Organisation-Id")
 @Slf4j
 @RequiredArgsConstructor
-public class OperatorController {
+public class AddressController {
 
-  private final OperatorService operatorService;
-  private final OperatorMapper operatorMapper;
+  private final AddressService addressService;
+  private final AddressMapper addressMapper;
 
   private static void authoriseOrg(String orgId, String organisationId) {
     if (!organisationId.equals(orgId)) {
@@ -59,8 +59,8 @@ public class OperatorController {
 
   /**
    * Lists the caller's live addresses, newest first, one page at a time. {@code page} is 1-based
-   * (default 1) and {@code pageSize} runs from {@link OperatorService#MIN_PAGE_SIZE} to {@link
-   * OperatorService#MAX_PAGE_SIZE} (default {@link OperatorService#DEFAULT_PAGE_SIZE}); an
+   * (default 1) and {@code pageSize} runs from {@link AddressService#MIN_PAGE_SIZE} to {@link
+   * AddressService#MAX_PAGE_SIZE} (default {@link AddressService#DEFAULT_PAGE_SIZE}); an
    * out-of-range or non-numeric value for either is a 400 bad-request problem with no {@code errors} map. The
    * response is a top-level object ({@code items} + pagination metadata), never a bare array.
    *
@@ -95,7 +95,7 @@ public class OperatorController {
         content =
             @Content(
                 mediaType = MediaType.APPLICATION_JSON_VALUE,
-                schema = @Schema(implementation = OperatorPageResponse.class))),
+                schema = @Schema(implementation = AddressPageResponse.class))),
     @ApiResponse(
         responseCode = "400",
         description =
@@ -121,7 +121,7 @@ public class OperatorController {
                 schema = @Schema(implementation = Problem.class)))
   })
   @Timed("controller.listOperators.time")
-  public OperatorPageResponse list(
+  public AddressPageResponse list(
       @PathVariable String orgId,
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
       @Parameter(
@@ -132,19 +132,19 @@ public class OperatorController {
       @Parameter(
               description =
                   "Addresses a page, from "
-                      + OperatorService.MIN_PAGE_SIZE
+                      + AddressService.MIN_PAGE_SIZE
                       + " to "
-                      + OperatorService.MAX_PAGE_SIZE
+                      + AddressService.MAX_PAGE_SIZE
                       + " (default "
-                      + OperatorService.DEFAULT_PAGE_SIZE
+                      + AddressService.DEFAULT_PAGE_SIZE
                       + ")",
               schema =
                   @Schema(
                       type = "integer",
                       format = "int32",
-                      minimum = "" + OperatorService.MIN_PAGE_SIZE,
-                      maximum = "" + OperatorService.MAX_PAGE_SIZE,
-                      defaultValue = "" + OperatorService.DEFAULT_PAGE_SIZE))
+                      minimum = "" + AddressService.MIN_PAGE_SIZE,
+                      maximum = "" + AddressService.MAX_PAGE_SIZE,
+                      defaultValue = "" + AddressService.DEFAULT_PAGE_SIZE))
           @RequestParam(required = false)
           Integer pageSize,
       @RequestParam(required = false) String q,
@@ -185,7 +185,7 @@ public class OperatorController {
         addressType,
         use,
         searchUses);
-    return operatorService.list(
+    return addressService.list(
         organisationId,
         page,
         pageSize,
@@ -218,7 +218,7 @@ public class OperatorController {
         content =
             @Content(
                 mediaType = MediaType.APPLICATION_JSON_VALUE,
-                schema = @Schema(implementation = OperatorResponse.class))),
+                schema = @Schema(implementation = AddressResponse.class))),
     @ApiResponse(
         responseCode = "400",
         description = "Validation error, or a missing identity header",
@@ -245,20 +245,20 @@ public class OperatorController {
                 schema = @Schema(implementation = Problem.class)))
   })
   @Timed("controller.createOperator.time")
-  public ResponseEntity<OperatorResponse> create(
+  public ResponseEntity<AddressResponse> create(
       @PathVariable String orgId,
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
       @Valid @RequestBody AddressRequest request) {
     authoriseOrg(orgId, organisationId);
     log.info("POST addresses - creating address");
-    Address created = operatorService.create(request, organisationId);
+    Address created = addressService.create(request, organisationId);
     URI location =
         ServletUriComponentsBuilder.fromCurrentRequest()
-            .path("/{operator-id}")
+            .path("/{address-id}")
             .buildAndExpand(created.getId())
             .encode()
             .toUri();
-    return ResponseEntity.created(location).body(operatorMapper.toResponse(created));
+    return ResponseEntity.created(location).body(addressMapper.toResponse(created));
   }
 
   /**
@@ -269,10 +269,10 @@ public class OperatorController {
    *
    * @param orgId the organisation scope from the path, authorised against the identity header
    * @param organisationId the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
-   * @param operatorId the opaque address id from the path
+   * @param addressId the opaque address id from the path
    * @return 200 with the address (deleted false or true)
    */
-  @GetMapping("/{operator-id}")
+  @GetMapping("/{address-id}")
   @Operation(operationId = "get-address", summary = "Fetch one address, including tombstones")
   @ApiResponses({
     @ApiResponse(
@@ -281,7 +281,7 @@ public class OperatorController {
         content =
             @Content(
                 mediaType = MediaType.APPLICATION_JSON_VALUE,
-                schema = @Schema(implementation = OperatorResponse.class))),
+                schema = @Schema(implementation = AddressResponse.class))),
     @ApiResponse(
         responseCode = "404",
         description = "Unknown id, or an id outside the caller's organisation scope",
@@ -298,17 +298,17 @@ public class OperatorController {
                 schema = @Schema(implementation = Problem.class)))
   })
   @Timed("controller.getOperator.time")
-  public OperatorResponse get(
+  public AddressResponse get(
       @PathVariable String orgId,
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
-      @PathVariable("operator-id") String operatorId) {
+      @PathVariable("address-id") String addressId) {
     authoriseOrg(orgId, organisationId);
-    log.info("GET addresses/{}", operatorId);
+    log.info("GET addresses/{}", addressId);
     Address address =
-        operatorService
-            .get(operatorId, organisationId)
+        addressService
+            .get(addressId, organisationId)
             .orElseThrow(() -> new NotFoundException("Address not found"));
-    return operatorMapper.toResponse(address);
+    return addressMapper.toResponse(address);
   }
 
   /**
@@ -319,11 +319,11 @@ public class OperatorController {
    *
    * @param orgId the organisation scope from the path, authorised against the identity header
    * @param organisationId the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
-   * @param operatorId the opaque address id from the path
+   * @param addressId the opaque address id from the path
    * @param request the validated update body
    * @return 200 with the updated address and its bumped {@code modifiedAt}
    */
-  @PutMapping("/{operator-id}")
+  @PutMapping("/{address-id}")
   @Operation(operationId = "update-address", summary = "Replace an address's mutable fields")
   @ApiResponses({
     @ApiResponse(
@@ -332,7 +332,7 @@ public class OperatorController {
         content =
             @Content(
                 mediaType = MediaType.APPLICATION_JSON_VALUE,
-                schema = @Schema(implementation = OperatorResponse.class))),
+                schema = @Schema(implementation = AddressResponse.class))),
     @ApiResponse(
         responseCode = "400",
         description = "Validation error, or a missing org header",
@@ -366,15 +366,15 @@ public class OperatorController {
                 schema = @Schema(implementation = Problem.class)))
   })
   @Timed("controller.updateOperator.time")
-  public OperatorResponse update(
+  public AddressResponse update(
       @PathVariable String orgId,
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
-      @PathVariable("operator-id") String operatorId,
+      @PathVariable("address-id") String addressId,
       @Valid @RequestBody AddressRequest request) {
     authoriseOrg(orgId, organisationId);
-    log.info("PUT addresses/{}", operatorId);
-    Address updated = operatorService.update(operatorId, request, organisationId);
-    return operatorMapper.toResponse(updated);
+    log.info("PUT addresses/{}", addressId);
+    Address updated = addressService.update(addressId, request, organisationId);
+    return addressMapper.toResponse(updated);
   }
 
   /**
@@ -385,10 +385,10 @@ public class OperatorController {
    *
    * @param orgId the organisation scope from the path, authorised against the identity header
    * @param organisationId the caller's organisation id, from {@code Trade-Imports-Organisation-Id}
-   * @param operatorId the opaque address id from the path
+   * @param addressId the opaque address id from the path
    * @return 204 No Content (soft-deleted, or already deleted)
    */
-  @DeleteMapping("/{operator-id}")
+  @DeleteMapping("/{address-id}")
   @Operation(operationId = "delete-address", summary = "Soft-delete an address (tombstone)")
   @ApiResponses({
     @ApiResponse(responseCode = "204", description = "Soft-deleted (or already deleted — idempotent)"),
@@ -418,10 +418,10 @@ public class OperatorController {
   public ResponseEntity<Void> delete(
       @PathVariable String orgId,
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
-      @PathVariable("operator-id") String operatorId) {
+      @PathVariable("address-id") String addressId) {
     authoriseOrg(orgId, organisationId);
-    log.info("DELETE addresses/{}", operatorId);
-    operatorService.delete(operatorId, organisationId);
+    log.info("DELETE addresses/{}", addressId);
+    addressService.delete(addressId, organisationId);
     return ResponseEntity.noContent().build();
   }
 }

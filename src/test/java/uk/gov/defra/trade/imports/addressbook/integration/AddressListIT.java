@@ -10,7 +10,7 @@ import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static uk.gov.defra.trade.imports.addressbook.address.OperatorService.DEFAULT_PAGE_SIZE;
+import static uk.gov.defra.trade.imports.addressbook.address.AddressService.DEFAULT_PAGE_SIZE;
 
 import java.time.Instant;
 import java.util.List;
@@ -29,7 +29,7 @@ import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
 import uk.gov.defra.trade.imports.addressbook.address.AddressType;
 import uk.gov.defra.trade.imports.addressbook.address.AddressUse;
 
-class OperatorListIT extends IntegrationBase {
+class AddressListIT extends IntegrationBase {
 
   private static final String ORIGIN_AND_CONSIGNEE = "Origin And Consignee";
   private static final String CONSIGNOR = "Consignor";

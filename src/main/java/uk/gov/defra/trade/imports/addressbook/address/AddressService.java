@@ -22,24 +22,24 @@ import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
 /** Lists, creates, reads, updates and soft-deletes an organisation's addresses. */
 @Service
 @Slf4j
-public class OperatorService {
+public class AddressService {
 
   static final int MIN_PAGE_SIZE = 1;
   static final int MAX_PAGE_SIZE = 100;
   public static final int DEFAULT_PAGE_SIZE = 25;
 
-  private final OperatorRepository repository;
-  private final OperatorMapper operatorMapper;
+  private final AddressRepository repository;
+  private final AddressMapper addressMapper;
   private final MeterRegistry meterRegistry;
   private final AddressTtlConfig ttlConfig;
 
-  public OperatorService(
-      OperatorRepository repository,
-      OperatorMapper operatorMapper,
+  public AddressService(
+      AddressRepository repository,
+      AddressMapper addressMapper,
       MeterRegistry meterRegistry,
       AddressTtlConfig ttlConfig) {
     this.repository = repository;
-    this.operatorMapper = operatorMapper;
+    this.addressMapper = addressMapper;
     this.meterRegistry = meterRegistry;
     this.ttlConfig = ttlConfig;
   }
@@ -62,7 +62,7 @@ public class OperatorService {
    * @throws BadRequestException if {@code page} is less than 1 or {@code requestedPageSize} is
    *     outside {@link #MIN_PAGE_SIZE} to {@link #MAX_PAGE_SIZE}
    */
-  public OperatorPageResponse list(
+  public AddressPageResponse list(
       String organisationId, int page, Integer requestedPageSize, RequestedListFilters filters) {
     if (page < 1) {
       throw new BadRequestException("page must be 1 or greater");
@@ -79,9 +79,9 @@ public class OperatorService {
     try {
       Page<Address> result =
           repository.listLiveAddresses(organisationId, criteriaOf(filters), pageable);
-      List<OperatorResponse> items =
-          result.getContent().stream().map(operatorMapper::toResponse).toList();
-      return new OperatorPageResponse(
+      List<AddressResponse> items =
+          result.getContent().stream().map(addressMapper::toResponse).toList();
+      return new AddressPageResponse(
           items, page, pageSize, (int) result.getTotalElements(), result.getTotalPages());
     } finally {
       sample.stop(meterRegistry.timer("controller.listOperators.query.time"));
@@ -137,7 +137,7 @@ public class OperatorService {
    * @return the saved address, with its assigned id and timestamps
    */
   public Address create(AddressRequest request, String organisationId) {
-    Address address = operatorMapper.toEntity(request);
+    Address address = addressMapper.toEntity(request);
     address.setOrganisationId(organisationId);
     address.setStatus(AddressStatus.ACTIVE);
     stampExpiry(address);
@@ -186,7 +186,7 @@ public class OperatorService {
             .filter(address -> address.getStatus() != AddressStatus.DELETED)
             .orElseThrow(() -> new NotFoundException("Address not found"));
 
-    operatorMapper.updateEntity(request, existing);
+    addressMapper.updateEntity(request, existing);
 
     Address saved = repository.save(existing);
     log.info("Updated address {}", saved.getId());

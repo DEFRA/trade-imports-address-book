@@ -19,9 +19,9 @@ import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
 import uk.gov.defra.trade.imports.addressbook.address.AddressType;
 import uk.gov.defra.trade.imports.addressbook.address.AddressUse;
-import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
+import uk.gov.defra.trade.imports.addressbook.address.AddressRepository;
 
-@MockitoSpyBean(types = OperatorRepository.class)
+@MockitoSpyBean(types = AddressRepository.class)
 class AddressUpdateIT extends IntegrationBase {
 
   private Address saveActiveTypedAddressWithOptionals() {
@@ -34,7 +34,7 @@ class AddressUpdateIT extends IntegrationBase {
   }
 
   private Address storedAddress(String addressId) {
-    return operatorRepository.findByIdAndOrganisationId(addressId, ORGANISATION_ID).orElseThrow();
+    return addressRepository.findByIdAndOrganisationId(addressId, ORGANISATION_ID).orElseThrow();
   }
 
   private void assertStoredTypeAndUsesAreStillTheSeededOnes(Address seeded) {
@@ -196,7 +196,7 @@ class AddressUpdateIT extends IntegrationBase {
   void put_shouldReturn409ConflictProblem_whenOptimisticLockingFails() throws Exception {
     Address saved = saveActiveTypedAddressWithOptionals();
     doThrow(new OptimisticLockingFailureException("stale"))
-        .when(operatorRepository)
+        .when(addressRepository)
         .save(any(Address.class));
 
     putAddress(saved.getId(), addressBody())
@@ -215,7 +215,7 @@ class AddressUpdateIT extends IntegrationBase {
 
     stale.setName("Stale concurrent writer");
 
-    assertThatThrownBy(() -> operatorRepository.save(stale))
+    assertThatThrownBy(() -> addressRepository.save(stale))
         .isInstanceOf(OptimisticLockingFailureException.class);
   }
 }

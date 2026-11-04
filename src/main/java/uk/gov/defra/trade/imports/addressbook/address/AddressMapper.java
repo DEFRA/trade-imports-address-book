@@ -12,14 +12,14 @@ import org.mapstruct.ReportingPolicy;
     unmappedTargetPolicy = ReportingPolicy.ERROR,
     unmappedSourcePolicy = ReportingPolicy.ERROR,
     collectionMappingStrategy = CollectionMappingStrategy.TARGET_IMMUTABLE)
-public interface OperatorMapper {
+public interface AddressMapper {
 
   /**
    * Maps a persisted {@link Address} onto its wire response, deriving {@code deleted} from status.
    */
   @BeanMapping(ignoreUnmappedSourceProperties = {"status", "version", "expireAt"})
   @Mapping(target = "deleted", expression = "java(address.getStatus() == AddressStatus.DELETED)")
-  OperatorResponse toResponse(Address address);
+  AddressResponse toResponse(Address address);
 
   /** Maps the client-supplied fields of a request onto a new entity. */
   @BeanMapping(ignoreUnmappedSourceProperties = {"type", "role"})

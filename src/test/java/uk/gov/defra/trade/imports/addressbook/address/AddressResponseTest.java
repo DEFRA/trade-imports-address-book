@@ -10,12 +10,12 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-class OperatorResponseTest {
+class AddressResponseTest {
 
   private static final Instant NOW = Instant.parse("2026-07-01T09:00:00Z");
 
-  private static OperatorResponse.OperatorResponseBuilder validResponse() {
-    return OperatorResponse.builder()
+  private static AddressResponse.AddressResponseBuilder validResponse() {
+    return AddressResponse.builder()
         .id("665f1c2ab3e4d51a2c9d0e77")
         .name("Acme Livestock")
         .addressLine1("1 Market Street")
@@ -56,7 +56,7 @@ class OperatorResponseTest {
 
   @Test
   void compactConstructor_allowsNullOptionalFields() {
-    OperatorResponse response =
+    AddressResponse response =
         validResponse().addressLine2(null).county(null).addressType(null).uses(null).build();
 
     assertThat(response.addressLine2()).isNull();

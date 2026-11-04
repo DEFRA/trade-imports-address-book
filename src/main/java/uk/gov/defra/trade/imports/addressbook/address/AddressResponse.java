@@ -18,7 +18,7 @@ import lombok.Builder;
  */
 @Builder
 @Schema(description = "An address in the caller's organisation-scoped address book")
-public record OperatorResponse(
+public record AddressResponse(
     @Schema(
             description = "Opaque address identifier",
             requiredMode = Schema.RequiredMode.REQUIRED,
@@ -71,7 +71,7 @@ public record OperatorResponse(
             format = "date-time")
         Instant modifiedAt) {
 
-  public OperatorResponse {
+  public AddressResponse {
     Objects.requireNonNull(id, "id");
     Objects.requireNonNull(name, "name");
     Objects.requireNonNull(addressLine1, "addressLine1");

@@ -10,11 +10,11 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.support.PageableExecutionUtils;
 
-class OperatorListQueryImpl implements OperatorListQuery {
+class AddressListQueryImpl implements AddressListQuery {
 
   private final MongoTemplate mongoTemplate;
 
-  OperatorListQueryImpl(MongoTemplate mongoTemplate) {
+  AddressListQueryImpl(MongoTemplate mongoTemplate) {
     this.mongoTemplate = mongoTemplate;
   }
 

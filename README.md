@@ -97,10 +97,10 @@ isolation relies entirely on a trusted-forwarded-header contract:
 reads this header on every `/organisation/**` request and scopes all reads and writes to that
 organisation id.
 
-`OperatorRepository` extends Spring Data's bare `Repository`, not `CrudRepository`, so it
+`AddressRepository` extends Spring Data's bare `Repository`, not `CrudRepository`, so it
 inherits no unscoped `findById`, `deleteById` or `deleteAll`. It declares `save` and queries that
 take an organisation id, so no code path reads or deletes another organisation's addresses by
-address id alone. The list query is a custom repository fragment (`OperatorListQuery`) that takes
+address id alone. The list query is a custom repository fragment (`AddressListQuery`) that takes
 the organisation id and always scopes by it and by `ACTIVE` status.
 
 **Filter behaviour**
@@ -124,9 +124,9 @@ returns **404** (no existence disclosure).
 | --- | --- | --- |
 | `GET` | `/organisation/{orgId}/addresses` | Paginated list of live addresses (newest first) |
 | `POST` | `/organisation/{orgId}/addresses` | Create an address |
-| `GET` | `/organisation/{orgId}/addresses/{operator-id}` | Fetch one address (tombstones included) |
-| `PUT` | `/organisation/{orgId}/addresses/{operator-id}` | Full replace of mutable fields |
-| `DELETE` | `/organisation/{orgId}/addresses/{operator-id}` | Soft delete (idempotent 204) |
+| `GET` | `/organisation/{orgId}/addresses/{address-id}` | Fetch one address (tombstones included) |
+| `PUT` | `/organisation/{orgId}/addresses/{address-id}` | Full replace of mutable fields |
+| `DELETE` | `/organisation/{orgId}/addresses/{address-id}` | Soft delete (idempotent 204) |
 
 **List query parameters**
 
@@ -221,7 +221,7 @@ mvn clean verify
 ```
 
 Integration tests cover CRUD, org scoping, soft delete, search, pagination, RFC 9457 error
-shapes, and OpenAPI contract compliance (`OperatorComplianceIT`).
+shapes, and OpenAPI contract compliance (`AddressComplianceIT`).
 
 ## OpenAPI contract
 
@@ -232,7 +232,7 @@ The API surface is locked and tested on every `mvn verify`:
 | [`docs/openapi/api-contract.locked.yaml`](docs/openapi/api-contract.locked.yaml) | Human-authored source of truth (paths, operationIds, 400 `anyOf` shapes, allowed values of enum properties, the `AddressRequest` required list, the minimum number of `AddressRequest.uses`) |
 | [`docs/openapi/operators.yml`](docs/openapi/operators.yml) | springdoc-generated spec, committed for downstream consumers |
 
-`OperatorComplianceIT` fails the build if `operators.yml` is stale against live `/v3/api-docs`, or
+`AddressComplianceIT` fails the build if `operators.yml` is stale against live `/v3/api-docs`, or
 if paths, HTTP methods, operationIds, operation parameter names, component schema property
 names, the allowed values of `addressType`, `uses` and the list's `addressType`, `use` and
 `searchUse` parameters, the 400 `anyOf` shapes of create and update, the required list of
@@ -244,7 +244,7 @@ Regenerate the committed artifact after an intentional API change (no Testcontai
 mvn verify -Dopenapi.generate=true -Dit.test=OpenApiArtifactGeneratorIT
 ```
 
-`OperatorComplianceIT` still byte-checks the artifact on every full `mvn verify`.
+`AddressComplianceIT` still byte-checks the artifact on every full `mvn verify`.
 The generator IT lives in the `openapi` package rather than `integration` so a nested
 `@SpringBootApplication` does not shadow `Application`.
 
@@ -254,7 +254,7 @@ default configuration.
 
 ## Soft delete (tombstones)
 
-`DELETE /organisation/{orgId}/addresses/{operator-id}` is a **soft delete**: the document stays in MongoDB,
+`DELETE /organisation/{orgId}/addresses/{address-id}` is a **soft delete**: the document stays in MongoDB,
 its internal `status` flips to `DELETED`, and `modifiedAt` is bumped. The tombstone remains
 fetchable by id with `deleted: true` on the wire.
 
@@ -292,7 +292,7 @@ Both default to the prod-safe value. Prod is protected by two independent safegu
 ## Indexes
 
 The list read path is served by the `org_status_created` compound index on
-`{ organisationId, status, createdAt }`. A lost index fails no functional test, so `OperatorIndexIT`
+`{ organisationId, status, createdAt }`. A lost index fails no functional test, so `AddressIndexIT`
 pins it twice: by name and key order from `listIndexes`, and as the explain plan's choice. Datasets are one
 user's address book today (tens to hundreds of rows), so a bounded scan is acceptable. Reassess any
 future index against real collection size before adding it.
@@ -304,14 +304,14 @@ future index against real collection size before adding it.
 - A validation failure is logged with the rejected field names only. The exception's message holds the rejected values, which can be personal data, so it is not logged.
 - `IdentityHeaderFilter` writes its own problem bodies, because `@RestControllerAdvice` does not handle exceptions thrown from servlet filters. It reads the path from `servletPath`, falling back to `requestURI` when a proxy or MockMvc leaves `servletPath` empty.
 - springdoc resolves schemas through the application `ObjectMapper`. Otherwise swagger-core would use its own mapper and the generated document could drift from the camelCase wire.
-- `OperatorResponse` null-guards every required field, so a null is a server fault that fails loudly. `AddressRequest` has no null guards, so Bean Validation can report every missing field at once.
+- `AddressResponse` null-guards every required field, so a null is a server fault that fails loudly. `AddressRequest` has no null guards, so Bean Validation can report every missing field at once.
 - `AddressRequest` carries `addressType` and `uses` as strings, checked by `@EnumConstantName`, rather than binding the enums. An unknown enum constant would make Jackson throw before validation, which answers as a `bad-request` problem with no `errors` map and hides every other field error. A string component fails Bean Validation, so the `validation-error` problem names `addressType` or `uses` beside the other field errors. `@Pattern` would write each list a second time, and a constraint on each list element would key the error `uses[1]`.
-- `OperatorMapper.updateEntity` assigns a new `uses` list (`CollectionMappingStrategy.TARGET_IMMUTABLE`). MapStruct's default clears and refills the stored list in place, which throws when that list is immutable.
+- `AddressMapper.updateEntity` assigns a new `uses` list (`CollectionMappingStrategy.TARGET_IMMUTABLE`). MapStruct's default clears and refills the stored list in place, which throws when that list is immutable.
 - The `org_status_created` index was created while the collection was empty, so no later index build runs on a populated collection.
 - An address's `expireAt` is counted from the moment of creation rather than from `createdAt`, which auditing only fills in during the save.
-- The list is one composed query (`OperatorListQuery`), not a fixed query per combination of search term, country code, address type, use and search uses. Each added filter would otherwise double the fixed queries, and each would repeat the organisation and status scope.
+- The list is one composed query (`AddressListQuery`), not a fixed query per combination of search term, country code, address type, use and search uses. Each added filter would otherwise double the fixed queries, and each would repeat the organisation and status scope.
 - A caller searches by use label through `searchUse`, naming the uses whose label contains the term, and the service matches stored uses. The labels are the caller's copy: the address book stores enum names and holds no labels, so matching a label here would make it a second owner of text in one language. A regular expression over the stored names would never match a label such as 'place of origin'.
-- The list's filters travel as two records. `RequestedListFilters` holds them as the request supplied them, with the search term as typed. `ListCriteria` holds them as the query matches them, with the term turned into a quoted partial-match pattern and the country codes trimmed. `OperatorService` is the one place that turns the first into the second, so a field never holds a term in one place and a pattern in another.
+- The list's filters travel as two records. `RequestedListFilters` holds them as the request supplied them, with the search term as typed. `ListCriteria` holds them as the query matches them, with the term turned into a quoted partial-match pattern and the country codes trimmed. `AddressService` is the one place that turns the first into the second, so a field never holds a term in one place and a pattern in another.
 - The list's `addressType` matches on the stored `uses`. An address holding a place of origin and a consignee therefore lists under two address types. `AddressType` owns which uses each address type holds.
 - `ORIGIN_OR_CONSIGNOR` also lists an address with no uses, because an address the service already holds with no uses (saved before uses were required) would otherwise be listed under no address type.
 

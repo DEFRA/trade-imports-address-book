@@ -3,7 +3,7 @@ package uk.gov.defra.trade.imports.addressbook.exceptions;
 /**
  * Thrown when a request parameter is syntactically valid but fails a service-level constraint before
  * body validation — for example {@code page} less than 1 in {@link
- * uk.gov.defra.trade.imports.addressbook.address.OperatorService#list}. Mapped by {@link
+ * uk.gov.defra.trade.imports.addressbook.address.AddressService#list}. Mapped by {@link
  * GlobalExceptionHandler} to a 400 <em>bad-request</em> problem with <strong>no</strong> {@code
  * errors} map.
  *

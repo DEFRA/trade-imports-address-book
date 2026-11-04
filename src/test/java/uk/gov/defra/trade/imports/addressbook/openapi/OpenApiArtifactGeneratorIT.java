@@ -21,7 +21,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
 import org.springframework.test.context.ActiveProfiles;
-import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
+import uk.gov.defra.trade.imports.addressbook.address.AddressRepository;
 import uk.gov.defra.trade.imports.addressbook.configuration.MongoConfig;
 import uk.gov.defra.trade.imports.addressbook.testsupport.ApiDocs;
 
@@ -34,7 +34,7 @@ class OpenApiArtifactGeneratorIT {
 
   @LocalServerPort int port;
 
-  @MockBean OperatorRepository operatorRepository;
+  @MockBean AddressRepository addressRepository;
 
   @MockBean MongoTemplate mongoTemplate;
 
