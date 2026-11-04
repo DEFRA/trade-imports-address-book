@@ -8,7 +8,6 @@ import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -79,38 +78,36 @@ public class AddressController {
   @Operation(
       operationId = "list-addresses",
       summary = "List the caller's live addresses (paginated, searchable)")
-  @ApiResponses({
-    @ApiResponse(
-        responseCode = "200",
-        description = "One page of the caller's live addresses",
-        content =
-            @Content(
-                mediaType = MediaType.APPLICATION_JSON_VALUE,
-                schema = @Schema(implementation = AddressPageResponse.class))),
-    @ApiResponse(
-        responseCode = "400",
-        description =
-            "An out-of-range or non-numeric page or page size, an unknown address type, use or"
-                + " search use, or a missing org header",
-        content =
-            @Content(
-                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                schema = @Schema(implementation = Problem.class))),
-    @ApiResponse(
-        responseCode = "404",
-        description = "Path orgId does not match the caller's organisation header",
-        content =
-            @Content(
-                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                schema = @Schema(implementation = Problem.class))),
-    @ApiResponse(
-        responseCode = "500",
-        description = "Unexpected server error",
-        content =
-            @Content(
-                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                schema = @Schema(implementation = Problem.class)))
-  })
+  @ApiResponse(
+      responseCode = "200",
+      description = "One page of the caller's live addresses",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_JSON_VALUE,
+              schema = @Schema(implementation = AddressPageResponse.class)))
+  @ApiResponse(
+      responseCode = "400",
+      description =
+          "An out-of-range or non-numeric page or page size, an unknown address type, use or"
+              + " search use, or a missing org header",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+              schema = @Schema(implementation = Problem.class)))
+  @ApiResponse(
+      responseCode = "404",
+      description = "Path orgId does not match the caller's organisation header",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+              schema = @Schema(implementation = Problem.class)))
+  @ApiResponse(
+      responseCode = "500",
+      description = "Unexpected server error",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+              schema = @Schema(implementation = Problem.class)))
   @Timed("controller.listOperators.time")
   public AddressPageResponse list(
       @PathVariable String orgId,
@@ -210,44 +207,42 @@ public class AddressController {
   @Operation(
       operationId = "create-address",
       summary = "Create an address in the caller's address book")
-  @ApiResponses({
-    @ApiResponse(
-        responseCode = "201",
-        description = "Created",
-        headers =
-            @Header(
-                name = "Location",
-                description = "Absolute URI of the created address",
-                schema = @Schema(type = "string")),
-        content =
-            @Content(
-                mediaType = MediaType.APPLICATION_JSON_VALUE,
-                schema = @Schema(implementation = AddressResponse.class))),
-    @ApiResponse(
-        responseCode = "400",
-        description = "Validation error, or a missing identity header",
-        content =
-            @Content(
-                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                schema =
-                    @Schema(
-                        type = "object",
-                        anyOf = {ValidationProblem.class, Problem.class}))),
-    @ApiResponse(
-        responseCode = "404",
-        description = "Path orgId does not match the caller's organisation header",
-        content =
-            @Content(
-                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                schema = @Schema(implementation = Problem.class))),
-    @ApiResponse(
-        responseCode = "500",
-        description = "Unexpected server error",
-        content =
-            @Content(
-                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                schema = @Schema(implementation = Problem.class)))
-  })
+  @ApiResponse(
+      responseCode = "201",
+      description = "Created",
+      headers =
+          @Header(
+              name = "Location",
+              description = "Absolute URI of the created address",
+              schema = @Schema(type = "string")),
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_JSON_VALUE,
+              schema = @Schema(implementation = AddressResponse.class)))
+  @ApiResponse(
+      responseCode = "400",
+      description = "Validation error, or a missing identity header",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+              schema =
+                  @Schema(
+                      type = "object",
+                      anyOf = {ValidationProblem.class, Problem.class})))
+  @ApiResponse(
+      responseCode = "404",
+      description = "Path orgId does not match the caller's organisation header",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+              schema = @Schema(implementation = Problem.class)))
+  @ApiResponse(
+      responseCode = "500",
+      description = "Unexpected server error",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+              schema = @Schema(implementation = Problem.class)))
   @Timed("controller.createOperator.time")
   public ResponseEntity<AddressResponse> create(
       @PathVariable String orgId,
@@ -278,29 +273,27 @@ public class AddressController {
    */
   @GetMapping("/{address-id}")
   @Operation(operationId = "get-address", summary = "Fetch one address, including tombstones")
-  @ApiResponses({
-    @ApiResponse(
-        responseCode = "200",
-        description = "The address (deleted false or true)",
-        content =
-            @Content(
-                mediaType = MediaType.APPLICATION_JSON_VALUE,
-                schema = @Schema(implementation = AddressResponse.class))),
-    @ApiResponse(
-        responseCode = "404",
-        description = "Unknown id, or an id outside the caller's organisation scope",
-        content =
-            @Content(
-                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                schema = @Schema(implementation = Problem.class))),
-    @ApiResponse(
-        responseCode = "500",
-        description = "Unexpected server error",
-        content =
-            @Content(
-                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                schema = @Schema(implementation = Problem.class)))
-  })
+  @ApiResponse(
+      responseCode = "200",
+      description = "The address (deleted false or true)",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_JSON_VALUE,
+              schema = @Schema(implementation = AddressResponse.class)))
+  @ApiResponse(
+      responseCode = "404",
+      description = "Unknown id, or an id outside the caller's organisation scope",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+              schema = @Schema(implementation = Problem.class)))
+  @ApiResponse(
+      responseCode = "500",
+      description = "Unexpected server error",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+              schema = @Schema(implementation = Problem.class)))
   @Timed("controller.getOperator.time")
   public AddressResponse get(
       @PathVariable String orgId,
@@ -329,46 +322,44 @@ public class AddressController {
    */
   @PutMapping("/{address-id}")
   @Operation(operationId = "update-address", summary = "Replace an address's mutable fields")
-  @ApiResponses({
-    @ApiResponse(
-        responseCode = "200",
-        description = "Updated address with bumped modifiedAt",
-        content =
-            @Content(
-                mediaType = MediaType.APPLICATION_JSON_VALUE,
-                schema = @Schema(implementation = AddressResponse.class))),
-    @ApiResponse(
-        responseCode = "400",
-        description = "Validation error, or a missing org header",
-        content =
-            @Content(
-                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                schema =
-                    @Schema(
-                        type = "object",
-                        anyOf = {ValidationProblem.class, Problem.class}))),
-    @ApiResponse(
-        responseCode = "404",
-        description = "Unknown id, an id outside the caller's organisation scope, or a tombstone",
-        content =
-            @Content(
-                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                schema = @Schema(implementation = Problem.class))),
-    @ApiResponse(
-        responseCode = "409",
-        description = "Concurrent update conflict",
-        content =
-            @Content(
-                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                schema = @Schema(implementation = Problem.class))),
-    @ApiResponse(
-        responseCode = "500",
-        description = "Unexpected server error",
-        content =
-            @Content(
-                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                schema = @Schema(implementation = Problem.class)))
-  })
+  @ApiResponse(
+      responseCode = "200",
+      description = "Updated address with bumped modifiedAt",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_JSON_VALUE,
+              schema = @Schema(implementation = AddressResponse.class)))
+  @ApiResponse(
+      responseCode = "400",
+      description = "Validation error, or a missing org header",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+              schema =
+                  @Schema(
+                      type = "object",
+                      anyOf = {ValidationProblem.class, Problem.class})))
+  @ApiResponse(
+      responseCode = "404",
+      description = "Unknown id, an id outside the caller's organisation scope, or a tombstone",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+              schema = @Schema(implementation = Problem.class)))
+  @ApiResponse(
+      responseCode = "409",
+      description = "Concurrent update conflict",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+              schema = @Schema(implementation = Problem.class)))
+  @ApiResponse(
+      responseCode = "500",
+      description = "Unexpected server error",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+              schema = @Schema(implementation = Problem.class)))
   @Timed("controller.updateOperator.time")
   public AddressResponse update(
       @PathVariable String orgId,
@@ -394,30 +385,28 @@ public class AddressController {
    */
   @DeleteMapping("/{address-id}")
   @Operation(operationId = "delete-address", summary = "Soft-delete an address (tombstone)")
-  @ApiResponses({
-    @ApiResponse(responseCode = "204", description = "Soft-deleted (or already deleted — idempotent)"),
-    @ApiResponse(
-        responseCode = "400",
-        description = "Missing org header",
-        content =
-            @Content(
-                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                schema = @Schema(implementation = Problem.class))),
-    @ApiResponse(
-        responseCode = "404",
-        description = "Unknown id, or an id outside the caller's organisation scope",
-        content =
-            @Content(
-                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                schema = @Schema(implementation = Problem.class))),
-    @ApiResponse(
-        responseCode = "500",
-        description = "Unexpected server error",
-        content =
-            @Content(
-                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                schema = @Schema(implementation = Problem.class)))
-  })
+  @ApiResponse(responseCode = "204", description = "Soft-deleted (or already deleted — idempotent)")
+  @ApiResponse(
+      responseCode = "400",
+      description = "Missing org header",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+              schema = @Schema(implementation = Problem.class)))
+  @ApiResponse(
+      responseCode = "404",
+      description = "Unknown id, or an id outside the caller's organisation scope",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+              schema = @Schema(implementation = Problem.class)))
+  @ApiResponse(
+      responseCode = "500",
+      description = "Unexpected server error",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+              schema = @Schema(implementation = Problem.class)))
   @Timed("controller.deleteOperator.time")
   public ResponseEntity<Void> delete(
       @PathVariable String orgId,
