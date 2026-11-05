@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Null;
+import java.util.Arrays;
 import java.util.List;
 import lombok.Builder;
 import org.hibernate.validator.constraints.Length;
@@ -100,7 +101,7 @@ public record AddressRequest(
             example = "exports@highlandlivestock.example.com")
         String email,
     @NotEmpty(message = "Select what this address can be used for")
-        @EnumConstantName(of = AddressRole.class, message = "Select valid roles")
+        @EnumConstantNames(of = AddressRole.class, message = "Select valid roles")
         @ArraySchema(
             schema = @Schema(implementation = AddressRole.class),
             arraySchema =
@@ -119,5 +120,9 @@ public record AddressRequest(
 
   public AddressRequest {
     roles = roles == null ? List.of() : roles.stream().distinct().toList();
+  }
+
+  List<AddressRole> knownRoles() {
+    return Arrays.stream(AddressRole.values()).filter(role -> roles.contains(role.name())).toList();
   }
 }

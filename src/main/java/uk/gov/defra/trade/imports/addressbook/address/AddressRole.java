@@ -1,9 +1,6 @@
 package uk.gov.defra.trade.imports.addressbook.address;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
 
 /** A party a notification can choose this address for. */
 @Schema(description = "A party a notification can choose this address for")
@@ -23,9 +20,5 @@ public enum AddressRole {
 
   RoleGroup group() {
     return group;
-  }
-
-  static List<AddressRole> rolesNamed(Collection<String> names) {
-    return Arrays.stream(values()).filter(role -> names.contains(role.name())).toList();
   }
 }

@@ -9,15 +9,14 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * The annotated string, or every string in the annotated collection, must equal the name of a
- * constant of {@link #of()}. A null or blank value is valid; a null or blank element in a
- * collection is not.
+ * Every string in the annotated collection must equal the name of a constant of {@link #of()}. A
+ * null collection is valid; a null or blank element is not.
  */
 @Documented
-@Constraint(validatedBy = EnumConstantNameValidator.class)
+@Constraint(validatedBy = EnumConstantNamesValidator.class)
 @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface EnumConstantName {
+public @interface EnumConstantNames {
 
   String message();
 

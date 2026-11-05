@@ -11,7 +11,7 @@ public class ReceivingRolesInTheUnitedKingdomValidator
     if (inTheUnitedKingdomOrUnchosen(request.countryCode())) {
       return true;
     }
-    if (AddressRole.rolesNamed(request.roles()).stream()
+    if (request.knownRoles().stream()
         .map(AddressRole::group)
         .noneMatch(RoleGroup::inTheUnitedKingdom)) {
       return true;

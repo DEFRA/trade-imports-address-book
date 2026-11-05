@@ -9,7 +9,7 @@ public class RolesHeldTogetherValidator
 
   @Override
   public boolean isValid(AddressRequest request, ConstraintValidatorContext context) {
-    if (shareOneGroup(AddressRole.rolesNamed(request.roles()))) {
+    if (shareOneGroup(request.knownRoles())) {
       return true;
     }
     context.disableDefaultConstraintViolation();
