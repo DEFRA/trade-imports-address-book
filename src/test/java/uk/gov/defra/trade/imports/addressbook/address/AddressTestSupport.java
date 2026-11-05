@@ -11,6 +11,14 @@ public final class AddressTestSupport {
 
   public static final ListCriteria NO_LIST_CRITERIA = listCriteria().build();
 
+  public static final String SAMPLE_NAME = "Highland Livestock Ltd";
+  public static final String SAMPLE_ADDRESS_LINE_1 = "14 Drover's Way";
+  public static final String SAMPLE_TOWN_OR_CITY = "Inverness";
+  public static final String SAMPLE_POSTCODE = "IV2 3JH";
+  public static final String SAMPLE_COUNTRY_CODE = "GB";
+  public static final String SAMPLE_PHONE = "+44 1463 234567";
+  public static final String SAMPLE_EMAIL = "exports@highlandlivestock.example.com";
+
   static final String STORED_ADDRESS_ID = "665f1c2ab3e4d51a2c9d0e77";
   static final Instant STORED_CREATED_AT = Instant.parse("2026-07-01T09:00:00Z");
   static final Instant STORED_MODIFIED_AT = Instant.parse("2026-07-02T10:30:00Z");
@@ -19,13 +27,13 @@ public final class AddressTestSupport {
 
   static AddressRequest.AddressRequestBuilder validRequest() {
     return AddressRequest.builder()
-        .name("Highland Livestock Ltd")
-        .addressLine1("14 Drover's Way")
-        .townOrCity("Inverness")
-        .postcode("IV2 3JH")
-        .countryCode("GB")
-        .phone("+44 1463 234567")
-        .email("exports@highlandlivestock.example.com")
+        .name(SAMPLE_NAME)
+        .addressLine1(SAMPLE_ADDRESS_LINE_1)
+        .townOrCity(SAMPLE_TOWN_OR_CITY)
+        .postcode(SAMPLE_POSTCODE)
+        .countryCode(SAMPLE_COUNTRY_CODE)
+        .phone(SAMPLE_PHONE)
+        .email(SAMPLE_EMAIL)
         .roles(List.of("PLACE_OF_ORIGIN"));
   }
 
@@ -46,15 +54,15 @@ public final class AddressTestSupport {
   static Address.AddressBuilder storedAddress(String organisationId, AddressStatus status) {
     return Address.builder()
         .id(STORED_ADDRESS_ID)
-        .name("Highland Livestock Ltd")
-        .addressLine1("14 Drover's Way")
+        .name(SAMPLE_NAME)
+        .addressLine1(SAMPLE_ADDRESS_LINE_1)
         .addressLine2("Unit 3")
-        .townOrCity("Inverness")
+        .townOrCity(SAMPLE_TOWN_OR_CITY)
         .county("Highland")
-        .postcode("IV2 3JH")
-        .countryCode("GB")
-        .phone("+44 1463 234567")
-        .email("exports@highlandlivestock.example.com")
+        .postcode(SAMPLE_POSTCODE)
+        .countryCode(SAMPLE_COUNTRY_CODE)
+        .phone(SAMPLE_PHONE)
+        .email(SAMPLE_EMAIL)
         .roles(List.of(AddressRole.IMPORTER, AddressRole.CONSIGNEE))
         .organisationId(organisationId)
         .status(status)
@@ -96,17 +104,17 @@ public final class AddressTestSupport {
     }
 
     public ListCriteria build() {
-      List<ListCriteria.SearchTerm> searchTerms = new ArrayList<>();
+      List<ListCriteria.Match> matches = new ArrayList<>();
       if (searchPattern != null) {
-        searchTerms.add(new ListCriteria.TextMatching(searchPattern));
+        matches.add(new ListCriteria.TextMatching(searchPattern));
       }
       if (!countryCodes.isEmpty()) {
-        searchTerms.add(new ListCriteria.InCountries(countryCodes));
+        matches.add(new ListCriteria.InCountries(countryCodes));
       }
       if (!searchRoles.isEmpty()) {
-        searchTerms.add(new ListCriteria.HoldingAnyRole(searchRoles));
+        matches.add(new ListCriteria.HoldingAnyRole(searchRoles));
       }
-      return new ListCriteria(roles, searchTerms);
+      return new ListCriteria(roles, matches);
     }
   }
 }

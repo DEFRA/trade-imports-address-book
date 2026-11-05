@@ -15,16 +15,7 @@ import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-/**
- * An organisation-owned address-book entry.
- *
- * <p>{@code roles} is set on every create and update; an entry stored before roles existed holds
- * none, so it can be null or empty.
- *
- * <p>{@code countryCode} is stored as an ISO 3166-1 alpha-2 code, exactly as supplied.
- *
- * <p>{@code modifiedAt} is bumped by auditing on every write and is for audit only.
- */
+/** An organisation-owned address-book entry. {@code roles} can be null or empty. */
 @Document(collection = "addresses")
 @CompoundIndex(
     name = "org_status_created",

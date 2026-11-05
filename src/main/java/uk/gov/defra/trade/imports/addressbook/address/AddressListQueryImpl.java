@@ -11,7 +11,7 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.support.PageableExecutionUtils;
 import uk.gov.defra.trade.imports.addressbook.address.ListCriteria.HoldingAnyRole;
 import uk.gov.defra.trade.imports.addressbook.address.ListCriteria.InCountries;
-import uk.gov.defra.trade.imports.addressbook.address.ListCriteria.SearchTerm;
+import uk.gov.defra.trade.imports.addressbook.address.ListCriteria.Match;
 import uk.gov.defra.trade.imports.addressbook.address.ListCriteria.TextMatching;
 
 class AddressListQueryImpl implements AddressListQuery {
@@ -36,27 +36,29 @@ class AddressListQueryImpl implements AddressListQuery {
     clauses.add(Criteria.where("organisationId").is(organisationId));
     clauses.add(Criteria.where("status").is(AddressStatus.ACTIVE));
     if (!criteria.roles().isEmpty()) {
-      clauses.add(Criteria.where("roles").in(criteria.roles()));
+      clauses.add(holdingAnyOf(criteria.roles()));
     }
-    if (!criteria.searchTerms().isEmpty()) {
+    if (!criteria.matches().isEmpty()) {
       clauses.add(
           new Criteria()
               .orOperator(
-                  criteria.searchTerms().stream()
-                      .flatMap(AddressListQueryImpl::clausesOf)
-                      .toList()));
+                  criteria.matches().stream().flatMap(AddressListQueryImpl::clausesOf).toList()));
     }
     return new Criteria().andOperator(clauses);
   }
 
-  private static Stream<Criteria> clausesOf(SearchTerm searchTerm) {
-    return switch (searchTerm) {
+  private static Stream<Criteria> clausesOf(Match match) {
+    return switch (match) {
       case TextMatching(String pattern) ->
           Stream.of("name", "addressLine1", "addressLine2", "townOrCity", "county", "postcode")
               .map(field -> Criteria.where(field).regex(pattern, "i"));
       case InCountries(List<String> countryCodes) ->
           Stream.of(Criteria.where("countryCode").in(countryCodes));
-      case HoldingAnyRole(List<AddressRole> roles) -> Stream.of(Criteria.where("roles").in(roles));
+      case HoldingAnyRole(List<AddressRole> roles) -> Stream.of(holdingAnyOf(roles));
     };
+  }
+
+  private static Criteria holdingAnyOf(List<AddressRole> roles) {
+    return Criteria.where("roles").in(roles);
   }
 }

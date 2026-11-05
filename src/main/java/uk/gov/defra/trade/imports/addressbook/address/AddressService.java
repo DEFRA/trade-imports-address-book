@@ -93,21 +93,21 @@ public class AddressService {
   }
 
   private static ListCriteria criteriaOf(RequestedListFilters requested) {
-    return new ListCriteria(requested.roles(), searchTermsOf(requested));
+    return new ListCriteria(requested.roles(), matchesOf(requested));
   }
 
-  private static List<ListCriteria.SearchTerm> searchTermsOf(RequestedListFilters requested) {
-    List<ListCriteria.SearchTerm> searchTerms = new ArrayList<>();
+  private static List<ListCriteria.Match> matchesOf(RequestedListFilters requested) {
+    List<ListCriteria.Match> matches = new ArrayList<>();
     if (!requested.searchTerm().isEmpty()) {
-      searchTerms.add(new ListCriteria.TextMatching(toPartialMatchRegex(requested.searchTerm())));
+      matches.add(new ListCriteria.TextMatching(toPartialMatchRegex(requested.searchTerm())));
     }
     if (!requested.countryCodes().isEmpty()) {
-      searchTerms.add(new ListCriteria.InCountries(requested.countryCodes()));
+      matches.add(new ListCriteria.InCountries(requested.countryCodes()));
     }
     if (!requested.searchRoles().isEmpty()) {
-      searchTerms.add(new ListCriteria.HoldingAnyRole(requested.searchRoles()));
+      matches.add(new ListCriteria.HoldingAnyRole(requested.searchRoles()));
     }
-    return searchTerms;
+    return matches;
   }
 
   private static String toPartialMatchRegex(String searchTerm) {

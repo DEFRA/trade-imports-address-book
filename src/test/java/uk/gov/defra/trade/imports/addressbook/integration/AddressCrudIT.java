@@ -93,7 +93,7 @@ class AddressCrudIT extends IntegrationBase {
   }
 
   @Test
-  void post_shouldIgnoreAnAddressTypeTheBodyStillSends() throws Exception {
+  void post_shouldIgnoreAnAddressType_whenTheBodyCarriesOne() throws Exception {
     postAddress(addressBody().with("addressType", "ORIGIN_OR_CONSIGNOR"))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.addressType").doesNotExist());

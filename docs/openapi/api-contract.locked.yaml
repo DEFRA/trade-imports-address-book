@@ -26,13 +26,14 @@ info:
     presence-only validation; consumers resolve it to a display name.
 
     **Roles:** at least one `roles` entry is required on create and update, and roles are returned
-    on read. A role is a party a notification can choose the address for: PLACE_OF_ORIGIN,
-    CONSIGNOR, PLACE_OF_DESTINATION, CONSIGNEE, IMPORTER or BRANCH_ADDRESS. A repeated role
-    collapses to its first occurrence. A missing list, or a value outside it, is a 400 validation
-    problem keyed by `roles`, and nothing is saved. An update replaces the roles. An address's
-    roles must be ones one address can hold together (a 400 keyed by `roles` otherwise), and an
-    address holding CONSIGNEE, IMPORTER or PLACE_OF_DESTINATION must have countryCode GB (a 400
-    keyed by `countryCode` otherwise).
+    on read, as an empty list when an address has none. A role is what a notification can choose
+    the address for, a party or a place: PLACE_OF_ORIGIN, CONSIGNOR, PLACE_OF_DESTINATION,
+    CONSIGNEE, IMPORTER or BRANCH_ADDRESS. A repeated role collapses to its first occurrence. A
+    missing list, or a value outside it, is a 400 validation problem keyed by `roles`, and nothing
+    is saved. An update replaces the roles. Every role must come from one group: sending
+    (PLACE_OF_ORIGIN, CONSIGNOR), receiving (CONSIGNEE, IMPORTER, PLACE_OF_DESTINATION) or branch
+    (BRANCH_ADDRESS); a 400 keyed by `roles` otherwise. An address holding CONSIGNEE, IMPORTER or
+    PLACE_OF_DESTINATION must have countryCode GB; a 400 keyed by `countryCode` otherwise.
 
     **Listing by role:** the list's `role` query parameter is repeatable and returns only the
     addresses holding any of the roles it names. It narrows the search (`q`, `countryCode` and
@@ -242,28 +243,14 @@ paths:
         schema:
           type: array
           items:
-            type: string
-            enum:
-            - PLACE_OF_ORIGIN
-            - CONSIGNOR
-            - PLACE_OF_DESTINATION
-            - CONSIGNEE
-            - IMPORTER
-            - BRANCH_ADDRESS
+            $ref: '#/components/schemas/AddressRole'
       - name: searchRole
         in: query
         required: false
         schema:
           type: array
           items:
-            type: string
-            enum:
-            - PLACE_OF_ORIGIN
-            - CONSIGNOR
-            - PLACE_OF_DESTINATION
-            - CONSIGNEE
-            - IMPORTER
-            - BRANCH_ADDRESS
+            $ref: '#/components/schemas/AddressRole'
       responses:
         '200':
           description: One page of the caller's live addresses
@@ -272,7 +259,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AddressPageResponse'
         '400':
-          description: An out-of-range or non-numeric page or page size, an unknown address type, use or search use, or a missing org header
+          description: An out-of-range or non-numeric page or page size, an unknown role or search role, or a missing org header
           content:
             application/problem+json:
               schema:
@@ -352,6 +339,15 @@ components:
       name: Trade-Imports-Organisation-Id
       description: Caller organisation id from the trusted forwarded header; must match path orgId
   schemas:
+    AddressRole:
+      type: string
+      enum:
+      - PLACE_OF_ORIGIN
+      - CONSIGNOR
+      - PLACE_OF_DESTINATION
+      - CONSIGNEE
+      - IMPORTER
+      - BRANCH_ADDRESS
     AddressRequest:
       properties:
         name:
@@ -394,14 +390,7 @@ components:
           type: array
           minItems: 1
           items:
-            type: string
-            enum:
-            - PLACE_OF_ORIGIN
-            - CONSIGNOR
-            - PLACE_OF_DESTINATION
-            - CONSIGNEE
-            - IMPORTER
-            - BRANCH_ADDRESS
+            $ref: '#/components/schemas/AddressRole'
       required:
       - addressLine1
       - countryCode
@@ -477,14 +466,7 @@ components:
         roles:
           type: array
           items:
-            type: string
-            enum:
-            - PLACE_OF_ORIGIN
-            - CONSIGNOR
-            - PLACE_OF_DESTINATION
-            - CONSIGNEE
-            - IMPORTER
-            - BRANCH_ADDRESS
+            $ref: '#/components/schemas/AddressRole'
         organisationId:
           type: string
         deleted:

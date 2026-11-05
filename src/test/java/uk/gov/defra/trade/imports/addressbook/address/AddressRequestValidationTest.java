@@ -180,6 +180,16 @@ class AddressRequestValidationTest {
             "countryCode",
             "A consignee, importer or place of destination must be in the United Kingdom"),
         Arguments.of(
+            "receiving role with a blank countryCode",
+            validRequest().roles(List.of("PLACE_OF_DESTINATION")).countryCode("").build(),
+            "countryCode",
+            "Select a country"),
+        Arguments.of(
+            "receiving role with no countryCode",
+            validRequest().roles(List.of("PLACE_OF_DESTINATION")).countryCode(null).build(),
+            "countryCode",
+            "Select a country"),
+        Arguments.of(
             "stray type",
             validRequest().type("IMPORTER").build(),
             "type",

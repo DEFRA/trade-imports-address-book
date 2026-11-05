@@ -6,10 +6,11 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Null;
+import jakarta.validation.constraints.Size;
 import java.util.Arrays;
 import java.util.List;
 import lombok.Builder;
-import org.hibernate.validator.constraints.Length;
+
 
 /**
  * Create/update request body. Every field is camelCase on the wire, under its Java name.
@@ -17,16 +18,8 @@ import org.hibernate.validator.constraints.Length;
  * <p>Server-assigned fields ({@code id}, {@code organisationId}, {@code deleted}, timestamps) are
  * not components, so a body that echoes them is accepted and they are dropped.
  *
- * <p>{@code type} and {@code role} must be absent: a supplied value fails {@code @Null} and is
- * reported as a per-field validation error. Both are hidden from the OpenAPI schema.
- *
- * <p>{@code roles} is never null: a missing list reads as empty. It must hold at least one entry,
- * each the name of an {@link AddressRole} constant, and duplicates collapse to their first
- * occurrence. The roles must be ones one address can hold
- * together ({@link RolesHeldTogether}), and an address holding a consignee, importer or place of
- * destination role must be in the United Kingdom ({@link ReceivingRolesInTheUnitedKingdom}).
- *
- * <p>{@code countryCode} is otherwise validated for presence only and stored exactly as given.
+ * <p>{@code roles} is never null: a missing list reads as empty, and repeated roles collapse to
+ * their first occurrence.
  */
 @Builder
 @RolesHeldTogether
@@ -34,7 +27,7 @@ import org.hibernate.validator.constraints.Length;
 @Schema(description = "Create or replace an address in the caller's address book")
 public record AddressRequest(
     @NotBlank(message = "Enter a name or organisation")
-        @Length(max = 255, message = "Name must be 255 characters or less")
+        @Size(max = 255, message = "Name must be 255 characters or less")
         @Schema(
             description = "Display name for the address",
             requiredMode = Schema.RequiredMode.REQUIRED,
@@ -43,7 +36,7 @@ public record AddressRequest(
             example = "Highland Livestock Ltd")
         String name,
     @NotBlank(message = "Enter address line 1")
-        @Length(max = 255, message = "Address line 1 must be 255 characters or less")
+        @Size(max = 255, message = "Address line 1 must be 255 characters or less")
         @Schema(
             description = "First line of the postal address",
             requiredMode = Schema.RequiredMode.REQUIRED,
@@ -51,11 +44,11 @@ public record AddressRequest(
             maxLength = 255,
             example = "14 Drover's Way")
         String addressLine1,
-    @Length(max = 255, message = "Address line 2 must be 255 characters or less")
+    @Size(max = 255, message = "Address line 2 must be 255 characters or less")
         @Schema(description = "Second line of the postal address", maxLength = 255)
         String addressLine2,
     @NotBlank(message = "Enter a town or city")
-        @Length(max = 100, message = "Town or city must be 100 characters or less")
+        @Size(max = 100, message = "Town or city must be 100 characters or less")
         @Schema(
             description = "Town or city",
             requiredMode = Schema.RequiredMode.REQUIRED,
@@ -63,11 +56,11 @@ public record AddressRequest(
             maxLength = 100,
             example = "Inverness")
         String townOrCity,
-    @Length(max = 100, message = "County must be 100 characters or less")
+    @Size(max = 100, message = "County must be 100 characters or less")
         @Schema(description = "County or region", maxLength = 100)
         String county,
     @NotBlank(message = "Enter a postcode or Zip code")
-        @Length(max = 12, message = "Postcode must be 12 characters or less")
+        @Size(max = 12, message = "Postcode must be 12 characters or less")
         @Schema(
             description = "Postal or ZIP code",
             requiredMode = Schema.RequiredMode.REQUIRED,
@@ -77,12 +70,14 @@ public record AddressRequest(
         String postcode,
     @NotBlank(message = "Select a country")
         @Schema(
-            description = "Country code (stored as-given)",
+            description =
+                "Country code (stored as given). GB when the address holds a CONSIGNEE, IMPORTER"
+                    + " or PLACE_OF_DESTINATION role",
             requiredMode = Schema.RequiredMode.REQUIRED,
             example = "GB")
         String countryCode,
     @NotBlank(message = "Enter a phone number")
-        @Length(max = 20, message = "Telephone number must be 20 characters or less")
+        @Size(max = 20, message = "Telephone number must be 20 characters or less")
         @Schema(
             description = "Contact telephone number",
             requiredMode = Schema.RequiredMode.REQUIRED,
@@ -92,7 +87,7 @@ public record AddressRequest(
         String phone,
     @NotBlank(message = "Enter an email address")
         @Email(message = "Enter an email address in the correct format")
-        @Length(max = 254, message = "Email address must be 254 characters or less")
+        @Size(max = 254, message = "Email address must be 254 characters or less")
         @Schema(
             description = "Contact email address",
             requiredMode = Schema.RequiredMode.REQUIRED,
@@ -107,8 +102,10 @@ public record AddressRequest(
             arraySchema =
                 @Schema(
                     description =
-                        "The parties a notification can choose this address for. Duplicates"
-                            + " collapse",
+                        "The roles a notification can choose this address for. Duplicates"
+                            + " collapse. Every role must come from one group: sending"
+                            + " (PLACE_OF_ORIGIN, CONSIGNOR), receiving (CONSIGNEE, IMPORTER,"
+                            + " PLACE_OF_DESTINATION) or branch (BRANCH_ADDRESS)",
                     requiredMode = Schema.RequiredMode.REQUIRED))
         List<String> roles,
     @Null(message = "type is not a supported field")

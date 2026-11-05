@@ -158,7 +158,7 @@ returns **404** (no existence disclosure).
   roles from one group"), and an address holding `CONSIGNEE`, `IMPORTER` or
   `PLACE_OF_DESTINATION` must have `countryCode` `GB` (**400** keyed by `countryCode`: "A
   consignee, importer or place of destination must be in the United Kingdom").
-- A body that still sends `addressType` has it ignored.
+- An `addressType` in a body is ignored.
 
 **Example — create an address**
 
@@ -180,9 +180,9 @@ curl -s -X POST "http://localhost:8089/organisation/{orgId}/addresses" \
 
 ### Role rules
 
-The rules belong to the address book. Each `AddressRole` names its one group (`RoleGroup`), and each
-group says whether its addresses must be in the United Kingdom, so a new role cannot be added
-without a group. The grouping is internal: it is not part of the API, and a caller only sees it as a
+The rules belong to the address book. Each `AddressRole` names its one group (`RoleGroup`), so a new
+role cannot be added without a group, and the receiving group is the one that must be in the United
+Kingdom. The grouping is internal: it is not part of the API, and a caller only sees it as a
 refusal.
 
 | Group | Roles | Country |
@@ -254,9 +254,9 @@ The API surface is locked and tested on every `mvn verify`:
 | File | Role |
 | --- | --- |
 | [`docs/openapi/api-contract.locked.yaml`](docs/openapi/api-contract.locked.yaml) | Human-authored source of truth (paths, operationIds, 400 `anyOf` shapes, allowed values of enum properties, the `AddressRequest` required list, the minimum number of `AddressRequest.roles`) |
-| [`docs/openapi/operators.yml`](docs/openapi/operators.yml) | springdoc-generated spec, committed for downstream consumers |
+| [`docs/openapi/addresses.yml`](docs/openapi/addresses.yml) | springdoc-generated spec, committed for downstream consumers |
 
-`AddressComplianceIT` fails the build if `operators.yml` is stale against live `/v3/api-docs`, or
+`AddressComplianceIT` fails the build if `addresses.yml` is stale against live `/v3/api-docs`, or
 if paths, HTTP methods, operationIds, operation parameter names, component schema property
 names, the allowed values of `roles` and the list's `role` and `searchRole` parameters, the 400
 `anyOf` shapes of create and update, the required list of `AddressRequest` or the minimum number
@@ -336,7 +336,7 @@ future index against real collection size before adding it.
 - An address's `expireAt` is counted from the moment of creation rather than from `createdAt`, which auditing only fills in during the save.
 - The list is one composed query (`AddressListQuery`), not a fixed query per combination of search term, country code, roles and search roles. Each added filter would otherwise double the fixed queries, and each would repeat the organisation and status scope.
 - A caller searches by role label through `searchRole`, naming the roles whose label contains the term, and the service matches stored roles. The labels are the caller's copy: the address book stores enum names and holds no labels, so matching a label here would make it a second owner of text in one language. A regular expression over the stored names would never match a label such as 'place of origin'.
-- The list's filters travel as two records. `RequestedListFilters` holds them as the request supplied them, with the search term as typed and any value possibly null. `ListCriteria` holds them as the query matches them, with no nulls: the roles to keep (empty keeps every address) and the search terms the caller asked for, each a `SearchTerm` (`TextMatching`, `InCountries`, `HoldingAnyRole`). `AddressService` is the one place that turns the first into the second, so a field never holds a term in one place and a pattern in another.
+- The list's filters travel as two records. `RequestedListFilters` holds them as the request supplied them, tidied: the search term trimmed, country codes trimmed without blanks, roles without repeats, and an absent filter empty rather than null. `ListCriteria` holds them as the query matches them: the roles to keep (empty keeps every address) and the matches the caller asked for, each a `Match` (`TextMatching`, `InCountries`, `HoldingAnyRole`). `AddressService` is the one place that turns the first into the second, so a field never holds a search term in one place and a pattern in another.
 - A caller's groupings of roles, such as the INS address book's tabs, are the caller's: it sends the roles a tab shows as repeated `role` values.
 
 ## Licence

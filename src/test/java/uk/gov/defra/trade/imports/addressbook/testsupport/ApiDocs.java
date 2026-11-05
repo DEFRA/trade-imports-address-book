@@ -13,8 +13,7 @@ import org.yaml.snakeyaml.Yaml;
 
 public final class ApiDocs {
 
-  public static final Path COMMITTED_ARTIFACT = Path.of("docs/openapi/operators.yml");
-  private static final Path LOCKED_CONTRACT = Path.of("docs/openapi/api-contract.locked.yaml");
+  public static final Path COMMITTED_ARTIFACT = Path.of("docs/openapi/addresses.yml");
 
   private ApiDocs() {}
 
@@ -39,12 +38,12 @@ public final class ApiDocs {
     return yaml().dump(withoutServers);
   }
 
-  public static Map<String, Object> loadYaml(Path file) throws IOException {
+  private static Map<String, Object> loadYaml(Path file) throws IOException {
     return yaml().load(Files.readString(file));
   }
 
   public static Map<String, Object> lockedContract() throws IOException {
-    return loadYaml(LOCKED_CONTRACT);
+    return loadYaml(Path.of("docs/openapi/api-contract.locked.yaml"));
   }
 
   @SuppressWarnings("unchecked")

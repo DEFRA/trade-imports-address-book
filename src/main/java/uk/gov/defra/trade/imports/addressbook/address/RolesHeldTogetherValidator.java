@@ -12,12 +12,7 @@ public class RolesHeldTogetherValidator
     if (shareOneGroup(request.knownRoles())) {
       return true;
     }
-    context.disableDefaultConstraintViolation();
-    context
-        .buildConstraintViolationWithTemplate(context.getDefaultConstraintMessageTemplate())
-        .addPropertyNode("roles")
-        .addConstraintViolation();
-    return false;
+    return ClassLevelViolations.reportOn(context, "roles");
   }
 
   private static boolean shareOneGroup(List<AddressRole> roles) {

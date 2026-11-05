@@ -56,11 +56,16 @@ class AddressResponseTest {
 
   @Test
   void compactConstructor_allowsNullOptionalFields() {
-    AddressResponse response =
-        validResponse().addressLine2(null).county(null).roles(null).build();
+    AddressResponse response = validResponse().addressLine2(null).county(null).build();
 
     assertThat(response.addressLine2()).isNull();
     assertThat(response.county()).isNull();
-    assertThat(response.roles()).isNull();
+  }
+
+  @Test
+  void compactConstructor_readsNullRolesAsAnEmptyList() {
+    AddressResponse response = validResponse().roles(null).build();
+
+    assertThat(response.roles()).isEmpty();
   }
 }

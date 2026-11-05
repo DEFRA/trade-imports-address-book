@@ -216,15 +216,7 @@ paths:
         schema:
           type: array
           items:
-            type: string
-            description: A party a notification can choose this address for
-            enum:
-            - PLACE_OF_ORIGIN
-            - CONSIGNOR
-            - PLACE_OF_DESTINATION
-            - CONSIGNEE
-            - IMPORTER
-            - BRANCH_ADDRESS
+            $ref: '#/components/schemas/AddressRole'
       - name: searchRole
         in: query
         description: 'Roles that make an address match the search: an address holding any of them matches, as one matching q or countryCode does. Repeatable. An unknown value is refused with 400.'
@@ -232,15 +224,7 @@ paths:
         schema:
           type: array
           items:
-            type: string
-            description: A party a notification can choose this address for
-            enum:
-            - PLACE_OF_ORIGIN
-            - CONSIGNOR
-            - PLACE_OF_DESTINATION
-            - CONSIGNEE
-            - IMPORTER
-            - BRANCH_ADDRESS
+            $ref: '#/components/schemas/AddressRole'
       responses:
         '200':
           description: One page of the caller's live addresses
@@ -336,36 +320,38 @@ components:
           description: Display name for the address
           example: Highland Livestock Ltd
           maxLength: 255
-          minLength: 1
+          minLength: 0
         addressLine1:
           type: string
           description: First line of the postal address
           example: 14 Drover's Way
           maxLength: 255
-          minLength: 1
+          minLength: 0
         addressLine2:
           type: string
           description: Second line of the postal address
           maxLength: 255
+          minLength: 0
         townOrCity:
           type: string
           description: Town or city
           example: Inverness
           maxLength: 100
-          minLength: 1
+          minLength: 0
         county:
           type: string
           description: County or region
           maxLength: 100
+          minLength: 0
         postcode:
           type: string
           description: Postal or ZIP code
           example: IV2 3JH
           maxLength: 12
-          minLength: 1
+          minLength: 0
         countryCode:
           type: string
-          description: Country code (stored as-given)
+          description: Country code (stored as given). GB when the address holds a CONSIGNEE, IMPORTER or PLACE_OF_DESTINATION role
           example: GB
           minLength: 1
         phone:
@@ -373,26 +359,18 @@ components:
           description: Contact telephone number
           example: +44 1463 234567
           maxLength: 20
-          minLength: 1
+          minLength: 0
         email:
           type: string
           description: Contact email address
           example: exports@highlandlivestock.example.com
           maxLength: 254
-          minLength: 1
+          minLength: 0
         roles:
           type: array
-          description: The parties a notification can choose this address for. Duplicates collapse
+          description: 'The roles a notification can choose this address for. Duplicates collapse. Every role must come from one group: sending (PLACE_OF_ORIGIN, CONSIGNOR), receiving (CONSIGNEE, IMPORTER, PLACE_OF_DESTINATION) or branch (BRANCH_ADDRESS)'
           items:
-            type: string
-            description: A party a notification can choose this address for
-            enum:
-            - PLACE_OF_ORIGIN
-            - CONSIGNOR
-            - PLACE_OF_DESTINATION
-            - CONSIGNEE
-            - IMPORTER
-            - BRANCH_ADDRESS
+            $ref: '#/components/schemas/AddressRole'
           minItems: 1
       required:
       - addressLine1
@@ -403,6 +381,16 @@ components:
       - postcode
       - roles
       - townOrCity
+    AddressRole:
+      type: string
+      description: 'A role a notification can choose this address for: a party, or a place'
+      enum:
+      - PLACE_OF_ORIGIN
+      - CONSIGNOR
+      - PLACE_OF_DESTINATION
+      - CONSIGNEE
+      - IMPORTER
+      - BRANCH_ADDRESS
     AddressResponse:
       description: An address in the caller's organisation-scoped address book
       properties:
@@ -440,17 +428,9 @@ components:
           description: Contact email address
         roles:
           type: array
-          description: The parties a notification can choose this address for; null or empty when it has none
+          description: The roles a notification can choose this address for; empty when it has none
           items:
-            type: string
-            description: A party a notification can choose this address for
-            enum:
-            - PLACE_OF_ORIGIN
-            - CONSIGNOR
-            - PLACE_OF_DESTINATION
-            - CONSIGNEE
-            - IMPORTER
-            - BRANCH_ADDRESS
+            $ref: '#/components/schemas/AddressRole'
         organisationId:
           type: string
           description: Organisation that owns this address

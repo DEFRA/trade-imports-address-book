@@ -4,30 +4,27 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * What a list query keeps and searches for. A filter or search term the caller did not ask for is
- * absent.
+ * What a list query keeps and searches for. A filter or match the caller did not ask for is absent.
  *
  * @param roles keeps only addresses holding any of these roles; empty keeps every address
- * @param searchTerms the search: an address matches when it matches any of these; empty for no
- *     search
+ * @param matches the search: an address matches when it matches any of these; empty for no search
  */
-public record ListCriteria(List<AddressRole> roles, List<SearchTerm> searchTerms) {
+public record ListCriteria(List<AddressRole> roles, List<Match> matches) {
 
   public ListCriteria {
     roles = List.copyOf(roles);
-    searchTerms = List.copyOf(searchTerms);
+    matches = List.copyOf(matches);
   }
 
   /** One way an address can match the search. */
-  public sealed interface SearchTerm permits TextMatching, InCountries, HoldingAnyRole {}
+  public sealed interface Match permits TextMatching, InCountries, HoldingAnyRole {}
 
   /**
-   * Matches an address whose name, address lines, town or city, county or postcode matches the
-   * pattern, case-insensitively.
+   * Matches an address whose searchable text matches the pattern.
    *
    * @param pattern a regular expression
    */
-  public record TextMatching(String pattern) implements SearchTerm {
+  public record TextMatching(String pattern) implements Match {
     public TextMatching {
       Objects.requireNonNull(pattern);
     }
@@ -36,9 +33,9 @@ public record ListCriteria(List<AddressRole> roles, List<SearchTerm> searchTerms
   /**
    * Matches an address in any of the countries.
    *
-   * @param countryCodes trimmed, non-blank country codes; never empty
+   * @param countryCodes the country codes; never empty
    */
-  public record InCountries(List<String> countryCodes) implements SearchTerm {
+  public record InCountries(List<String> countryCodes) implements Match {
     public InCountries {
       countryCodes = nonEmptyCopyOf(countryCodes);
     }
@@ -49,7 +46,7 @@ public record ListCriteria(List<AddressRole> roles, List<SearchTerm> searchTerms
    *
    * @param roles the roles; never empty
    */
-  public record HoldingAnyRole(List<AddressRole> roles) implements SearchTerm {
+  public record HoldingAnyRole(List<AddressRole> roles) implements Match {
     public HoldingAnyRole {
       roles = nonEmptyCopyOf(roles);
     }
@@ -58,7 +55,7 @@ public record ListCriteria(List<AddressRole> roles, List<SearchTerm> searchTerms
   private static <T> List<T> nonEmptyCopyOf(List<T> values) {
     List<T> copy = List.copyOf(values);
     if (copy.isEmpty()) {
-      throw new IllegalArgumentException("A search term needs at least one value");
+      throw new IllegalArgumentException("A match needs at least one value");
     }
     return copy;
   }

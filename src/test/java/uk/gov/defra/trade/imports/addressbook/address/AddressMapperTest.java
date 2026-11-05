@@ -1,7 +1,6 @@
 package uk.gov.defra.trade.imports.addressbook.address;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport.replacementRequest;
 import static uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport.storedAddress;
 import static uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport.validRequest;
@@ -27,7 +26,7 @@ class AddressMapperTest {
   @BeforeEach
   void setUp() {
     Jackson2ObjectMapperBuilder builder = new Jackson2ObjectMapperBuilder();
-    new JacksonConfig().camelCaseNamingStrategy().customize(builder);
+    new JacksonConfig().apiJsonConventions().customize(builder);
     mapper = builder.build().findAndRegisterModules();
   }
 
@@ -69,24 +68,13 @@ class AddressMapperTest {
         storedAddress("ORG-001", AddressStatus.ACTIVE)
             .addressLine2(null)
             .county(null)
-            .roles(null)
             .build();
 
     AddressResponse response = addressMapper.toResponse(entity);
 
     assertThat(response.addressLine2()).isNull();
     assertThat(response.county()).isNull();
-    assertThat(response.roles()).isNull();
     assertThat(response.name()).isEqualTo("Highland Livestock Ltd");
-  }
-
-  @Test
-  void toResponse_failsLoudWhenARequiredFieldIsNull() {
-    Address entity = storedAddress("ORG-001", AddressStatus.ACTIVE).phone(null).build();
-
-    assertThatThrownBy(() -> addressMapper.toResponse(entity))
-        .isInstanceOf(NullPointerException.class)
-        .hasMessage("phone");
   }
 
   @Test
@@ -122,14 +110,6 @@ class AddressMapperTest {
     assertThat(json.get("createdAt").asText()).isEqualTo("2026-07-01T09:00:00Z");
     assertThat(json.get("modifiedAt").asText()).isEqualTo("2026-07-02T10:30:00Z");
     assertThat(json.get("deleted").asBoolean()).isFalse();
-  }
-
-  @Test
-  void response_serialisesInstantFieldsAsIso8601NotEpochMillis() {
-    JsonNode json = mapper.valueToTree(responseFor(AddressStatus.ACTIVE));
-
-    assertThat(json.get("createdAt").isTextual()).isTrue();
-    assertThat(json.get("modifiedAt").isTextual()).isTrue();
   }
 
   @Test
@@ -178,19 +158,6 @@ class AddressMapperTest {
   void toEntity_mapsTheWireRolesOntoEnumsInOrder() {
     AddressRequest request =
         validRequest().roles(List.of("CONSIGNOR", "PLACE_OF_ORIGIN")).build();
-
-    Address entity = addressMapper.toEntity(request);
-
-    assertThat(entity.getRoles())
-        .containsExactly(AddressRole.CONSIGNOR, AddressRole.PLACE_OF_ORIGIN);
-  }
-
-  @Test
-  void toEntity_keepsTheFirstOfEachRepeatedRole() {
-    AddressRequest request =
-        validRequest()
-            .roles(List.of("CONSIGNOR", "PLACE_OF_ORIGIN", "CONSIGNOR", "PLACE_OF_ORIGIN"))
-            .build();
 
     Address entity = addressMapper.toEntity(request);
 

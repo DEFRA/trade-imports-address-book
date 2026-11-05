@@ -8,24 +8,22 @@ public class ReceivingRolesInTheUnitedKingdomValidator
 
   @Override
   public boolean isValid(AddressRequest request, ConstraintValidatorContext context) {
-    if (inTheUnitedKingdomOrUnchosen(request.countryCode())) {
+    String countryCode = request.countryCode();
+    if (countryCode == null || countryCode.isBlank()) {
       return true;
     }
-    if (request.knownRoles().stream()
-        .map(AddressRole::group)
-        .noneMatch(RoleGroup::inTheUnitedKingdom)) {
+    if (isTheUnitedKingdom(countryCode) || !holdsAReceivingRole(request)) {
       return true;
     }
-    context.disableDefaultConstraintViolation();
-    context
-        .buildConstraintViolationWithTemplate(context.getDefaultConstraintMessageTemplate())
-        .addPropertyNode("countryCode")
-        .addConstraintViolation();
-    return false;
+    return ClassLevelViolations.reportOn(context, "countryCode");
   }
 
-  private static boolean inTheUnitedKingdomOrUnchosen(String countryCode) {
+  private static boolean isTheUnitedKingdom(String countryCode) {
     String unitedKingdom = "GB";
-    return countryCode == null || countryCode.isBlank() || unitedKingdom.equals(countryCode);
+    return unitedKingdom.equals(countryCode);
+  }
+
+  private static boolean holdsAReceivingRole(AddressRequest request) {
+    return request.knownRoles().stream().anyMatch(role -> role.group() == RoleGroup.RECEIVING);
   }
 }

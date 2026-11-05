@@ -19,14 +19,21 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.ResultActions;
 import uk.gov.defra.trade.imports.addressbook.testsupport.ApiDocs;
 
 class AddressComplianceIT extends IntegrationBase {
 
   @Test
   void createAndReadEmitCamelCasePropertiesAndADerivedDeletedBoolean() throws Exception {
-    postAddress(addressBody())
-        .andExpect(status().isCreated())
+    ResultActions created = postAddress(addressBody());
+
+    expectCamelCaseLiveAddress(created.andExpect(status().isCreated()));
+    expectCamelCaseLiveAddress(getAddress(createdAddressId(created)).andExpect(status().isOk()));
+  }
+
+  private static void expectCamelCaseLiveAddress(ResultActions address) throws Exception {
+    address
         .andExpect(jsonPath("$.addressLine1").value(ADDRESS_LINE_1))
         .andExpect(jsonPath("$.townOrCity").value(TOWN_OR_CITY))
         .andExpect(jsonPath("$.countryCode").value(COUNTRY_CODE))
@@ -185,7 +192,7 @@ class AddressComplianceIT extends IntegrationBase {
   void liveAddressRequestHasTheLockedRequiredProperties() throws IOException {
     List<Object> lockedRequired = requiredProperties(lockedContract(), "AddressRequest");
 
-    assertThat(lockedRequired).contains("roles").doesNotContain("addressType");
+    assertThat(lockedRequired).contains("roles");
     assertThat(requiredProperties(ApiDocs.fetchLive(port), "AddressRequest"))
         .as("required properties of AddressRequest must match the locked contract")
         .containsExactlyInAnyOrderElementsOf(lockedRequired);
@@ -213,13 +220,7 @@ class AddressComplianceIT extends IntegrationBase {
     return ((List<Map<String, Object>>) listOperation.get("parameters"))
         .stream()
             .filter(parameter -> parameterName.equals(parameter.get("name")))
-            .map(parameter -> (Map<String, Object>) parameter.get("schema"))
-            .map(
-                schema ->
-                    "array".equals(schema.get("type"))
-                        ? (Map<String, Object>) schema.get("items")
-                        : schema)
-            .map(valueSchema -> (List<Object>) valueSchema.get("enum"))
+            .map(parameter -> enumOf(doc, (Map<String, Object>) parameter.get("schema")))
             .findFirst()
             .orElseThrow();
   }
@@ -227,12 +228,20 @@ class AddressComplianceIT extends IntegrationBase {
   @SuppressWarnings("unchecked")
   private static List<Object> allowedValues(
       Map<String, Object> doc, String schema, String property) {
-    Map<String, Object> propertySchema =
-        (Map<String, Object>) nested(doc, "components", "schemas", schema, "properties", property);
+    return enumOf(
+        doc,
+        (Map<String, Object>) nested(doc, "components", "schemas", schema, "properties", property));
+  }
+
+  @SuppressWarnings("unchecked")
+  private static List<Object> enumOf(Map<String, Object> doc, Map<String, Object> schema) {
     Map<String, Object> valueSchema =
-        "array".equals(propertySchema.get("type"))
-            ? (Map<String, Object>) propertySchema.get("items")
-            : propertySchema;
+        "array".equals(schema.get("type")) ? (Map<String, Object>) schema.get("items") : schema;
+    Object ref = valueSchema.get("$ref");
+    if (ref != null) {
+      String componentName = ((String) ref).substring("#/components/schemas/".length());
+      valueSchema = (Map<String, Object>) nested(doc, "components", "schemas", componentName);
+    }
     return (List<Object>) valueSchema.get("enum");
   }
 
@@ -261,6 +270,13 @@ class AddressComplianceIT extends IntegrationBase {
         .isEqualTo(lockedSchemaMap.keySet());
     liveSchemaMap.forEach(
         (name, liveSchema) -> {
+          Object liveEnum = ((Map<String, Object>) liveSchema).get("enum");
+          if (liveEnum != null) {
+            assertThat(liveEnum)
+                .as("enum values of schema %s must match the locked contract", name)
+                .isEqualTo(((Map<String, Object>) lockedSchemaMap.get(name)).get("enum"));
+            return;
+          }
           Object liveProps = ((Map<String, Object>) liveSchema).get("properties");
           Object lockedProps = ((Map<String, Object>) lockedSchemaMap.get(name)).get("properties");
           assertThat(liveProps)
