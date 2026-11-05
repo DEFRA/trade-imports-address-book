@@ -39,6 +39,10 @@ class DependencyAvailabilityMetricsTest {
   }
 
   private double mongoGauge() {
-    return meterRegistry.get("DependencyAvailable").tag("Dependency", "mongodb").gauge().value();
+    return meterRegistry
+        .get("external.dependency.available")
+        .tag("dependency", "mongodb")
+        .gauge()
+        .value();
   }
 }

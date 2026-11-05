@@ -65,15 +65,15 @@ class MongoCommandMetricsTest {
 
   private Timer durationOf(String operation) {
     return meterRegistry
-        .get("ExternalCallDuration")
-        .tags("Dependency", "mongodb", "Operation", operation)
+        .get("external.call.duration")
+        .tags("dependency", "mongodb", "operation", operation)
         .timer();
   }
 
   private DistributionSummary failuresOf(String operation) {
     return meterRegistry
-        .get("ExternalCallFailure")
-        .tags("Dependency", "mongodb", "Operation", operation)
+        .get("external.call.failure")
+        .tags("dependency", "mongodb", "operation", operation)
         .summary();
   }
 

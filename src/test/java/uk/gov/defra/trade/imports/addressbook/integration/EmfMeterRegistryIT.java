@@ -45,9 +45,9 @@ class EmfMeterRegistryIT extends IntegrationBase {
     Search serviceTimer = meterRegistry.find("service.listOperators.time");
     Search mongoFind =
         meterRegistry
-            .find("ExternalCallDuration")
-            .tags("Dependency", "mongodb", "Operation", "find");
-    Search unfilteredSearch = meterRegistry.find("AddressSearch").tag("SearchType", "none");
+            .find("external.call.duration")
+            .tags("dependency", "mongodb", "operation", "find");
+    Search unfilteredSearch = meterRegistry.find("address.search").tag("search.type", "none");
     removeEveryMeterFoundBy(controllerTimer, serviceTimer, mongoFind, unfilteredSearch);
 
     mockMvc
@@ -68,11 +68,11 @@ class EmfMeterRegistryIT extends IntegrationBase {
     addressMetrics.recordSearch(AddressSearchType.NONE);
     externalCallMetrics.recordSuccess(new ExternalCall("mongodb", "find"), Duration.ofMillis(1));
 
-    assertThat(meterRegistry.find("AddressChange").counter()).isNotNull();
-    assertThat(meterRegistry.find("AddressSearch").counter()).isNotNull();
-    assertThat(meterRegistry.find("ExternalCallDuration").timer()).isNotNull();
-    assertThat(meterRegistry.find("ExternalCallFailure").summary()).isNotNull();
-    assertThat(meterRegistry.find("DependencyAvailable").gauge()).isNotNull();
+    assertThat(meterRegistry.find("address.change").counter()).isNotNull();
+    assertThat(meterRegistry.find("address.search").counter()).isNotNull();
+    assertThat(meterRegistry.find("external.call.duration").timer()).isNotNull();
+    assertThat(meterRegistry.find("external.call.failure").summary()).isNotNull();
+    assertThat(meterRegistry.find("external.dependency.available").gauge()).isNotNull();
   }
 
   private void removeEveryMeterFoundBy(Search... searches) {

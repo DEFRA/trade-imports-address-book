@@ -80,15 +80,15 @@ class ExternalCallMetricsTest {
 
   private Timer durationOf(ExternalCall call) {
     return meterRegistry
-        .get("ExternalCallDuration")
-        .tags("Dependency", call.dependency(), "Operation", call.operation())
+        .get("external.call.duration")
+        .tags("dependency", call.dependency(), "operation", call.operation())
         .timer();
   }
 
   private DistributionSummary failureOf(ExternalCall call) {
     return meterRegistry
-        .get("ExternalCallFailure")
-        .tags("Dependency", call.dependency(), "Operation", call.operation())
+        .get("external.call.failure")
+        .tags("dependency", call.dependency(), "operation", call.operation())
         .summary();
   }
 }

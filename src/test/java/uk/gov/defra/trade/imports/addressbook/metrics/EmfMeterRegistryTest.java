@@ -30,7 +30,7 @@ class EmfMeterRegistryTest {
   @Test
   void publish_shouldWriteEachTimedDurationInMilliseconds_withTheTagsAsTheOnlyDimensions() {
     Timer timer =
-        registry.timer("ExternalCallDuration", "Dependency", "mongodb", "Operation", "find");
+        registry.timer("external.call.duration", "dependency", "mongodb", "operation", "find");
     timer.record(Duration.ofMillis(12));
     timer.record(Duration.ofMillis(250));
 
@@ -40,13 +40,13 @@ class EmfMeterRegistryTest {
     JsonNode directive = document.get("_aws").get("CloudWatchMetrics").get(0);
     assertThat(directive.get("Namespace").asText()).isEqualTo(NAMESPACE);
     assertThat(directive.get("Dimensions")).hasSize(1);
-    assertThat(texts(directive.get("Dimensions").get(0))).containsExactly("Dependency", "Operation");
+    assertThat(texts(directive.get("Dimensions").get(0))).containsExactly("dependency", "operation");
     assertThat(directive.get("Metrics").get(0).get("Name").asText())
-        .isEqualTo("ExternalCallDuration");
+        .isEqualTo("external.call.duration");
     assertThat(directive.get("Metrics").get(0).get("Unit").asText()).isEqualTo("Milliseconds");
-    assertThat(document.get("Dependency").asText()).isEqualTo("mongodb");
-    assertThat(document.get("Operation").asText()).isEqualTo("find");
-    assertThat(numbers(document.get("ExternalCallDuration"))).containsExactly(12.0, 250.0);
+    assertThat(document.get("dependency").asText()).isEqualTo("mongodb");
+    assertThat(document.get("operation").asText()).isEqualTo("find");
+    assertThat(numbers(document.get("external.call.duration"))).containsExactly(12.0, 250.0);
     assertThat(document.has("ServiceName")).isFalse();
   }
 
@@ -63,8 +63,8 @@ class EmfMeterRegistryTest {
   @Test
   void publish_shouldWriteEachAmountASummaryRecorded() {
     DistributionSummary failures =
-        DistributionSummary.builder("ExternalCallFailure")
-            .tags("Dependency", "mongodb", "Operation", "find")
+        DistributionSummary.builder("external.call.failure")
+            .tags("dependency", "mongodb", "operation", "find")
             .register(registry);
     failures.record(0);
     failures.record(1);
@@ -73,13 +73,13 @@ class EmfMeterRegistryTest {
     registry.publish();
 
     JsonNode document = environment.documents().getFirst();
-    assertThat(numbers(document.get("ExternalCallFailure"))).containsExactly(0.0, 1.0, 0.0);
+    assertThat(numbers(document.get("external.call.failure"))).containsExactly(0.0, 1.0, 0.0);
     assertThat(unitOf(document)).isEqualTo("Count");
   }
 
   @Test
   void publish_shouldWriteACountersCountForTheLastClosedMinuteOnly() {
-    Counter changes = registry.counter("AddressChange", "Action", "create");
+    Counter changes = registry.counter("address.change", "action", "create");
     changes.increment(2);
     startTheNextMinute(changes);
     changes.increment(3);
@@ -89,15 +89,15 @@ class EmfMeterRegistryTest {
     registry.publish();
 
     JsonNode document = environment.documents().getFirst();
-    assertThat(document.get("Action").asText()).isEqualTo("create");
-    assertThat(document.get("AddressChange").asDouble()).isEqualTo(3.0);
+    assertThat(document.get("action").asText()).isEqualTo("create");
+    assertThat(document.get("address.change").asDouble()).isEqualTo(3.0);
   }
 
   @Test
   void publish_shouldWriteAGaugesValue_andNothingWhileItIsNotANumber() {
     AtomicReference<Double> available = new AtomicReference<>(Double.NaN);
-    Gauge.builder("DependencyAvailable", available, AtomicReference::get)
-        .tag("Dependency", "mongodb")
+    Gauge.builder("external.dependency.available", available, AtomicReference::get)
+        .tag("dependency", "mongodb")
         .register(registry);
 
     var logs =
@@ -111,7 +111,10 @@ class EmfMeterRegistryTest {
 
     assertThat(logs).isEmpty();
     assertThat(environment.documents()).singleElement()
-        .satisfies(document -> assertThat(document.get("DependencyAvailable").asDouble()).isEqualTo(1.0));
+        .satisfies(
+            document ->
+                assertThat(document.get("external.dependency.available").asDouble())
+                    .isEqualTo(1.0));
   }
 
   @Test
@@ -141,8 +144,8 @@ class EmfMeterRegistryTest {
 
   @Test
   void publish_shouldLogAWarningAndCarryOn_whenOneMeterCannotBeWritten() {
-    registry.counter("AddressChange", "Action", " ").increment();
-    registry.counter("AddressSearch", "SearchType", "none").increment();
+    registry.counter("address.change", "action", " ").increment();
+    registry.counter("address.search", "search.type", "none").increment();
     clock.add(Duration.ofMinutes(1));
 
     var logs = CapturedLogs.loggedBy(EmfMeterRegistry.class, registry::publish);
@@ -153,11 +156,11 @@ class EmfMeterRegistryTest {
             event -> {
               assertThat(event.getLevel()).isEqualTo(Level.WARN);
               assertThat(event.getFormattedMessage())
-                  .isEqualTo("Could not publish metric AddressChange");
+                  .isEqualTo("Could not publish metric address.change");
               assertThat(event.getThrowableProxy()).isNotNull();
             });
     assertThat(environment.documents())
-        .extracting(document -> document.get("SearchType").asText())
+        .extracting(document -> document.get("search.type").asText())
         .containsExactly("none");
   }
 

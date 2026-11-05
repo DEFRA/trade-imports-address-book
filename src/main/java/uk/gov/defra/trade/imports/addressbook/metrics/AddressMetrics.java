@@ -6,18 +6,18 @@ import org.springframework.stereotype.Component;
 import uk.gov.defra.trade.imports.addressbook.address.AddressSearchType;
 
 /**
- * Counts address book events on the meter registry: {@code AddressSearch} tagged {@code
- * SearchType}, and {@code AddressChange} tagged {@code Action} as {@code create}, {@code update}
+ * Counts address book events on the meter registry: {@code address.search} tagged {@code
+ * search.type}, and {@code address.change} tagged {@code action} as {@code create}, {@code update}
  * or {@code delete}. Each record method adds one to its counter.
  */
 @Component
 @RequiredArgsConstructor
 public class AddressMetrics {
 
-  static final String SEARCH_METRIC = "AddressSearch";
-  static final String SEARCH_TYPE_TAG = "SearchType";
-  static final String CHANGE_METRIC = "AddressChange";
-  static final String ACTION_TAG = "Action";
+  static final String SEARCH_METRIC = "address.search";
+  static final String SEARCH_TYPE_TAG = "search.type";
+  static final String CHANGE_METRIC = "address.change";
+  static final String ACTION_TAG = "action";
 
   private final MeterRegistry meterRegistry;
 

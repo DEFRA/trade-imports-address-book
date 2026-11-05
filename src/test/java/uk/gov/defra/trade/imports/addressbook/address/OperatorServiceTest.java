@@ -81,11 +81,11 @@ class OperatorServiceTest {
   }
 
   private List<String> countedChanges() {
-    return countedTagValues("AddressChange", "Action");
+    return countedTagValues("address.change", "action");
   }
 
   private List<String> countedSearches() {
-    return countedTagValues("AddressSearch", "SearchType");
+    return countedTagValues("address.search", "search.type");
   }
 
   private List<String> countedTagValues(String counterName, String tagKey) {

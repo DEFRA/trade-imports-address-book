@@ -86,11 +86,11 @@ management:
       all: false
       controller: true
       service: true
-      "[ExternalCallDuration]": true
-      "[ExternalCallFailure]": true
-      "[DependencyAvailable]": true
-      "[AddressSearch]": true
-      "[AddressChange]": true
+      external.call.duration: true
+      external.call.failure: true
+      external.dependency.available: true
+      address.search: true
+      address.change: true
       jvm:
         memory:
           committed: true

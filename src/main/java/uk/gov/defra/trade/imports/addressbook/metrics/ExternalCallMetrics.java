@@ -10,9 +10,9 @@ import org.slf4j.spi.LoggingEventBuilder;
 import org.springframework.stereotype.Component;
 
 /**
- * Records each call to a system the service depends on, as two meters tagged {@code Dependency}
- * and {@code Operation}: the timer {@code ExternalCallDuration} and the distribution summary
- * {@code ExternalCallFailure}, which records 1 for a failed call and 0 for a successful one.
+ * Records each call to a system the service depends on, as two meters tagged {@code dependency}
+ * and {@code operation}: the timer {@code external.call.duration} and the distribution summary
+ * {@code external.call.failure}, which records 1 for a failed call and 0 for a successful one.
  *
  * <p>Each call is also logged at info with the key-value pairs {@code event.category}, {@code
  * event.action}, {@code event.outcome} and {@code event.duration} in nanoseconds. A failed call's
@@ -24,9 +24,9 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class ExternalCallMetrics {
 
-  static final String DURATION_METRIC = "ExternalCallDuration";
-  static final String FAILURE_METRIC = "ExternalCallFailure";
-  static final String DEPENDENCY_TAG = "Dependency";
+  static final String DURATION_METRIC = "external.call.duration";
+  static final String FAILURE_METRIC = "external.call.failure";
+  static final String DEPENDENCY_TAG = "dependency";
   static final String EVENT_CATEGORY = "external-call";
 
   private final MeterRegistry meterRegistry;
@@ -42,7 +42,7 @@ public class ExternalCallMetrics {
   }
 
   private void recordCall(ExternalCall call, Duration elapsed, int failures) {
-    Tags tags = Tags.of(DEPENDENCY_TAG, call.dependency(), "Operation", call.operation());
+    Tags tags = Tags.of(DEPENDENCY_TAG, call.dependency(), "operation", call.operation());
     meterRegistry.timer(DURATION_METRIC, tags).record(elapsed);
     DistributionSummary.builder(FAILURE_METRIC).tags(tags).register(meterRegistry).record(failures);
   }

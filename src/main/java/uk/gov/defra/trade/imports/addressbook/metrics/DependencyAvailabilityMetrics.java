@@ -7,15 +7,15 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
- * Binds the gauge {@code DependencyAvailable}, tagged {@code Dependency} = {@code mongodb}: 1 when
- * {@link MongoAvailability} reports MongoDB available, 0 when it reports it unavailable, and NaN
- * while it does not know.
+ * Binds the gauge {@code external.dependency.available}, tagged {@code dependency} = {@code
+ * mongodb}: 1 when {@link MongoAvailability} reports MongoDB available, 0 when it reports it
+ * unavailable, and NaN while it does not know.
  */
 @Component
 @RequiredArgsConstructor
 public class DependencyAvailabilityMetrics implements MeterBinder {
 
-  static final String AVAILABLE_METRIC = "DependencyAvailable";
+  static final String AVAILABLE_METRIC = "external.dependency.available";
 
   private final MongoAvailability mongoAvailability;
 

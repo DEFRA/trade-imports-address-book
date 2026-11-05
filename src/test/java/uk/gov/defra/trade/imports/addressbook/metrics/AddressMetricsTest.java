@@ -24,7 +24,7 @@ class AddressMetricsTest {
       AddressSearchType searchType, String tagValue) {
     metrics.recordSearch(searchType);
 
-    assertThat(meterRegistry.get("AddressSearch").tag("SearchType", tagValue).counter().count())
+    assertThat(meterRegistry.get("address.search").tag("search.type", tagValue).counter().count())
         .isEqualTo(1.0);
   }
 
@@ -50,6 +50,6 @@ class AddressMetricsTest {
   }
 
   private double changesOf(String action) {
-    return meterRegistry.get("AddressChange").tag("Action", action).counter().count();
+    return meterRegistry.get("address.change").tag("action", action).counter().count();
   }
 }
