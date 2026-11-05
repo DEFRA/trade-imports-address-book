@@ -6,10 +6,8 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -95,40 +93,25 @@ public class AddressService {
   }
 
   private static ListCriteria criteriaOf(RequestedListFilters requested) {
-    return new ListCriteria(
-        presentElements(requested.roles()).distinct().toList(), searchTermsOf(requested));
+    return new ListCriteria(requested.roles(), searchTermsOf(requested));
   }
 
   private static List<ListCriteria.SearchTerm> searchTermsOf(RequestedListFilters requested) {
     List<ListCriteria.SearchTerm> searchTerms = new ArrayList<>();
-    String searchTerm = requested.searchTerm();
-    if (searchTerm != null && !searchTerm.isBlank()) {
-      searchTerms.add(new ListCriteria.TextMatching(toPartialMatchRegex(searchTerm)));
+    if (!requested.searchTerm().isEmpty()) {
+      searchTerms.add(new ListCriteria.TextMatching(toPartialMatchRegex(requested.searchTerm())));
     }
-    List<String> countryCodes = nonBlankTrimmed(requested.countryCodes());
-    if (!countryCodes.isEmpty()) {
-      searchTerms.add(new ListCriteria.InCountries(countryCodes));
+    if (!requested.countryCodes().isEmpty()) {
+      searchTerms.add(new ListCriteria.InCountries(requested.countryCodes()));
     }
-    List<AddressRole> searchRoles = presentElements(requested.searchRoles()).distinct().toList();
-    if (!searchRoles.isEmpty()) {
-      searchTerms.add(new ListCriteria.HoldingAnyRole(searchRoles));
+    if (!requested.searchRoles().isEmpty()) {
+      searchTerms.add(new ListCriteria.HoldingAnyRole(requested.searchRoles()));
     }
     return searchTerms;
   }
 
-  private static List<String> nonBlankTrimmed(List<String> countryCodes) {
-    return presentElements(countryCodes)
-        .filter(code -> !code.isBlank())
-        .map(String::trim)
-        .toList();
-  }
-
-  private static <T> Stream<T> presentElements(List<T> values) {
-    return values == null ? Stream.empty() : values.stream().filter(Objects::nonNull);
-  }
-
   private static String toPartialMatchRegex(String searchTerm) {
-    return ".*" + Pattern.quote(searchTerm.trim()) + ".*";
+    return ".*" + Pattern.quote(searchTerm) + ".*";
   }
 
   /**

@@ -8,7 +8,7 @@ public class ReceivingRolesInTheUnitedKingdomValidator
 
   @Override
   public boolean isValid(AddressRequest request, ConstraintValidatorContext context) {
-    if (request == null || inTheUnitedKingdomOrUnchosen(request.countryCode())) {
+    if (inTheUnitedKingdomOrUnchosen(request.countryCode())) {
       return true;
     }
     if (AddressRole.rolesNamed(request.roles()).stream()
