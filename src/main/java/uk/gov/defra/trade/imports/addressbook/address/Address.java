@@ -18,8 +18,8 @@ import org.springframework.data.mongodb.core.mapping.Document;
 /**
  * An organisation-owned address-book entry.
  *
- * <p>{@code addressType} and {@code uses} are set on every create and update; a stored entry may
- * hold neither, so either can be null and {@code uses} can be empty.
+ * <p>{@code roles} is set on every create and update; an entry stored before roles existed holds
+ * none, so it can be null or empty.
  *
  * <p>{@code countryCode} is stored as an ISO 3166-1 alpha-2 code, exactly as supplied.
  *
@@ -58,9 +58,7 @@ public class Address {
 
   private String email;
 
-  private AddressType addressType;
-
-  private List<AddressUse> uses;
+  private List<AddressRole> roles;
 
   private String organisationId;
 

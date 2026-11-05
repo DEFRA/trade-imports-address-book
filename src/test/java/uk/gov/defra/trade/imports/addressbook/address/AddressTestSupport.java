@@ -1,6 +1,7 @@
 package uk.gov.defra.trade.imports.addressbook.address;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import uk.gov.defra.trade.imports.addressbook.configuration.AddressTtlConfig;
 
@@ -25,8 +26,7 @@ public final class AddressTestSupport {
         .countryCode("GB")
         .phone("+44 1463 234567")
         .email("exports@highlandlivestock.example.com")
-        .addressType("ORIGIN_OR_CONSIGNOR")
-        .uses(List.of("PLACE_OF_ORIGIN"));
+        .roles(List.of("PLACE_OF_ORIGIN"));
   }
 
   static AddressRequest.AddressRequestBuilder replacementRequest() {
@@ -40,8 +40,7 @@ public final class AddressTestSupport {
         .countryCode("IE")
         .phone("+44 1738 111222")
         .email("ops@lowlandcattle.example.com")
-        .addressType("BRANCH")
-        .uses(List.of("BRANCH_ADDRESS"));
+        .roles(List.of("BRANCH_ADDRESS"));
   }
 
   static Address.AddressBuilder storedAddress(String organisationId, AddressStatus status) {
@@ -56,8 +55,7 @@ public final class AddressTestSupport {
         .countryCode("GB")
         .phone("+44 1463 234567")
         .email("exports@highlandlivestock.example.com")
-        .addressType(AddressType.DESTINATION_CONSIGNEE_OR_IMPORTER)
-        .uses(List.of(AddressUse.IMPORTER, AddressUse.CONSIGNEE))
+        .roles(List.of(AddressRole.IMPORTER, AddressRole.CONSIGNEE))
         .organisationId(organisationId)
         .status(status)
         .createdAt(STORED_CREATED_AT)
@@ -70,21 +68,15 @@ public final class AddressTestSupport {
 
   public static final class ListCriteriaBuilder {
 
-    private AddressType addressType;
-    private AddressUse use;
+    private List<AddressRole> roles = List.of();
     private String searchPattern;
     private List<String> countryCodes = List.of();
-    private List<AddressUse> searchUses = List.of();
+    private List<AddressRole> searchRoles = List.of();
 
     private ListCriteriaBuilder() {}
 
-    public ListCriteriaBuilder addressType(AddressType addressType) {
-      this.addressType = addressType;
-      return this;
-    }
-
-    public ListCriteriaBuilder use(AddressUse use) {
-      this.use = use;
+    public ListCriteriaBuilder roles(AddressRole... roles) {
+      this.roles = List.of(roles);
       return this;
     }
 
@@ -98,13 +90,23 @@ public final class AddressTestSupport {
       return this;
     }
 
-    public ListCriteriaBuilder searchUses(AddressUse... searchUses) {
-      this.searchUses = List.of(searchUses);
+    public ListCriteriaBuilder searchRoles(AddressRole... searchRoles) {
+      this.searchRoles = List.of(searchRoles);
       return this;
     }
 
     public ListCriteria build() {
-      return new ListCriteria(addressType, use, searchPattern, countryCodes, searchUses);
+      List<ListCriteria.SearchTerm> searchTerms = new ArrayList<>();
+      if (searchPattern != null) {
+        searchTerms.add(new ListCriteria.TextMatching(searchPattern));
+      }
+      if (!countryCodes.isEmpty()) {
+        searchTerms.add(new ListCriteria.InCountries(countryCodes));
+      }
+      if (!searchRoles.isEmpty()) {
+        searchTerms.add(new ListCriteria.HoldingAnyRole(searchRoles));
+      }
+      return new ListCriteria(roles, searchTerms);
     }
   }
 }

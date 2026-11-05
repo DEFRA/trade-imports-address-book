@@ -157,12 +157,12 @@ class AddressComplianceIT extends IntegrationBase {
   }
 
   @Test
-  void liveApiDocsHaveTheLockedAllowedValuesForAddressTypeUsesAndTheListFilterParameters()
+  void liveApiDocsHaveTheLockedAllowedValuesForRolesAndTheListFilterParameters()
       throws IOException {
     Map<String, Object> live = ApiDocs.fetchLive(port);
     Map<String, Object> locked = lockedContract();
 
-    for (String parameter : List.of("addressType", "use", "searchUse")) {
+    for (String parameter : List.of("role", "searchRole")) {
       assertThat(listParameterAllowedValues(locked, parameter))
           .as("locked list %s parameter must list its allowed values", parameter)
           .isNotEmpty();
@@ -172,14 +172,12 @@ class AddressComplianceIT extends IntegrationBase {
     }
 
     for (String schema : List.of("AddressRequest", "AddressResponse")) {
-      for (String property : List.of("addressType", "uses")) {
-        assertThat(allowedValues(locked, schema, property))
-            .as("locked %s.%s must list its allowed values", schema, property)
-            .isNotEmpty();
-        assertThat(allowedValues(live, schema, property))
-            .as("allowed values of %s.%s must match the locked contract", schema, property)
-            .isEqualTo(allowedValues(locked, schema, property));
-      }
+      assertThat(allowedValues(locked, schema, "roles"))
+          .as("locked %s.roles must list its allowed values", schema)
+          .isNotEmpty();
+      assertThat(allowedValues(live, schema, "roles"))
+          .as("allowed values of %s.roles must match the locked contract", schema)
+          .isEqualTo(allowedValues(locked, schema, "roles"));
     }
   }
 
@@ -187,19 +185,19 @@ class AddressComplianceIT extends IntegrationBase {
   void liveAddressRequestHasTheLockedRequiredProperties() throws IOException {
     List<Object> lockedRequired = requiredProperties(lockedContract(), "AddressRequest");
 
-    assertThat(lockedRequired).contains("addressType", "uses");
+    assertThat(lockedRequired).contains("roles").doesNotContain("addressType");
     assertThat(requiredProperties(ApiDocs.fetchLive(port), "AddressRequest"))
         .as("required properties of AddressRequest must match the locked contract")
         .containsExactlyInAnyOrderElementsOf(lockedRequired);
   }
 
   @Test
-  void liveAddressRequestUsesHasTheLockedMinimumNumberOfItems() throws IOException {
-    Object lockedMinItems = minItems(lockedContract(), "AddressRequest", "uses");
+  void liveAddressRequestRolesHasTheLockedMinimumNumberOfItems() throws IOException {
+    Object lockedMinItems = minItems(lockedContract(), "AddressRequest", "roles");
 
     assertThat(lockedMinItems).isEqualTo(1);
-    assertThat(minItems(ApiDocs.fetchLive(port), "AddressRequest", "uses"))
-        .as("minItems of AddressRequest.uses must match the locked contract")
+    assertThat(minItems(ApiDocs.fetchLive(port), "AddressRequest", "roles"))
+        .as("minItems of AddressRequest.roles must match the locked contract")
         .isEqualTo(lockedMinItems);
   }
 

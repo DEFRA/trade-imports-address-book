@@ -49,8 +49,7 @@ class AddressMapperTest {
     assertThat(response.countryCode()).isEqualTo("GB");
     assertThat(response.phone()).isEqualTo("+44 1463 234567");
     assertThat(response.email()).isEqualTo("exports@highlandlivestock.example.com");
-    assertThat(response.addressType()).isEqualTo(AddressType.DESTINATION_CONSIGNEE_OR_IMPORTER);
-    assertThat(response.uses()).containsExactly(AddressUse.IMPORTER, AddressUse.CONSIGNEE);
+    assertThat(response.roles()).containsExactly(AddressRole.IMPORTER, AddressRole.CONSIGNEE);
     assertThat(response.organisationId()).isEqualTo("ORG-001");
     assertThat(response.deleted()).isFalse();
     assertThat(response.createdAt()).isEqualTo(Instant.parse("2026-07-01T09:00:00Z"));
@@ -70,16 +69,14 @@ class AddressMapperTest {
         storedAddress("ORG-001", AddressStatus.ACTIVE)
             .addressLine2(null)
             .county(null)
-            .addressType(null)
-            .uses(null)
+            .roles(null)
             .build();
 
     AddressResponse response = addressMapper.toResponse(entity);
 
     assertThat(response.addressLine2()).isNull();
     assertThat(response.county()).isNull();
-    assertThat(response.addressType()).isNull();
-    assertThat(response.uses()).isNull();
+    assertThat(response.roles()).isNull();
     assertThat(response.name()).isEqualTo("Highland Livestock Ltd");
   }
 
@@ -108,8 +105,7 @@ class AddressMapperTest {
             "countryCode",
             "phone",
             "email",
-            "addressType",
-            "uses",
+            "roles",
             "organisationId",
             "deleted",
             "createdAt",
@@ -119,8 +115,7 @@ class AddressMapperTest {
     assertThat(json.get("townOrCity").asText()).isEqualTo("Inverness");
     assertThat(json.get("countryCode").asText()).isEqualTo("GB");
     assertThat(json.get("phone").asText()).isEqualTo("+44 1463 234567");
-    assertThat(json.get("addressType").asText()).isEqualTo("DESTINATION_CONSIGNEE_OR_IMPORTER");
-    assertThat(json.get("uses"))
+    assertThat(json.get("roles"))
         .extracting(JsonNode::asText)
         .containsExactly("IMPORTER", "CONSIGNEE");
     assertThat(json.get("organisationId").asText()).isEqualTo("ORG-001");
@@ -180,19 +175,27 @@ class AddressMapperTest {
   }
 
   @Test
-  void toEntity_mapsTheWireAddressTypeAndUsesOntoEnumsInOrder() {
+  void toEntity_mapsTheWireRolesOntoEnumsInOrder() {
+    AddressRequest request =
+        validRequest().roles(List.of("CONSIGNOR", "PLACE_OF_ORIGIN")).build();
+
+    Address entity = addressMapper.toEntity(request);
+
+    assertThat(entity.getRoles())
+        .containsExactly(AddressRole.CONSIGNOR, AddressRole.PLACE_OF_ORIGIN);
+  }
+
+  @Test
+  void toEntity_keepsTheFirstOfEachRepeatedRole() {
     AddressRequest request =
         validRequest()
-            .addressType("BRANCH")
-            .uses(List.of("BRANCH_ADDRESS", "CONSIGNOR", "PLACE_OF_ORIGIN"))
+            .roles(List.of("CONSIGNOR", "PLACE_OF_ORIGIN", "CONSIGNOR", "PLACE_OF_ORIGIN"))
             .build();
 
     Address entity = addressMapper.toEntity(request);
 
-    assertThat(entity.getAddressType()).isEqualTo(AddressType.BRANCH);
-    assertThat(entity.getUses())
-        .containsExactly(
-            AddressUse.BRANCH_ADDRESS, AddressUse.CONSIGNOR, AddressUse.PLACE_OF_ORIGIN);
+    assertThat(entity.getRoles())
+        .containsExactly(AddressRole.CONSIGNOR, AddressRole.PLACE_OF_ORIGIN);
   }
 
   @Test
@@ -220,19 +223,15 @@ class AddressMapperTest {
   }
 
   @Test
-  void updateEntity_replacesTheStoredAddressTypeAndUsesWithTheRequestsSet() {
+  void updateEntity_replacesTheStoredRolesWithTheRequestsSet() {
     Address existing = storedAddress("ORG-001", AddressStatus.ACTIVE).build();
     AddressRequest request =
-        validRequest()
-            .addressType("ORIGIN_OR_CONSIGNOR")
-            .uses(List.of("PLACE_OF_ORIGIN", "CONSIGNOR", "IMPORTER"))
-            .build();
+        validRequest().roles(List.of("PLACE_OF_ORIGIN", "CONSIGNOR")).build();
 
     addressMapper.updateEntity(request, existing);
 
-    assertThat(existing.getAddressType()).isEqualTo(AddressType.ORIGIN_OR_CONSIGNOR);
-    assertThat(existing.getUses())
-        .containsExactly(AddressUse.PLACE_OF_ORIGIN, AddressUse.CONSIGNOR, AddressUse.IMPORTER);
+    assertThat(existing.getRoles())
+        .containsExactly(AddressRole.PLACE_OF_ORIGIN, AddressRole.CONSIGNOR);
   }
 
   private static Set<String> propertyNames(JsonNode json) {

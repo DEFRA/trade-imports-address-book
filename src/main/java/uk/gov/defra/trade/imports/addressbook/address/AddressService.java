@@ -4,6 +4,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -93,17 +94,26 @@ public class AddressService {
     return requestedPageSize;
   }
 
-  private static ListCriteria criteriaOf(RequestedListFilters filters) {
+  private static ListCriteria criteriaOf(RequestedListFilters requested) {
     return new ListCriteria(
-        filters.addressType(),
-        filters.use(),
-        searchPatternOf(filters.searchTerm()),
-        nonBlankTrimmed(filters.countryCodes()),
-        presentElements(filters.searchUses()).toList());
+        presentElements(requested.roles()).distinct().toList(), searchTermsOf(requested));
   }
 
-  private static String searchPatternOf(String searchTerm) {
-    return searchTerm == null || searchTerm.isBlank() ? null : toPartialMatchRegex(searchTerm);
+  private static List<ListCriteria.SearchTerm> searchTermsOf(RequestedListFilters requested) {
+    List<ListCriteria.SearchTerm> searchTerms = new ArrayList<>();
+    String searchTerm = requested.searchTerm();
+    if (searchTerm != null && !searchTerm.isBlank()) {
+      searchTerms.add(new ListCriteria.TextMatching(toPartialMatchRegex(searchTerm)));
+    }
+    List<String> countryCodes = nonBlankTrimmed(requested.countryCodes());
+    if (!countryCodes.isEmpty()) {
+      searchTerms.add(new ListCriteria.InCountries(countryCodes));
+    }
+    List<AddressRole> searchRoles = presentElements(requested.searchRoles()).distinct().toList();
+    if (!searchRoles.isEmpty()) {
+      searchTerms.add(new ListCriteria.HoldingAnyRole(searchRoles));
+    }
+    return searchTerms;
   }
 
   private static List<String> nonBlankTrimmed(List<String> countryCodes) {

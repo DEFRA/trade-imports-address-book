@@ -12,7 +12,7 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
-import uk.gov.defra.trade.imports.addressbook.address.AddressUse;
+import uk.gov.defra.trade.imports.addressbook.address.AddressRole;
 
 class AddressSearchIT extends IntegrationBase {
 
@@ -249,85 +249,85 @@ class AddressSearchIT extends IntegrationBase {
   }
 
   @Test
-  void list_withASearchUseAloneMatchesExactlyTheAddressesHoldingIt() throws Exception {
-    Address consignor = saveAddress(londonDepot().name("Depot A").uses(List.of(AddressUse.CONSIGNOR)));
-    saveAddress(londonDepot().name("Depot B").uses(List.of(AddressUse.IMPORTER)));
+  void list_withASearchRoleAloneMatchesExactlyTheAddressesHoldingIt() throws Exception {
+    Address consignor = saveAddress(londonDepot().name("Depot A").roles(List.of(AddressRole.CONSIGNOR)));
+    saveAddress(londonDepot().name("Depot B").roles(List.of(AddressRole.IMPORTER)));
     saveAddress(londonDepot().name("Depot C"));
 
-    listAddresses("searchUse", "CONSIGNOR")
+    listAddresses("searchRole", "CONSIGNOR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].id").value(consignor.getId()));
   }
 
   @Test
-  void list_withSeveralSearchUsesMatchesAnAddressHoldingAnyOfThem() throws Exception {
-    Address consignor = saveAddress(londonDepot().name("Depot A").uses(List.of(AddressUse.CONSIGNOR)));
-    Address consignee = saveAddress(londonDepot().name("Depot B").uses(List.of(AddressUse.CONSIGNEE)));
-    saveAddress(londonDepot().name("Depot C").uses(List.of(AddressUse.IMPORTER)));
+  void list_withSeveralSearchRolesMatchesAnAddressHoldingAnyOfThem() throws Exception {
+    Address consignor = saveAddress(londonDepot().name("Depot A").roles(List.of(AddressRole.CONSIGNOR)));
+    Address consignee = saveAddress(londonDepot().name("Depot B").roles(List.of(AddressRole.CONSIGNEE)));
+    saveAddress(londonDepot().name("Depot C").roles(List.of(AddressRole.IMPORTER)));
 
-    listAddresses("searchUse", "CONSIGNOR", "searchUse", "CONSIGNEE")
+    listAddresses("searchRole", "CONSIGNOR", "searchRole", "CONSIGNEE")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(2))
         .andExpect(jsonPath("$.items[*].id", containsInAnyOrder(consignor.getId(), consignee.getId())));
   }
 
   @Test
-  void list_withASearchUseWidensTheSearchTermToAnAddressHoldingTheUse() throws Exception {
+  void list_withASearchRoleWidensTheSearchTermToAnAddressHoldingTheRole() throws Exception {
     Address byName = saveAddress(londonDepot().name("Green Farm"));
-    Address byUse = saveAddress(londonDepot().name("Depot B").uses(List.of(AddressUse.CONSIGNOR)));
-    saveAddress(londonDepot().name("Depot C").uses(List.of(AddressUse.IMPORTER)));
+    Address byRole = saveAddress(londonDepot().name("Depot B").roles(List.of(AddressRole.CONSIGNOR)));
+    saveAddress(londonDepot().name("Depot C").roles(List.of(AddressRole.IMPORTER)));
 
-    listAddresses("q", "green", "searchUse", "CONSIGNOR")
+    listAddresses("q", "green", "searchRole", "CONSIGNOR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(2))
-        .andExpect(jsonPath("$.items[*].id", containsInAnyOrder(byName.getId(), byUse.getId())));
+        .andExpect(jsonPath("$.items[*].id", containsInAnyOrder(byName.getId(), byRole.getId())));
   }
 
   @Test
-  void list_withASearchUseTermAndCountryCodeReturnsTheUnionOfTheirMatches() throws Exception {
+  void list_withASearchRoleTermAndCountryCodeReturnsTheUnionOfTheirMatches() throws Exception {
     Address byName = saveAddress(londonDepot().name("Green Farm"));
     Address byCountry = saveAddress(parisDepot());
-    Address byUse = saveAddress(londonDepot().name("Depot B").uses(List.of(AddressUse.CONSIGNOR)));
-    saveAddress(londonDepot().name("Depot C").uses(List.of(AddressUse.IMPORTER)));
+    Address byRole = saveAddress(londonDepot().name("Depot B").roles(List.of(AddressRole.CONSIGNOR)));
+    saveAddress(londonDepot().name("Depot C").roles(List.of(AddressRole.IMPORTER)));
 
-    listAddresses("q", "green", "countryCode", "FR", "searchUse", "CONSIGNOR")
+    listAddresses("q", "green", "countryCode", "FR", "searchRole", "CONSIGNOR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(3))
         .andExpect(
             jsonPath(
                 "$.items[*].id",
-                containsInAnyOrder(byName.getId(), byCountry.getId(), byUse.getId())));
+                containsInAnyOrder(byName.getId(), byCountry.getId(), byRole.getId())));
   }
 
   @Test
-  void list_withASearchUseStaysWithinTheAddressType() throws Exception {
-    Address consignor = saveAddress(londonDepot().name("Depot A").uses(List.of(AddressUse.CONSIGNOR)));
-    saveAddress(londonDepot().name("Depot B").uses(List.of(AddressUse.IMPORTER)));
+  void list_withASearchRoleStaysWithinTheRolesToKeep() throws Exception {
+    Address consignor = saveAddress(londonDepot().name("Depot A").roles(List.of(AddressRole.CONSIGNOR)));
+    saveAddress(londonDepot().name("Depot B").roles(List.of(AddressRole.IMPORTER)));
 
-    listAddresses("addressType", "BRANCH", "searchUse", "CONSIGNOR")
+    listAddresses("role", "BRANCH_ADDRESS", "searchRole", "CONSIGNOR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(0));
-    listAddresses("addressType", "ORIGIN_OR_CONSIGNOR", "searchUse", "CONSIGNOR")
+    listAddresses("role", "PLACE_OF_ORIGIN", "role", "CONSIGNOR", "searchRole", "CONSIGNOR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].id").value(consignor.getId()));
   }
 
   @Test
-  void list_withABlankSearchUseDropsItAndStillMatchesTheOtherSearchUses() throws Exception {
-    Address consignor = saveAddress(londonDepot().name("Depot A").uses(List.of(AddressUse.CONSIGNOR)));
-    saveAddress(londonDepot().name("Depot B").uses(List.of(AddressUse.IMPORTER)));
+  void list_withABlankSearchRoleDropsItAndStillMatchesTheOtherSearchRoles() throws Exception {
+    Address consignor = saveAddress(londonDepot().name("Depot A").roles(List.of(AddressRole.CONSIGNOR)));
+    saveAddress(londonDepot().name("Depot B").roles(List.of(AddressRole.IMPORTER)));
 
-    listAddresses("searchUse", "CONSIGNOR", "searchUse", "")
+    listAddresses("searchRole", "CONSIGNOR", "searchRole", "")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].id").value(consignor.getId()));
   }
 
   @Test
-  void list_withAnUnknownSearchUseIsABadRequestWithNoErrorsMap() throws Exception {
-    listAddresses("searchUse", "TRANSPORTER").andExpect(badRequestProblemWithNoErrors());
+  void list_withAnUnknownSearchRoleIsABadRequestWithNoErrorsMap() throws Exception {
+    listAddresses("searchRole", "TRANSPORTER").andExpect(badRequestProblemWithNoErrors());
   }
 
   private static Address.AddressBuilder perthAddress(String name) {

@@ -1,28 +1,65 @@
 package uk.gov.defra.trade.imports.addressbook.address;
 
 import java.util.List;
-import org.springframework.lang.Nullable;
+import java.util.Objects;
 
 /**
- * The filters of a list query, as the query matches them.
+ * What a list query keeps and searches for. A filter or search term the caller did not ask for is
+ * absent.
  *
- * @param addressType the address type to list, or null
- * @param use the use an address must hold, or null
- * @param searchPattern when not null, a regular expression that an address's name, address lines,
- *     town or city, county or postcode matches, case-insensitively
- * @param countryCodes trimmed, non-blank country codes an address may be in; must not be null,
- *     empty for none
- * @param searchUses uses an address may hold to match the search; must not be null, empty for none
+ * @param roles keeps only addresses holding any of these roles; empty keeps every address
+ * @param searchTerms the search: an address matches when it matches any of these; empty for no
+ *     search
  */
-public record ListCriteria(
-    @Nullable AddressType addressType,
-    @Nullable AddressUse use,
-    @Nullable String searchPattern,
-    List<String> countryCodes,
-    List<AddressUse> searchUses) {
+public record ListCriteria(List<AddressRole> roles, List<SearchTerm> searchTerms) {
 
   public ListCriteria {
-    countryCodes = List.copyOf(countryCodes);
-    searchUses = List.copyOf(searchUses);
+    roles = List.copyOf(roles);
+    searchTerms = List.copyOf(searchTerms);
+  }
+
+  /** One way an address can match the search. */
+  public sealed interface SearchTerm permits TextMatching, InCountries, HoldingAnyRole {}
+
+  /**
+   * Matches an address whose name, address lines, town or city, county or postcode matches the
+   * pattern, case-insensitively.
+   *
+   * @param pattern a regular expression
+   */
+  public record TextMatching(String pattern) implements SearchTerm {
+    public TextMatching {
+      Objects.requireNonNull(pattern);
+    }
+  }
+
+  /**
+   * Matches an address in any of the countries.
+   *
+   * @param countryCodes trimmed, non-blank country codes; never empty
+   */
+  public record InCountries(List<String> countryCodes) implements SearchTerm {
+    public InCountries {
+      countryCodes = nonEmptyCopyOf(countryCodes);
+    }
+  }
+
+  /**
+   * Matches an address holding any of the roles.
+   *
+   * @param roles the roles; never empty
+   */
+  public record HoldingAnyRole(List<AddressRole> roles) implements SearchTerm {
+    public HoldingAnyRole {
+      roles = nonEmptyCopyOf(roles);
+    }
+  }
+
+  private static <T> List<T> nonEmptyCopyOf(List<T> values) {
+    List<T> copy = List.copyOf(values);
+    if (copy.isEmpty()) {
+      throw new IllegalArgumentException("A search term needs at least one value");
+    }
+    return copy;
   }
 }

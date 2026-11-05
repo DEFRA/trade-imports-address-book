@@ -19,13 +19,16 @@ import org.hibernate.validator.constraints.Length;
  * <p>{@code type} and {@code role} must be absent: a supplied value fails {@code @Null} and is
  * reported as a per-field validation error. Both are hidden from the OpenAPI schema.
  *
- * <p>{@code addressType} is required and {@code uses} must hold at least one entry. A value that
- * is not the name of an {@link AddressType} or {@link AddressUse} constant is a validation error
- * on that field.
+ * <p>{@code roles} must hold at least one entry, each the name of an {@link AddressRole} constant,
+ * and duplicates collapse to their first occurrence. The roles must be ones one address can hold
+ * together ({@link RolesHeldTogether}), and an address holding a consignee, importer or place of
+ * destination role must be in the United Kingdom ({@link ReceivingRolesInTheUnitedKingdom}).
  *
- * <p>{@code countryCode} is validated for presence only and stored exactly as given.
+ * <p>{@code countryCode} is otherwise validated for presence only and stored exactly as given.
  */
 @Builder
+@RolesHeldTogether
+@ReceivingRolesInTheUnitedKingdom
 @Schema(description = "Create or replace an address in the caller's address book")
 public record AddressRequest(
     @NotBlank(message = "Enter a name or organisation")
@@ -95,24 +98,25 @@ public record AddressRequest(
             maxLength = 254,
             example = "exports@highlandlivestock.example.com")
         String email,
-    @NotBlank(message = "Select an address type")
-        @EnumConstantName(of = AddressType.class, message = "Select a valid address type")
-        @Schema(
-            implementation = AddressType.class,
-            description =
-                "The kind of address this is. Any use may be saved with any type; the list's"
-                    + " addressType parameter picks addresses by their uses, not by this type",
-            requiredMode = Schema.RequiredMode.REQUIRED)
-        String addressType,
     @NotEmpty(message = "Select what this address can be used for")
-        @EnumConstantName(of = AddressUse.class, message = "Select valid address uses")
+        @EnumConstantName(of = AddressRole.class, message = "Select valid roles")
         @ArraySchema(
-            schema = @Schema(implementation = AddressUse.class),
-            arraySchema = @Schema(requiredMode = Schema.RequiredMode.REQUIRED))
-        List<String> uses,
+            schema = @Schema(implementation = AddressRole.class),
+            arraySchema =
+                @Schema(
+                    description =
+                        "The parties a notification can choose this address for. Duplicates"
+                            + " collapse",
+                    requiredMode = Schema.RequiredMode.REQUIRED))
+        List<String> roles,
     @Null(message = "type is not a supported field")
         @Schema(hidden = true)
         Object type,
     @Null(message = "role is not a supported field")
         @Schema(hidden = true)
-        Object role) {}
+        Object role) {
+
+  public AddressRequest {
+    roles = roles == null ? null : roles.stream().distinct().toList();
+  }
+}

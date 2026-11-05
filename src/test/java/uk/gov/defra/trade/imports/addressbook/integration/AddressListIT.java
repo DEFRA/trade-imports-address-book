@@ -25,17 +25,16 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
-import uk.gov.defra.trade.imports.addressbook.address.AddressType;
-import uk.gov.defra.trade.imports.addressbook.address.AddressUse;
+import uk.gov.defra.trade.imports.addressbook.address.AddressRole;
 
 class AddressListIT extends IntegrationBase {
 
-  private static final String ORIGIN_AND_CONSIGNEE = "Origin And Consignee";
-  private static final String CONSIGNOR = "Consignor";
+  private static final String ORIGIN_AND_CONSIGNOR = "Origin And Consignor";
+  private static final String CONSIGNEE_AND_IMPORTER = "Consignee And Importer";
   private static final String IMPORTER = "Importer";
   private static final String BRANCH = "Branch";
-  private static final String NO_USES = "No Uses";
-  private static final String EMPTY_USES = "Empty Uses";
+  private static final String NO_ROLES = "No Roles";
+  private static final String EMPTY_ROLES = "Empty Roles";
 
   @Autowired private MongoTemplate mongoTemplate;
 
@@ -57,34 +56,32 @@ class AddressListIT extends IntegrationBase {
     }
   }
 
-  private void saveActiveAddressWithUses(String name, String countryCode, AddressUse... uses) {
+  private void saveActiveAddressWithRoles(String name, String countryCode, AddressRole... roles) {
     saveAddress(
         addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE)
             .name(name)
             .countryCode(countryCode)
-            .uses(List.of(uses)));
+            .roles(List.of(roles)));
   }
 
-  private void seedAddressesAcrossTabsUsesAndStatuses() {
-    saveActiveAddressWithUses(
-        ORIGIN_AND_CONSIGNEE, "GB", AddressUse.PLACE_OF_ORIGIN, AddressUse.CONSIGNEE);
-    saveActiveAddressWithUses(CONSIGNOR, "GB", AddressUse.CONSIGNOR);
-    saveActiveAddressWithUses(IMPORTER, "FR", AddressUse.IMPORTER);
-    saveActiveAddressWithUses(BRANCH, "FR", AddressUse.BRANCH_ADDRESS);
-    saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE).name(NO_USES));
+  private void seedAddressesAcrossRolesAndStatuses() {
+    saveActiveAddressWithRoles(
+        ORIGIN_AND_CONSIGNOR, "FR", AddressRole.PLACE_OF_ORIGIN, AddressRole.CONSIGNOR);
+    saveActiveAddressWithRoles(
+        CONSIGNEE_AND_IMPORTER, "GB", AddressRole.CONSIGNEE, AddressRole.IMPORTER);
+    saveActiveAddressWithRoles(IMPORTER, "GB", AddressRole.IMPORTER);
+    saveActiveAddressWithRoles(BRANCH, "FR", AddressRole.BRANCH_ADDRESS);
+    saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE).name(NO_ROLES).roles(null));
     saveAddress(
-        addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE)
-            .name(EMPTY_USES)
-            .addressType(AddressType.BRANCH)
-            .uses(List.of()));
+        addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE).name(EMPTY_ROLES).roles(List.of()));
     saveAddress(
         addressBuilder(ORGANISATION_ID, AddressStatus.DELETED)
             .name("Deleted Branch")
-            .uses(List.of(AddressUse.BRANCH_ADDRESS)));
+            .roles(List.of(AddressRole.BRANCH_ADDRESS)));
     saveAddress(
         addressBuilder(OTHER_ORG, AddressStatus.ACTIVE)
             .name("Other Organisation Consignor")
-            .uses(List.of(AddressUse.CONSIGNOR)));
+            .roles(List.of(AddressRole.CONSIGNOR)));
   }
 
   @Test
@@ -221,9 +218,10 @@ class AddressListIT extends IntegrationBase {
         .andExpect(jsonPath("$.totalPages").value(2));
   }
 
+
   @Test
-  void list_shouldReturnEveryLiveAddress_whenNoAddressTypeIsGiven() throws Exception {
-    seedAddressesAcrossTabsUsesAndStatuses();
+  void list_shouldReturnEveryLiveAddress_whenNoRoleIsGiven() throws Exception {
+    seedAddressesAcrossRolesAndStatuses();
 
     listAddresses()
         .andExpect(status().isOk())
@@ -232,137 +230,84 @@ class AddressListIT extends IntegrationBase {
             jsonPath(
                 "$.items[*].name",
                 containsInAnyOrder(
-                    ORIGIN_AND_CONSIGNEE,
-                    CONSIGNOR,
+                    ORIGIN_AND_CONSIGNOR,
+                    CONSIGNEE_AND_IMPORTER,
                     IMPORTER,
                     BRANCH,
-                    NO_USES,
-                    EMPTY_USES)));
+                    NO_ROLES,
+                    EMPTY_ROLES)));
   }
 
   @Test
-  void list_shouldReturnAddressesHoldingAnOriginOrConsignorUseAndThoseHoldingNone_whenAddressTypeIsOriginOrConsignor()
+  void list_shouldReturnTheAddressesHoldingAnyOfTheRoles_whenSeveralRolesAreGiven()
       throws Exception {
-    seedAddressesAcrossTabsUsesAndStatuses();
+    seedAddressesAcrossRolesAndStatuses();
 
-    listAddresses("addressType", "ORIGIN_OR_CONSIGNOR")
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(4))
-        .andExpect(
-            jsonPath(
-                "$.items[*].name",
-                containsInAnyOrder(
-                    ORIGIN_AND_CONSIGNEE, CONSIGNOR, NO_USES, EMPTY_USES)));
-  }
-
-  @Test
-  void list_shouldReturnAddressesHoldingADestinationConsigneeOrImporterUse_whenAddressTypeIsDestinationConsigneeOrImporter()
-      throws Exception {
-    seedAddressesAcrossTabsUsesAndStatuses();
-
-    listAddresses("addressType", "DESTINATION_CONSIGNEE_OR_IMPORTER")
+    listAddresses("role", "CONSIGNEE", "role", "IMPORTER", "role", "PLACE_OF_DESTINATION")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(2))
-        .andExpect(jsonPath("$.items[*].name", containsInAnyOrder(ORIGIN_AND_CONSIGNEE, IMPORTER)));
+        .andExpect(
+            jsonPath("$.items[*].name", containsInAnyOrder(CONSIGNEE_AND_IMPORTER, IMPORTER)));
   }
 
   @Test
-  void list_shouldReturnOnlyTheLiveAddressHoldingABranchAddressUse_whenAddressTypeIsBranch()
-      throws Exception {
-    seedAddressesAcrossTabsUsesAndStatuses();
+  void list_shouldReturnOnlyTheLiveAddressesHoldingTheRole_whenOneRoleIsGiven() throws Exception {
+    seedAddressesAcrossRolesAndStatuses();
 
-    listAddresses("addressType", "BRANCH")
+    listAddresses("role", "CONSIGNEE")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(1))
+        .andExpect(jsonPath("$.items[*].name", contains(CONSIGNEE_AND_IMPORTER)));
+    listAddresses("role", "BRANCH_ADDRESS")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[*].name", contains(BRANCH)));
   }
 
   @Test
-  void list_shouldCombineTheSearchTermWithTheAddressType() throws Exception {
-    seedAddressesAcrossTabsUsesAndStatuses();
+  void list_shouldNotReturnAddressesWithNoRoles_whenARoleIsGiven() throws Exception {
+    seedAddressesAcrossRolesAndStatuses();
 
-    listAddresses("addressType", "DESTINATION_CONSIGNEE_OR_IMPORTER", "q", "Consign")
+    listAddresses("role", "PLACE_OF_ORIGIN", "role", "CONSIGNOR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[*].name", contains(ORIGIN_AND_CONSIGNEE)));
+        .andExpect(jsonPath("$.items[*].name", contains(ORIGIN_AND_CONSIGNOR)));
   }
 
   @Test
-  void list_shouldCombineTheCountryCodeWithTheAddressType() throws Exception {
-    seedAddressesAcrossTabsUsesAndStatuses();
+  void list_shouldNarrowTheSearchByTheRoles_whenRolesAndASearchTermAreGiven() throws Exception {
+    seedAddressesAcrossRolesAndStatuses();
 
-    listAddresses("addressType", "BRANCH", "countryCode", "FR")
+    listAddresses("role", "IMPORTER", "q", "Consign")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(1))
+        .andExpect(jsonPath("$.items[*].name", contains(CONSIGNEE_AND_IMPORTER)));
+    listAddresses("role", "BRANCH_ADDRESS", "q", "Consign")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(0));
+  }
+
+  @Test
+  void list_shouldNarrowTheCountryCodeByTheRoles() throws Exception {
+    seedAddressesAcrossRolesAndStatuses();
+
+    listAddresses("role", "BRANCH_ADDRESS", "countryCode", "FR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[*].name", contains(BRANCH)));
-    listAddresses("addressType", "ORIGIN_OR_CONSIGNOR", "countryCode", "FR")
+    listAddresses("role", "CONSIGNEE", "role", "IMPORTER", "countryCode", "FR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(0));
   }
 
   @Test
-  void list_shouldPageAndCountOnlyTheAddressesListedUnderTheAddressType() throws Exception {
-    seedAddressesAcrossTabsUsesAndStatuses();
-
-    listAddresses("addressType", "ORIGIN_OR_CONSIGNOR", "pageSize", "1")
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.items.length()").value(1))
-        .andExpect(jsonPath("$.totalItems").value(4))
-        .andExpect(jsonPath("$.totalPages").value(4));
-  }
-
-  @Test
-  void list_shouldReturn400BadRequestProblemWithNoErrorsMap_whenAddressTypeIsUnknown()
-      throws Exception {
-    listAddresses("addressType", "TRANSPORTER").andExpect(badRequestProblemWithNoErrors());
-  }
-
-  @Test
-  void list_shouldReturnOnlyTheLiveAddressesHoldingTheUse_whenUseIsGiven() throws Exception {
-    seedAddressesAcrossTabsUsesAndStatuses();
-
-    listAddresses("use", "CONSIGNOR")
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[*].name", contains(CONSIGNOR)));
-    listAddresses("use", "CONSIGNEE")
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[*].name", contains(ORIGIN_AND_CONSIGNEE)));
-  }
-
-  @Test
-  void list_shouldNotReturnAddressesWithNoUses_whenUseIsGivenWithOriginOrConsignor()
-      throws Exception {
-    seedAddressesAcrossTabsUsesAndStatuses();
-
-    listAddresses("addressType", "ORIGIN_OR_CONSIGNOR", "use", "PLACE_OF_ORIGIN")
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[*].name", contains(ORIGIN_AND_CONSIGNEE)));
-  }
-
-  @Test
-  void list_shouldNarrowTheSearchByTheUse_whenUseAndSearchTermAreGiven() throws Exception {
-    seedAddressesAcrossTabsUsesAndStatuses();
-
-    listAddresses("use", "CONSIGNEE", "q", "Consign")
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[*].name", contains(ORIGIN_AND_CONSIGNEE)));
-    listAddresses("use", "CONSIGNEE", "q", "Importer")
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(0));
-  }
-
-  @Test
-  void list_shouldPageAndCountOverTheAddressesHoldingTheUse() throws Exception {
+  void list_shouldPageAndCountOverTheAddressesHoldingTheRoles() throws Exception {
     for (int i = 0; i < 3; i++) {
-      saveActiveAddressWithUses("Consignor " + i, "GB", AddressUse.CONSIGNOR);
+      saveActiveAddressWithRoles("Consignor " + i, "FR", AddressRole.CONSIGNOR);
     }
-    saveActiveAddressWithUses("Importer", "GB", AddressUse.IMPORTER);
+    saveActiveAddressWithRoles("Importer", "GB", AddressRole.IMPORTER);
 
-    listAddresses("use", "CONSIGNOR", "pageSize", "2")
+    listAddresses("role", "CONSIGNOR", "pageSize", "2")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items.length()").value(2))
         .andExpect(jsonPath("$.totalItems").value(3))
@@ -370,7 +315,9 @@ class AddressListIT extends IntegrationBase {
   }
 
   @Test
-  void list_shouldReturn400BadRequestProblemWithNoErrorsMap_whenUseIsUnknown() throws Exception {
-    listAddresses("use", "TRANSPORTER").andExpect(badRequestProblemWithNoErrors());
+  void list_shouldReturn400BadRequestProblemWithNoErrorsMap_whenARoleIsUnknown()
+      throws Exception {
+    listAddresses("role", "CONSIGNOR", "role", "TRANSPORTER")
+        .andExpect(badRequestProblemWithNoErrors());
   }
 }

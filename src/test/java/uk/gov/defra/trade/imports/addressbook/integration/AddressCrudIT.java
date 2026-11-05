@@ -16,9 +16,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.ResultActions;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
+import uk.gov.defra.trade.imports.addressbook.address.AddressRole;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
-import uk.gov.defra.trade.imports.addressbook.address.AddressType;
-import uk.gov.defra.trade.imports.addressbook.address.AddressUse;
 
 class AddressCrudIT extends IntegrationBase {
 
@@ -67,95 +66,102 @@ class AddressCrudIT extends IntegrationBase {
   }
 
   @Test
-  void post_shouldStoreAndReadBackTheAddressTypeAndUsesInOrder() throws Exception {
+  void post_shouldStoreAndReadBackTheRolesInOrderWithRepeatsCollapsed() throws Exception {
     AddressBody body =
         addressBody()
-            .with("addressType", "DESTINATION_CONSIGNEE_OR_IMPORTER")
-            .with("uses", List.of("IMPORTER", "PLACE_OF_DESTINATION", "CONSIGNEE"));
+            .with("roles", List.of("IMPORTER", "PLACE_OF_DESTINATION", "IMPORTER", "CONSIGNEE"));
 
     ResultActions created =
         postAddress(body)
             .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.addressType").value("DESTINATION_CONSIGNEE_OR_IMPORTER"))
             .andExpect(
-                jsonPath("$.uses", contains("IMPORTER", "PLACE_OF_DESTINATION", "CONSIGNEE")));
+                jsonPath("$.roles", contains("IMPORTER", "PLACE_OF_DESTINATION", "CONSIGNEE")))
+            .andExpect(jsonPath("$.addressType").doesNotExist());
 
     getAddress(createdAddressId(created))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.addressType").value("DESTINATION_CONSIGNEE_OR_IMPORTER"))
-        .andExpect(jsonPath("$.uses", contains("IMPORTER", "PLACE_OF_DESTINATION", "CONSIGNEE")));
+        .andExpect(jsonPath("$.roles", contains("IMPORTER", "PLACE_OF_DESTINATION", "CONSIGNEE")));
     assertThat(activeAddressesFor(ORGANISATION_ID))
         .singleElement()
         .satisfies(
-            address -> {
-              assertThat(address.getAddressType())
-                  .isEqualTo(AddressType.DESTINATION_CONSIGNEE_OR_IMPORTER);
-              assertThat(address.getUses())
-                  .containsExactly(
-                      AddressUse.IMPORTER, AddressUse.PLACE_OF_DESTINATION, AddressUse.CONSIGNEE);
-            });
+            address ->
+                assertThat(address.getRoles())
+                    .containsExactly(
+                        AddressRole.IMPORTER,
+                        AddressRole.PLACE_OF_DESTINATION,
+                        AddressRole.CONSIGNEE));
   }
 
   @Test
-  void post_shouldReturn400KeyedByAddressTypeAndSaveNothing_whenTheTypeIsMissing()
+  void post_shouldIgnoreAnAddressTypeTheBodyStillSends() throws Exception {
+    postAddress(addressBody().with("addressType", "ORIGIN_OR_CONSIGNOR"))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.addressType").doesNotExist());
+
+    assertThat(activeAddressesFor(ORGANISATION_ID)).hasSize(1);
+  }
+
+  @Test
+  void post_shouldReturn400KeyedByRolesAndSaveNothing_whenRolesAreMissing() throws Exception {
+    assertCreateRefusedOnRolesAndNothingSaved(
+        addressBody().without("roles"), "Select what this address can be used for");
+  }
+
+  @Test
+  void post_shouldReturn400KeyedByRolesAndSaveNothing_whenRolesAreEmpty() throws Exception {
+    assertCreateRefusedOnRolesAndNothingSaved(
+        addressBody().with("roles", List.of()), "Select what this address can be used for");
+  }
+
+  @Test
+  void post_shouldReturn400KeyedByRolesAndSaveNothing_whenARoleIsUnknown() throws Exception {
+    assertCreateRefusedOnRolesAndNothingSaved(
+        addressBody().with("roles", List.of("CONSIGNOR", "TRANSPORTER")), "Select valid roles");
+  }
+
+  @Test
+  void post_shouldReturn400KeyedByRolesAndSaveNothing_whenTheRolesComeFromTwoGroups()
       throws Exception {
-    postAddress(addressBody().without("addressType"))
+    assertCreateRefusedOnRolesAndNothingSaved(
+        addressBody().with("countryCode", "GB").with("roles", List.of("CONSIGNOR", "CONSIGNEE")),
+        "An address can only have roles from one group");
+  }
+
+  private void assertCreateRefusedOnRolesAndNothingSaved(AddressBody body, String message)
+      throws Exception {
+    postAddress(body)
         .andExpect(status().isBadRequest())
+        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
         .andExpect(jsonPath("$.type").value(VALIDATION_ERROR_TYPE))
-        .andExpect(jsonPath("$.errors.addressType[0]").value("Select an address type"))
-        .andExpect(jsonPath("$.errors.uses").doesNotExist());
+        .andExpect(jsonPath("$.errors.roles", contains(message)))
+        .andExpect(jsonPath("$.errors.countryCode").doesNotExist());
 
     assertThat(activeAddressesFor(ORGANISATION_ID)).isEmpty();
   }
 
   @Test
-  void post_shouldReturn400KeyedByUsesAndSaveNothing_whenUsesAreMissing() throws Exception {
-    assertCreateRefusedForUsesAndNothingSaved(addressBody().without("uses"));
-  }
-
-  @Test
-  void post_shouldReturn400KeyedByUsesAndSaveNothing_whenUsesAreEmpty() throws Exception {
-    assertCreateRefusedForUsesAndNothingSaved(addressBody().with("uses", List.of()));
-  }
-
-  private void assertCreateRefusedForUsesAndNothingSaved(AddressBody body) throws Exception {
-    postAddress(body)
+  void post_shouldReturn400KeyedByCountryCodeAndSaveNothing_whenAReceivingRoleIsOutsideTheUk()
+      throws Exception {
+    postAddress(addressBody().with("countryCode", "FR").with("roles", List.of("CONSIGNEE")))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.type").value(VALIDATION_ERROR_TYPE))
         .andExpect(
-            jsonPath("$.errors.uses[0]").value("Select what this address can be used for"))
-        .andExpect(jsonPath("$.errors.addressType").doesNotExist());
+            jsonPath(
+                "$.errors.countryCode",
+                contains(
+                    "A consignee, importer or place of destination must be in the United"
+                        + " Kingdom")))
+        .andExpect(jsonPath("$.errors.roles").doesNotExist());
 
     assertThat(activeAddressesFor(ORGANISATION_ID)).isEmpty();
   }
 
   @Test
-  void post_shouldReturn400KeyedByUsesAndSaveNothing_whenAUseIsUnknown() throws Exception {
-    AddressBody body = addressBody().with("uses", List.of("CONSIGNOR", "TRANSPORTER"));
-
-    postAddress(body)
-        .andExpect(status().isBadRequest())
-        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
-        .andExpect(jsonPath("$.type").value(VALIDATION_ERROR_TYPE))
-        .andExpect(jsonPath("$.errors.uses").exists())
-        .andExpect(jsonPath("$.errors.addressType").doesNotExist());
-
-    assertThat(activeAddressesFor(ORGANISATION_ID)).isEmpty();
-  }
-
-  @Test
-  void post_shouldReturn400KeyedByAddressTypeAndSaveNothing_whenTheTypeIsUnknown()
-      throws Exception {
-    AddressBody body = addressBody().with("addressType", "TRANSPORTER");
-
-    postAddress(body)
-        .andExpect(status().isBadRequest())
-        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
-        .andExpect(jsonPath("$.type").value(VALIDATION_ERROR_TYPE))
-        .andExpect(jsonPath("$.errors.addressType").exists())
-        .andExpect(jsonPath("$.errors.uses").doesNotExist());
-
-    assertThat(activeAddressesFor(ORGANISATION_ID)).isEmpty();
+  void post_shouldSaveABranchAddressOutsideTheUk() throws Exception {
+    postAddress(addressBody().with("countryCode", "FR").with("roles", List.of("BRANCH_ADDRESS")))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.countryCode").value("FR"))
+        .andExpect(jsonPath("$.roles", contains("BRANCH_ADDRESS")));
   }
 
   @Test

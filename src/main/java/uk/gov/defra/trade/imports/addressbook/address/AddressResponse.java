@@ -13,8 +13,8 @@ import lombok.Builder;
  * <p>The soft-delete tombstone is a derived {@code deleted} boolean, never the internal status
  * enum.
  *
- * <p>Every field except {@code addressLine2}, {@code county}, {@code addressType} and {@code uses}
- * is required: the compact constructor throws {@link NullPointerException} when one is null.
+ * <p>Every field except {@code addressLine2}, {@code county} and {@code roles} is required: the
+ * compact constructor throws {@link NullPointerException} when one is null.
  */
 @Builder
 @Schema(description = "An address in the caller's organisation-scoped address book")
@@ -43,15 +43,14 @@ public record AddressResponse(
         String phone,
     @Schema(description = "Contact email address", requiredMode = Schema.RequiredMode.REQUIRED)
         String email,
-    @Schema(description = "Address type the address was saved with; null when it has none")
-        AddressType addressType,
     @ArraySchema(
-            schema = @Schema(implementation = AddressUse.class),
+            schema = @Schema(implementation = AddressRole.class),
             arraySchema =
                 @Schema(
                     description =
-                        "What the address can be used for; null or empty when it has none"))
-        List<AddressUse> uses,
+                        "The parties a notification can choose this address for; null or empty"
+                            + " when it has none"))
+        List<AddressRole> roles,
     @Schema(
             description = "Organisation that owns this address",
             requiredMode = Schema.RequiredMode.REQUIRED)

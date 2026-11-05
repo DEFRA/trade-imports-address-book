@@ -69,9 +69,8 @@ public class AddressController {
    * @param pageSize the number of addresses a page, or null for the default
    * @param q the optional search term, as its {@code @Parameter} describes
    * @param countryCodes the optional country codes, as their {@code @Parameter} describes
-   * @param addressType the optional address type, as its {@code @Parameter} describes
-   * @param use the optional use, as its {@code @Parameter} describes
-   * @param searchUses the optional search uses, as their {@code @Parameter} describes
+   * @param roles the optional roles to keep, as their {@code @Parameter} describes
+   * @param searchRoles the optional search roles, as their {@code @Parameter} describes
    * @return 200 with one page of live addresses
    */
   @GetMapping
@@ -88,8 +87,8 @@ public class AddressController {
   @ApiResponse(
       responseCode = "400",
       description =
-          "An out-of-range or non-numeric page or page size, an unknown address type, use or"
-              + " search use, or a missing org header",
+          "An out-of-range or non-numeric page or page size, an unknown role or search role,"
+              + " or a missing org header",
       content =
           @Content(
               mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
@@ -139,58 +138,46 @@ public class AddressController {
               description =
                   "Case-insensitive partial-word search over name, address line 1, address line"
                       + " 2, town or city, county and postcode. An address matching q, a"
-                      + " countryCode or a searchUse is returned.")
+                      + " countryCode or a searchRole is returned.")
           @RequestParam(required = false)
           String q,
       @Parameter(
               description =
                   "ISO alpha-2 country codes. Repeatable. An address in any of them matches the"
-                      + " search, as one matching q or a searchUse does.")
+                      + " search, as one matching q or a searchRole does.")
           @RequestParam(name = "countryCode", required = false)
           List<String> countryCodes,
       @Parameter(
               description =
-                  "The address type to list. The listing returns addresses holding any of the"
-                      + " type's uses: ORIGIN_OR_CONSIGNOR holds PLACE_OF_ORIGIN and CONSIGNOR,"
-                      + " and also lists an address with no uses; DESTINATION_CONSIGNEE_OR_IMPORTER"
-                      + " holds PLACE_OF_DESTINATION, CONSIGNEE and IMPORTER; BRANCH holds"
-                      + " BRANCH_ADDRESS. Narrows the search (q, countryCode and searchUse) and"
-                      + " combines with use (AND). An unknown value is refused with 400.",
-              schema = @Schema(implementation = AddressType.class))
-          @RequestParam(required = false)
-          AddressType addressType,
+                  "Keeps only addresses holding any of these roles. Repeatable. Narrows the"
+                      + " search (q, countryCode and searchRole); an address with no roles never"
+                      + " matches. An unknown value is refused with 400.",
+              array = @ArraySchema(schema = @Schema(implementation = AddressRole.class)))
+          @RequestParam(name = "role", required = false)
+          List<AddressRole> roles,
       @Parameter(
               description =
-                  "Keeps only addresses holding this use. Narrows the search (q, countryCode and"
-                      + " searchUse) and combines with addressType (AND); an address with no uses"
-                      + " never matches. An unknown value is refused with 400.",
-              schema = @Schema(implementation = AddressUse.class))
-          @RequestParam(required = false)
-          AddressUse use,
-      @Parameter(
-              description =
-                  "Uses that make an address match the search: an address holding any of them"
+                  "Roles that make an address match the search: an address holding any of them"
                       + " matches, as one matching q or countryCode does. Repeatable. An unknown"
                       + " value is refused with 400.",
-              array = @ArraySchema(schema = @Schema(implementation = AddressUse.class)))
-          @RequestParam(name = "searchUse", required = false)
-          List<AddressUse> searchUses) {
+              array = @ArraySchema(schema = @Schema(implementation = AddressRole.class)))
+          @RequestParam(name = "searchRole", required = false)
+          List<AddressRole> searchRoles) {
     authoriseOrg(orgId, organisationId);
     log.info(
-        "GET addresses - page {}, pageSize {}, q present {}, countryCodes {}, addressType {},"
-            + " use {}, searchUses {}",
+        "GET addresses - page {}, pageSize {}, q present {}, countryCodes {}, roles {},"
+            + " searchRoles {}",
         page,
         pageSize,
         q != null,
         countryCodes,
-        addressType,
-        use,
-        searchUses);
+        roles,
+        searchRoles);
     return addressService.list(
         organisationId,
         page,
         pageSize,
-        new RequestedListFilters(q, countryCodes, addressType, use, searchUses));
+        new RequestedListFilters(q, countryCodes, roles, searchRoles));
   }
 
   /**

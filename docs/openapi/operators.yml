@@ -197,51 +197,43 @@ paths:
           minimum: 1
       - name: q
         in: query
-        description: Case-insensitive partial-word search over name, address line 1, address line 2, town or city, county and postcode. An address matching q, a countryCode or a searchUse is returned.
+        description: Case-insensitive partial-word search over name, address line 1, address line 2, town or city, county and postcode. An address matching q, a countryCode or a searchRole is returned.
         required: false
         schema:
           type: string
       - name: countryCode
         in: query
-        description: ISO alpha-2 country codes. Repeatable. An address in any of them matches the search, as one matching q or a searchUse does.
+        description: ISO alpha-2 country codes. Repeatable. An address in any of them matches the search, as one matching q or a searchRole does.
         required: false
         schema:
           type: array
           items:
             type: string
-      - name: addressType
+      - name: role
         in: query
-        description: 'The address type to list. The listing returns addresses holding any of the type''s uses: ORIGIN_OR_CONSIGNOR holds PLACE_OF_ORIGIN and CONSIGNOR, and also lists an address with no uses; DESTINATION_CONSIGNEE_OR_IMPORTER holds PLACE_OF_DESTINATION, CONSIGNEE and IMPORTER; BRANCH holds BRANCH_ADDRESS. Narrows the search (q, countryCode and searchUse) and combines with use (AND). An unknown value is refused with 400.'
-        required: false
-        schema:
-          type: string
-          enum:
-          - ORIGIN_OR_CONSIGNOR
-          - DESTINATION_CONSIGNEE_OR_IMPORTER
-          - BRANCH
-      - name: use
-        in: query
-        description: Keeps only addresses holding this use. Narrows the search (q, countryCode and searchUse) and combines with addressType (AND); an address with no uses never matches. An unknown value is refused with 400.
-        required: false
-        schema:
-          type: string
-          description: What an address can be used for
-          enum:
-          - PLACE_OF_ORIGIN
-          - CONSIGNOR
-          - PLACE_OF_DESTINATION
-          - CONSIGNEE
-          - IMPORTER
-          - BRANCH_ADDRESS
-      - name: searchUse
-        in: query
-        description: 'Uses that make an address match the search: an address holding any of them matches, as one matching q or countryCode does. Repeatable. An unknown value is refused with 400.'
+        description: Keeps only addresses holding any of these roles. Repeatable. Narrows the search (q, countryCode and searchRole); an address with no roles never matches. An unknown value is refused with 400.
         required: false
         schema:
           type: array
           items:
             type: string
-            description: What an address can be used for
+            description: A party a notification can choose this address for
+            enum:
+            - PLACE_OF_ORIGIN
+            - CONSIGNOR
+            - PLACE_OF_DESTINATION
+            - CONSIGNEE
+            - IMPORTER
+            - BRANCH_ADDRESS
+      - name: searchRole
+        in: query
+        description: 'Roles that make an address match the search: an address holding any of them matches, as one matching q or countryCode does. Repeatable. An unknown value is refused with 400.'
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+            description: A party a notification can choose this address for
             enum:
             - PLACE_OF_ORIGIN
             - CONSIGNOR
@@ -257,7 +249,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AddressPageResponse'
         '400':
-          description: An out-of-range or non-numeric page or page size, an unknown address type, use or search use, or a missing org header
+          description: An out-of-range or non-numeric page or page size, an unknown role or search role, or a missing org header
           content:
             application/problem+json:
               schema:
@@ -388,19 +380,12 @@ components:
           example: exports@highlandlivestock.example.com
           maxLength: 254
           minLength: 1
-        addressType:
-          type: string
-          description: The kind of address this is. Any use may be saved with any type; the list's addressType parameter picks addresses by their uses, not by this type
-          enum:
-          - ORIGIN_OR_CONSIGNOR
-          - DESTINATION_CONSIGNEE_OR_IMPORTER
-          - BRANCH
-          minLength: 1
-        uses:
+        roles:
           type: array
+          description: The parties a notification can choose this address for. Duplicates collapse
           items:
             type: string
-            description: What an address can be used for
+            description: A party a notification can choose this address for
             enum:
             - PLACE_OF_ORIGIN
             - CONSIGNOR
@@ -411,14 +396,13 @@ components:
           minItems: 1
       required:
       - addressLine1
-      - addressType
       - countryCode
       - email
       - name
       - phone
       - postcode
+      - roles
       - townOrCity
-      - uses
     AddressResponse:
       description: An address in the caller's organisation-scoped address book
       properties:
@@ -454,19 +438,12 @@ components:
         email:
           type: string
           description: Contact email address
-        addressType:
-          type: string
-          description: Address type the address was saved with; null when it has none
-          enum:
-          - ORIGIN_OR_CONSIGNOR
-          - DESTINATION_CONSIGNEE_OR_IMPORTER
-          - BRANCH
-        uses:
+        roles:
           type: array
-          description: What the address can be used for; null or empty when it has none
+          description: The parties a notification can choose this address for; null or empty when it has none
           items:
             type: string
-            description: What an address can be used for
+            description: A party a notification can choose this address for
             enum:
             - PLACE_OF_ORIGIN
             - CONSIGNOR

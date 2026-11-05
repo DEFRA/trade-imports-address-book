@@ -12,9 +12,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.data.domain.Page;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
+import uk.gov.defra.trade.imports.addressbook.address.AddressRole;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
-import uk.gov.defra.trade.imports.addressbook.address.AddressType;
-import uk.gov.defra.trade.imports.addressbook.address.AddressUse;
 import uk.gov.defra.trade.imports.addressbook.address.ListCriteria;
 
 class AddressRepositoryIT extends IntegrationBase {
@@ -98,45 +97,51 @@ class AddressRepositoryIT extends IntegrationBase {
   }
 
   @Test
-  void listLiveAddresses_withAnAddressType_isOrgScopedAndExcludesDeleted() {
+  void listLiveAddresses_withSeveralRoles_keepsAddressesHoldingAnyOfThem() {
+    saveAddress(
+        addressBuilder(ORG_A, AddressStatus.ACTIVE)
+            .name("Org A consignee")
+            .roles(List.of(AddressRole.CONSIGNEE)));
+    saveAddress(
+        addressBuilder(ORG_A, AddressStatus.ACTIVE)
+            .name("Org A importer")
+            .roles(List.of(AddressRole.IMPORTER)));
     saveAddress(
         addressBuilder(ORG_A, AddressStatus.ACTIVE)
             .name("Org A branch")
-            .uses(List.of(AddressUse.BRANCH_ADDRESS)));
-    saveAddress(
-        addressBuilder(ORG_B, AddressStatus.ACTIVE)
-            .name("Org B branch")
-            .uses(List.of(AddressUse.BRANCH_ADDRESS)));
-    saveAddress(
-        addressBuilder(ORG_A, AddressStatus.DELETED)
-            .name("Org A deleted branch")
-            .uses(List.of(AddressUse.BRANCH_ADDRESS)));
+            .roles(List.of(AddressRole.BRANCH_ADDRESS)));
 
-    Page<Address> page = listLive(ORG_A, listCriteria().addressType(AddressType.BRANCH).build());
+    Page<Address> page =
+        listLive(
+            ORG_A, listCriteria().roles(AddressRole.CONSIGNEE, AddressRole.IMPORTER).build());
 
-    assertThat(page.getContent()).singleElement().extracting(Address::getName).isEqualTo("Org A branch");
+    assertThat(page.getContent())
+        .extracting(Address::getName)
+        .containsExactlyInAnyOrder("Org A consignee", "Org A importer");
   }
 
   @ParameterizedTest
   @MethodSource("criteriaMatchingTheConsignorAddress")
-  void listLiveAddresses_withAUseOrASearchUse_isOrgScopedAndExcludesDeletedAndOtherUses(
+  void listLiveAddresses_withARoleOrASearchRole_isOrgScopedAndExcludesDeletedAndOtherRoles(
       ListCriteria criteria) {
     saveAddress(
         addressBuilder(ORG_A, AddressStatus.ACTIVE)
             .name("Org A consignor")
-            .uses(List.of(AddressUse.CONSIGNOR)));
+            .roles(List.of(AddressRole.CONSIGNOR)));
     saveAddress(
         addressBuilder(ORG_A, AddressStatus.ACTIVE)
             .name("Org A importer")
-            .uses(List.of(AddressUse.IMPORTER)));
+            .roles(List.of(AddressRole.IMPORTER)));
     saveAddress(
         addressBuilder(ORG_B, AddressStatus.ACTIVE)
             .name("Org B consignor")
-            .uses(List.of(AddressUse.CONSIGNOR)));
+            .roles(List.of(AddressRole.CONSIGNOR)));
     saveAddress(
         addressBuilder(ORG_A, AddressStatus.DELETED)
             .name("Org A deleted consignor")
-            .uses(List.of(AddressUse.CONSIGNOR)));
+            .roles(List.of(AddressRole.CONSIGNOR)));
+    saveAddress(
+        addressBuilder(ORG_A, AddressStatus.ACTIVE).name("Org A with no roles").roles(null));
 
     Page<Address> page = listLive(ORG_A, criteria);
 
@@ -145,8 +150,8 @@ class AddressRepositoryIT extends IntegrationBase {
 
   private static Stream<ListCriteria> criteriaMatchingTheConsignorAddress() {
     return Stream.of(
-        listCriteria().use(AddressUse.CONSIGNOR).build(),
-        listCriteria().searchUses(AddressUse.CONSIGNOR).build());
+        listCriteria().roles(AddressRole.CONSIGNOR).build(),
+        listCriteria().searchRoles(AddressRole.CONSIGNOR).build());
   }
 
   private Map<String, Address> saveDepotsInFranceIrelandAndGermany() {

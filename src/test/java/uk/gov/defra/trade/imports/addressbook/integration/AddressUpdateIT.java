@@ -16,62 +16,54 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
-import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
-import uk.gov.defra.trade.imports.addressbook.address.AddressType;
-import uk.gov.defra.trade.imports.addressbook.address.AddressUse;
 import uk.gov.defra.trade.imports.addressbook.address.AddressRepository;
+import uk.gov.defra.trade.imports.addressbook.address.AddressRole;
+import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
 
 @MockitoSpyBean(types = AddressRepository.class)
 class AddressUpdateIT extends IntegrationBase {
 
-  private Address saveActiveTypedAddressWithOptionals() {
+  private Address saveActiveAddressWithRolesAndOptionals() {
     return saveAddress(
         addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE)
             .addressLine2("Unit 3")
             .county("Highland")
-            .addressType(AddressType.ORIGIN_OR_CONSIGNOR)
-            .uses(List.of(AddressUse.PLACE_OF_ORIGIN, AddressUse.CONSIGNOR)));
+            .roles(List.of(AddressRole.PLACE_OF_ORIGIN, AddressRole.CONSIGNOR)));
   }
 
   private Address storedAddress(String addressId) {
     return addressRepository.findByIdAndOrganisationId(addressId, ORGANISATION_ID).orElseThrow();
   }
 
-  private void assertStoredTypeAndUsesAreStillTheSeededOnes(Address seeded) {
-    assertThat(storedAddress(seeded.getId()))
-        .satisfies(
-            address -> {
-              assertThat(address.getAddressType()).isEqualTo(seeded.getAddressType());
-              assertThat(address.getUses()).containsExactlyElementsOf(seeded.getUses());
-            });
+  private void assertStoredRolesAreStillTheSeededOnes(Address seeded) {
+    assertThat(storedAddress(seeded.getId()).getRoles())
+        .containsExactlyElementsOf(seeded.getRoles());
   }
 
   @Test
   void put_shouldReplaceAllFieldsAndClearOmittedOptionals_whenBodyIsValid() throws Exception {
-    Address saved = saveActiveTypedAddressWithOptionals();
+    Address saved = saveActiveAddressWithRolesAndOptionals();
     AddressBody body =
         addressBody()
             .with("name", "Lowland Cattle Co")
             .with("addressLine1", "2 Market Street")
             .with("townOrCity", "Perth")
             .with("postcode", "PH1 5AA")
-            .with("countryCode", "IE")
+            .with("countryCode", "GB")
             .with("phone", "+44 1738 111222")
             .with("email", "ops@lowlandcattle.example.com")
-            .with("addressType", "DESTINATION_CONSIGNEE_OR_IMPORTER")
-            .with("uses", List.of("IMPORTER", "CONSIGNEE", "BRANCH_ADDRESS"));
+            .with("roles", List.of("IMPORTER", "CONSIGNEE"));
 
     putAddress(saved.getId(), body)
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.name").value("Lowland Cattle Co"))
         .andExpect(jsonPath("$.addressLine1").value("2 Market Street"))
         .andExpect(jsonPath("$.townOrCity").value("Perth"))
-        .andExpect(jsonPath("$.countryCode").value("IE"))
+        .andExpect(jsonPath("$.countryCode").value("GB"))
         .andExpect(jsonPath("$.postcode").value("PH1 5AA"))
         .andExpect(jsonPath("$.phone").value("+44 1738 111222"))
         .andExpect(jsonPath("$.email").value("ops@lowlandcattle.example.com"))
-        .andExpect(jsonPath("$.addressType").value("DESTINATION_CONSIGNEE_OR_IMPORTER"))
-        .andExpect(jsonPath("$.uses", contains("IMPORTER", "CONSIGNEE", "BRANCH_ADDRESS")))
+        .andExpect(jsonPath("$.roles", contains("IMPORTER", "CONSIGNEE")))
         .andExpect(jsonPath("$.deleted").value(false));
 
     assertThat(storedAddress(saved.getId()))
@@ -83,62 +75,61 @@ class AddressUpdateIT extends IntegrationBase {
               assertThat(address.getAddressLine1()).isEqualTo("2 Market Street");
               assertThat(address.getTownOrCity()).isEqualTo("Perth");
               assertThat(address.getPostcode()).isEqualTo("PH1 5AA");
-              assertThat(address.getCountryCode()).isEqualTo("IE");
+              assertThat(address.getCountryCode()).isEqualTo("GB");
               assertThat(address.getPhone()).isEqualTo("+44 1738 111222");
               assertThat(address.getEmail()).isEqualTo("ops@lowlandcattle.example.com");
-              assertThat(address.getAddressType())
-                  .isEqualTo(AddressType.DESTINATION_CONSIGNEE_OR_IMPORTER);
-              assertThat(address.getUses())
-                  .containsExactly(
-                      AddressUse.IMPORTER, AddressUse.CONSIGNEE, AddressUse.BRANCH_ADDRESS);
+              assertThat(address.getRoles())
+                  .containsExactly(AddressRole.IMPORTER, AddressRole.CONSIGNEE);
             });
   }
 
   @Test
-  void put_shouldReturn400NamingBothAndKeepStoredValues_whenBodyOmitsTypeAndUses()
-      throws Exception {
-    Address saved = saveActiveTypedAddressWithOptionals();
+  void put_shouldReturn400KeyedByRolesAndKeepStoredValues_whenBodyOmitsRoles() throws Exception {
+    Address saved = saveActiveAddressWithRolesAndOptionals();
 
-    putAddress(saved.getId(), addressBody().without("addressType").without("uses"))
+    putAddress(saved.getId(), addressBody().without("roles"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.type").value(VALIDATION_ERROR_TYPE))
-        .andExpect(jsonPath("$.errors.addressType[0]").value("Select an address type"))
         .andExpect(
-            jsonPath("$.errors.uses[0]").value("Select what this address can be used for"));
+            jsonPath("$.errors.roles[0]").value("Select what this address can be used for"));
 
-    assertStoredTypeAndUsesAreStillTheSeededOnes(saved);
+    assertStoredRolesAreStillTheSeededOnes(saved);
   }
 
   @Test
-  void put_shouldReturn400KeyedByUsesAndKeepStoredValues_whenAUseIsUnknown() throws Exception {
-    Address saved = saveActiveTypedAddressWithOptionals();
-    AddressBody body = addressBody().with("uses", List.of("IMPORTER", "TRANSPORTER"));
+  void put_shouldReturn400KeyedByRolesAndKeepStoredValues_whenARoleIsUnknown() throws Exception {
+    Address saved = saveActiveAddressWithRolesAndOptionals();
+    AddressBody body = addressBody().with("roles", List.of("IMPORTER", "TRANSPORTER"));
 
     putAddress(saved.getId(), body)
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.type").value(VALIDATION_ERROR_TYPE))
-        .andExpect(jsonPath("$.errors.uses").exists());
+        .andExpect(jsonPath("$.errors.roles[0]").value("Select valid roles"));
 
-    assertStoredTypeAndUsesAreStillTheSeededOnes(saved);
+    assertStoredRolesAreStillTheSeededOnes(saved);
   }
 
   @Test
-  void put_shouldReturn400KeyedByAddressTypeAndKeepStoredValues_whenTheTypeIsUnknown()
+  void put_shouldReturn400KeyedByCountryCodeAndKeepStoredValues_whenAReceivingRoleIsOutsideTheUk()
       throws Exception {
-    Address saved = saveActiveTypedAddressWithOptionals();
-    AddressBody body = addressBody().with("addressType", "TRANSPORTER");
+    Address saved = saveActiveAddressWithRolesAndOptionals();
+    AddressBody body = addressBody().with("countryCode", "IE").with("roles", List.of("IMPORTER"));
 
     putAddress(saved.getId(), body)
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.type").value(VALIDATION_ERROR_TYPE))
-        .andExpect(jsonPath("$.errors.addressType").exists());
+        .andExpect(
+            jsonPath("$.errors.countryCode[0]")
+                .value(
+                    "A consignee, importer or place of destination must be in the United"
+                        + " Kingdom"));
 
-    assertStoredTypeAndUsesAreStillTheSeededOnes(saved);
+    assertStoredRolesAreStillTheSeededOnes(saved);
   }
 
   @Test
   void put_shouldReturn400PerFieldErrorsAndLeaveRowUntouched_whenBodyIsInvalid() throws Exception {
-    Address saved = saveActiveTypedAddressWithOptionals();
+    Address saved = saveActiveAddressWithRolesAndOptionals();
     AddressBody body = addressBody().blank("addressLine1").with("email", "not-an-email");
 
     putAddress(saved.getId(), body)
@@ -178,7 +169,7 @@ class AddressUpdateIT extends IntegrationBase {
 
   @Test
   void put_shouldBumpModifiedAtAndPreserveCreatedAt_whenReplaceSucceeds() throws Exception {
-    Address saved = saveActiveTypedAddressWithOptionals();
+    Address saved = saveActiveAddressWithRolesAndOptionals();
     Instant createdAt = saved.getCreatedAt();
     Instant baselineModifiedAt = saved.getModifiedAt();
 
@@ -194,7 +185,7 @@ class AddressUpdateIT extends IntegrationBase {
 
   @Test
   void put_shouldReturn409ConflictProblem_whenOptimisticLockingFails() throws Exception {
-    Address saved = saveActiveTypedAddressWithOptionals();
+    Address saved = saveActiveAddressWithRolesAndOptionals();
     doThrow(new OptimisticLockingFailureException("stale"))
         .when(addressRepository)
         .save(any(Address.class));
@@ -208,7 +199,7 @@ class AddressUpdateIT extends IntegrationBase {
 
   @Test
   void put_shouldRejectStaleVersion_whenRowWasUpdatedConcurrently() throws Exception {
-    Address saved = saveActiveTypedAddressWithOptionals();
+    Address saved = saveActiveAddressWithRolesAndOptionals();
     Address stale = storedAddress(saved.getId());
 
     putAddress(saved.getId(), addressBody()).andExpect(status().isOk());

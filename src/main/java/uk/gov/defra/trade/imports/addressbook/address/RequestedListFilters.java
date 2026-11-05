@@ -8,13 +8,11 @@ import org.springframework.lang.Nullable;
  *
  * @param searchTerm the user's search term as typed
  * @param countryCodes the requested ISO alpha-2 country codes
- * @param addressType the requested address type
- * @param use the requested use
- * @param searchUses the requested search uses
+ * @param roles the requested roles to keep
+ * @param searchRoles the requested search roles
  */
 public record RequestedListFilters(
     @Nullable String searchTerm,
     @Nullable List<String> countryCodes,
-    @Nullable AddressType addressType,
-    @Nullable AddressUse use,
-    @Nullable List<AddressUse> searchUses) {}
+    @Nullable List<AddressRole> roles,
+    @Nullable List<AddressRole> searchRoles) {}

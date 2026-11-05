@@ -29,7 +29,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -193,8 +192,7 @@ class AddressServiceTest {
     assertThat(updated.getCountryCode()).isEqualTo("IE");
     assertThat(updated.getPhone()).isEqualTo("+44 1738 111222");
     assertThat(updated.getEmail()).isEqualTo("ops@lowlandcattle.example.com");
-    assertThat(updated.getAddressType()).isEqualTo(AddressType.BRANCH);
-    assertThat(updated.getUses()).containsExactly(AddressUse.BRANCH_ADDRESS);
+    assertThat(updated.getRoles()).containsExactly(AddressRole.BRANCH_ADDRESS);
     assertThat(updated.getId()).isEqualTo("665f1c2ab3e4d51a2c9d0e77");
     assertThat(updated.getOrganisationId()).isEqualTo(ORG);
     assertThat(updated.getStatus()).isEqualTo(AddressStatus.ACTIVE);
@@ -314,14 +312,14 @@ class AddressServiceTest {
   }
 
   private static final RequestedListFilters NO_FILTERS =
-      new RequestedListFilters(null, null, null, null, null);
+      new RequestedListFilters(null, null, null, null);
 
   private static RequestedListFilters filtersWithSearchTerm(String searchTerm) {
-    return new RequestedListFilters(searchTerm, null, null, null, null);
+    return new RequestedListFilters(searchTerm, null, null, null);
   }
 
   private static RequestedListFilters filtersWithCountryCodes(List<String> countryCodes) {
-    return new RequestedListFilters(null, countryCodes, null, null, null);
+    return new RequestedListFilters(null, countryCodes, null, null);
   }
 
   @Test
@@ -458,18 +456,17 @@ class AddressServiceTest {
         .thenReturn(emptyFirstPage());
 
     AddressPageResponse response =
-        service.list(ORG, 1, null, new RequestedListFilters("France", List.of(" FR "), null, null, null));
+        service.list(ORG, 1, null, new RequestedListFilters("France", List.of(" FR "), null, null));
 
     assertThat(response.totalItems()).isZero();
   }
 
-  @ParameterizedTest
-  @EnumSource(AddressType.class)
-  void list_passesTheAddressTypeWithTheSearchAndCountryCodes(AddressType addressType) {
+  @Test
+  void list_passesTheRolesToKeepWithTheSearchAndCountryCodes() {
     Address matching = storedAddress(ORG, AddressStatus.ACTIVE).id("matching-id").build();
     ListCriteria expected =
         listCriteria()
-            .addressType(addressType)
+            .roles(AddressRole.CONSIGNEE, AddressRole.IMPORTER)
             .searchPattern(".*\\Qfarm\\E.*")
             .countryCodes("FR")
             .build();
@@ -478,8 +475,36 @@ class AddressServiceTest {
 
     AddressPageResponse response =
         service.list(
-            ORG, 1, null, new RequestedListFilters("farm", List.of("FR"), addressType, null, null));
+            ORG,
+            1,
+            null,
+            new RequestedListFilters(
+                "farm",
+                List.of("FR"),
+                Arrays.asList(AddressRole.CONSIGNEE, null, AddressRole.IMPORTER, AddressRole.CONSIGNEE),
+                null));
 
     assertThat(response.items()).extracting(AddressResponse::id).containsExactly("matching-id");
+  }
+
+  @Test
+  void list_passesTheSearchRolesAsOneSearchTerm() {
+    ListCriteria expected =
+        listCriteria().searchRoles(AddressRole.CONSIGNOR, AddressRole.IMPORTER).build();
+    when(repository.listLiveAddresses(eq(ORG), eq(expected), any(Pageable.class)))
+        .thenReturn(emptyFirstPage());
+
+    AddressPageResponse response =
+        service.list(
+            ORG,
+            1,
+            null,
+            new RequestedListFilters(
+                null,
+                null,
+                null,
+                Arrays.asList(AddressRole.CONSIGNOR, null, AddressRole.IMPORTER)));
+
+    assertThat(response.totalItems()).isZero();
   }
 }

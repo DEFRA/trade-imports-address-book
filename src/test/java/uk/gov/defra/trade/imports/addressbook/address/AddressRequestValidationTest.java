@@ -16,7 +16,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 class AddressRequestValidationTest {
@@ -131,55 +130,55 @@ class AddressRequestValidationTest {
             "email",
             "Enter an email address in the correct format"),
         Arguments.of(
-            "missing addressType",
-            validRequest().addressType(null).build(),
-            "addressType",
-            "Select an address type"),
-        Arguments.of(
-            "blank addressType",
-            validRequest().addressType("").build(),
-            "addressType",
-            "Select an address type"),
-        Arguments.of(
-            "missing uses",
-            validRequest().uses(null).build(),
-            "uses",
+            "missing roles",
+            validRequest().roles(null).build(),
+            "roles",
             "Select what this address can be used for"),
         Arguments.of(
-            "empty uses",
-            validRequest().uses(List.of()).build(),
-            "uses",
+            "empty roles",
+            validRequest().roles(List.of()).build(),
+            "roles",
             "Select what this address can be used for"),
         Arguments.of(
-            "unknown addressType",
-            validRequest().addressType("TRANSPORTER").build(),
-            "addressType",
-            "Select a valid address type"),
+            "unknown role",
+            validRequest().roles(List.of("CONSIGNOR", "TRANSPORTER")).build(),
+            "roles",
+            "Select valid roles"),
         Arguments.of(
-            "lower-case addressType",
-            validRequest().addressType("branch").build(),
-            "addressType",
-            "Select a valid address type"),
+            "lower-case role",
+            validRequest().roles(List.of("consignor")).build(),
+            "roles",
+            "Select valid roles"),
         Arguments.of(
-            "unknown use",
-            validRequest().uses(List.of("CONSIGNOR", "TRANSPORTER")).build(),
-            "uses",
-            "Select valid address uses"),
+            "null role",
+            validRequest().roles(Arrays.asList("CONSIGNOR", null)).build(),
+            "roles",
+            "Select valid roles"),
         Arguments.of(
-            "lower-case use",
-            validRequest().uses(List.of("importer")).build(),
-            "uses",
-            "Select valid address uses"),
+            "blank role",
+            validRequest().roles(List.of("CONSIGNOR", " ")).build(),
+            "roles",
+            "Select valid roles"),
         Arguments.of(
-            "null use",
-            validRequest().uses(Arrays.asList("CONSIGNOR", null)).build(),
-            "uses",
-            "Select valid address uses"),
+            "sending and receiving roles",
+            validRequest().roles(List.of("PLACE_OF_ORIGIN", "CONSIGNEE")).build(),
+            "roles",
+            "An address can only have roles from one group"),
         Arguments.of(
-            "blank use",
-            validRequest().uses(List.of("CONSIGNOR", " ")).build(),
-            "uses",
-            "Select valid address uses"),
+            "receiving and branch roles",
+            validRequest().roles(List.of("IMPORTER", "BRANCH_ADDRESS")).build(),
+            "roles",
+            "An address can only have roles from one group"),
+        Arguments.of(
+            "sending and branch roles",
+            validRequest().roles(List.of("CONSIGNOR", "BRANCH_ADDRESS")).build(),
+            "roles",
+            "An address can only have roles from one group"),
+        Arguments.of(
+            "receiving role outside the United Kingdom",
+            validRequest().roles(List.of("PLACE_OF_DESTINATION")).countryCode("FR").build(),
+            "countryCode",
+            "A consignee, importer or place of destination must be in the United Kingdom"),
         Arguments.of(
             "stray type",
             validRequest().type("IMPORTER").build(),
@@ -225,19 +224,45 @@ class AddressRequestValidationTest {
   }
 
   @Test
-  void countryCodeIsPresenceOnlyAndAcceptsAnyNonBlankValueRegardlessOfLength() {
+  void countryCodeOfASendingAddressIsPresenceOnlyAndAcceptsAnyNonBlankValue() {
     AddressRequest request = validRequest().countryCode(repeat(50)).build();
 
     assertThat(validator.validate(request)).isEmpty();
   }
 
-  @ParameterizedTest
-  @EnumSource(AddressType.class)
-  void validate_findsNoViolationForEveryAddressTypeWithEveryUse(AddressType addressType) {
-    List<String> allUses = Arrays.stream(AddressUse.values()).map(Enum::name).toList();
-    AddressRequest request = validRequest().addressType(addressType.name()).uses(allUses).build();
+  static Stream<Arguments> rolesHeldTogetherInTheirOwnCountries() {
+    return Stream.of(
+        Arguments.of(List.of("PLACE_OF_ORIGIN", "CONSIGNOR"), "FR"),
+        Arguments.of(List.of("CONSIGNEE", "IMPORTER", "PLACE_OF_DESTINATION"), "GB"),
+        Arguments.of(List.of("BRANCH_ADDRESS"), "GB"),
+        Arguments.of(List.of("BRANCH_ADDRESS"), "IE"));
+  }
+
+  @ParameterizedTest(name = "{0} in {1} has no violations")
+  @MethodSource("rolesHeldTogetherInTheirOwnCountries")
+  void validate_findsNoViolationForRolesOneAddressCanHoldTogether(
+      List<String> roles, String countryCode) {
+    AddressRequest request = validRequest().roles(roles).countryCode(countryCode).build();
 
     assertThat(validator.validate(request)).isEmpty();
+  }
+
+  @Test
+  void validate_reportsNoRoleGroupOrCountryViolationForAnUnknownRoleAlone() {
+    AddressRequest request =
+        validRequest().roles(List.of("TRANSPORTER")).countryCode("FR").build();
+
+    assertThat(validator.validate(request))
+        .extracting(violation -> violation.getPropertyPath().toString())
+        .containsExactly("roles");
+  }
+
+  @Test
+  void roles_collapseRepeatsToTheFirstOfEach() {
+    AddressRequest request =
+        validRequest().roles(List.of("CONSIGNOR", "PLACE_OF_ORIGIN", "CONSIGNOR")).build();
+
+    assertThat(request.roles()).containsExactly("CONSIGNOR", "PLACE_OF_ORIGIN");
   }
 
   @Test
