@@ -9,18 +9,16 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Every string in the annotated collection must equal the name of a constant of {@link #of()}. A
- * null collection is valid; a null or blank element is not.
+ * Every string in the annotated collection must be the name of an {@link AddressRole}. A null
+ * collection is valid; a null or blank element is not.
  */
 @Documented
-@Constraint(validatedBy = EnumConstantNamesValidator.class)
+@Constraint(validatedBy = AddressRoleNamesValidator.class)
 @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface EnumConstantNames {
+public @interface AddressRoleNames {
 
   String message();
-
-  Class<? extends Enum<?>> of();
 
   Class<?>[] groups() default {};
 

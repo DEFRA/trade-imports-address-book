@@ -101,7 +101,7 @@ public record AddressRequest(
             example = "exports@highlandlivestock.example.com")
         String email,
     @NotEmpty(message = "Select what this address can be used for")
-        @EnumConstantNames(of = AddressRole.class, message = "Select valid roles")
+        @AddressRoleNames(message = "Select valid roles")
         @ArraySchema(
             schema = @Schema(implementation = AddressRole.class),
             arraySchema =
