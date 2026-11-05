@@ -35,7 +35,8 @@ class MongoAvailabilityIT extends IntegrationBase {
               .applyConnectionString(new ConnectionString(mongo.getConnectionString()))
               .applyToClusterSettings(cluster -> cluster.addClusterListener(availability))
               .build();
-      try (MongoClient client = MongoClients.create(settings)) {
+      MongoClient client = MongoClients.create(settings);
+      try (client) {
         await()
             .atMost(Duration.ofSeconds(30))
             .untilAsserted(() -> assertThat(availability.isAvailable()).contains(true));

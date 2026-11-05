@@ -318,17 +318,19 @@ class OperatorServiceTest {
   @Test
   void update_ofADeletedAddressThrowsNotFound() {
     givenStored(storedAddress(AddressStatus.DELETED));
+    AddressRequest request = updateRequest();
 
     assertThatExceptionOfType(NotFoundException.class)
-        .isThrownBy(() -> service.update(ADDRESS_ID, updateRequest(), ORG));
+        .isThrownBy(() -> service.update(ADDRESS_ID, request, ORG));
   }
 
   @Test
   void update_ofAnotherOrganisationsIdThrowsNotFound() {
     givenNothingStoredFor(OTHER_ORG);
+    AddressRequest request = updateRequest();
 
     assertThatExceptionOfType(NotFoundException.class)
-        .isThrownBy(() -> service.update(ADDRESS_ID, updateRequest(), OTHER_ORG));
+        .isThrownBy(() -> service.update(ADDRESS_ID, request, OTHER_ORG));
   }
 
   @Test

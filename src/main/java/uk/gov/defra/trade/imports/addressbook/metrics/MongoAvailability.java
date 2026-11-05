@@ -6,6 +6,7 @@ import com.mongodb.event.ClusterListener;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -20,13 +21,15 @@ public class MongoAvailability implements ClusterListener {
     UNAVAILABLE
   }
 
-  private volatile List<ServerDescription> monitoredServers = List.of();
+  private final AtomicReference<List<ServerDescription>> monitoredServers =
+      new AtomicReference<>(List.of());
   private Availability lastLogged = Availability.UNKNOWN;
 
   @Override
   public synchronized void clusterDescriptionChanged(ClusterDescriptionChangedEvent event) {
-    monitoredServers = event.getNewDescription().getServerDescriptions();
-    Availability now = availabilityOf(monitoredServers);
+    List<ServerDescription> servers = event.getNewDescription().getServerDescriptions();
+    monitoredServers.set(servers);
+    Availability now = availabilityOf(servers);
     if (now == Availability.UNKNOWN || now == lastLogged) {
       return;
     }
@@ -36,13 +39,13 @@ public class MongoAvailability implements ClusterListener {
     } else {
       log.warn(
           "MongoDB is unavailable: heartbeats to {} failed",
-          addressesOf(monitoredServers),
-          firstFailureOf(monitoredServers));
+          addressesOf(servers),
+          firstFailureOf(servers));
     }
   }
 
   public Optional<Boolean> isAvailable() {
-    return switch (availabilityOf(monitoredServers)) {
+    return switch (availabilityOf(monitoredServers.get())) {
       case AVAILABLE -> Optional.of(true);
       case UNAVAILABLE -> Optional.of(false);
       case UNKNOWN -> Optional.empty();
