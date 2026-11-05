@@ -7,7 +7,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
@@ -249,9 +248,9 @@ class AddressSearchIT extends IntegrationBase {
   }
 
   @Test
-  void list_withASearchRoleAloneMatchesExactlyTheAddressesHoldingIt() throws Exception {
-    Address consignor = saveAddress(londonDepot().name("Depot A").roles(List.of(AddressRole.CONSIGNOR)));
-    saveAddress(londonDepot().name("Depot B").roles(List.of(AddressRole.IMPORTER)));
+  void list_shouldReturnExactlyTheAddressesHoldingTheSearchRole_whenOnlyASearchRoleIsGiven() throws Exception {
+    Address consignor = saveAddress(londonDepot(AddressRole.CONSIGNOR).name("Depot A"));
+    saveAddress(londonDepot(AddressRole.IMPORTER).name("Depot B"));
     saveAddress(londonDepot().name("Depot C"));
 
     listAddresses("searchRole", "CONSIGNOR")
@@ -261,10 +260,10 @@ class AddressSearchIT extends IntegrationBase {
   }
 
   @Test
-  void list_withSeveralSearchRolesMatchesAnAddressHoldingAnyOfThem() throws Exception {
-    Address consignor = saveAddress(londonDepot().name("Depot A").roles(List.of(AddressRole.CONSIGNOR)));
-    Address consignee = saveAddress(londonDepot().name("Depot B").roles(List.of(AddressRole.CONSIGNEE)));
-    saveAddress(londonDepot().name("Depot C").roles(List.of(AddressRole.IMPORTER)));
+  void list_shouldReturnAddressesHoldingAnyOfTheSearchRoles_whenSeveralAreGiven() throws Exception {
+    Address consignor = saveAddress(londonDepot(AddressRole.CONSIGNOR).name("Depot A"));
+    Address consignee = saveAddress(londonDepot(AddressRole.CONSIGNEE).name("Depot B"));
+    saveAddress(londonDepot(AddressRole.IMPORTER).name("Depot C"));
 
     listAddresses("searchRole", "CONSIGNOR", "searchRole", "CONSIGNEE")
         .andExpect(status().isOk())
@@ -273,10 +272,10 @@ class AddressSearchIT extends IntegrationBase {
   }
 
   @Test
-  void list_withASearchRoleWidensTheSearchTermToAnAddressHoldingTheRole() throws Exception {
+  void list_shouldAlsoReturnAnAddressHoldingTheSearchRole_whenASearchTermIsGiven() throws Exception {
     Address byName = saveAddress(londonDepot().name("Green Farm"));
-    Address byRole = saveAddress(londonDepot().name("Depot B").roles(List.of(AddressRole.CONSIGNOR)));
-    saveAddress(londonDepot().name("Depot C").roles(List.of(AddressRole.IMPORTER)));
+    Address byRole = saveAddress(londonDepot(AddressRole.CONSIGNOR).name("Depot B"));
+    saveAddress(londonDepot(AddressRole.IMPORTER).name("Depot C"));
 
     listAddresses("q", "green", "searchRole", "CONSIGNOR")
         .andExpect(status().isOk())
@@ -285,11 +284,11 @@ class AddressSearchIT extends IntegrationBase {
   }
 
   @Test
-  void list_withASearchRoleTermAndCountryCodeReturnsTheUnionOfTheirMatches() throws Exception {
+  void list_shouldReturnTheUnionOfTheMatches_whenASearchRoleTermAndCountryCodeAreGiven() throws Exception {
     Address byName = saveAddress(londonDepot().name("Green Farm"));
     Address byCountry = saveAddress(parisDepot());
-    Address byRole = saveAddress(londonDepot().name("Depot B").roles(List.of(AddressRole.CONSIGNOR)));
-    saveAddress(londonDepot().name("Depot C").roles(List.of(AddressRole.IMPORTER)));
+    Address byRole = saveAddress(londonDepot(AddressRole.CONSIGNOR).name("Depot B"));
+    saveAddress(londonDepot(AddressRole.IMPORTER).name("Depot C"));
 
     listAddresses("q", "green", "countryCode", "FR", "searchRole", "CONSIGNOR")
         .andExpect(status().isOk())
@@ -301,9 +300,9 @@ class AddressSearchIT extends IntegrationBase {
   }
 
   @Test
-  void list_withASearchRoleStaysWithinTheRolesToKeep() throws Exception {
-    Address consignor = saveAddress(londonDepot().name("Depot A").roles(List.of(AddressRole.CONSIGNOR)));
-    saveAddress(londonDepot().name("Depot B").roles(List.of(AddressRole.IMPORTER)));
+  void list_shouldKeepSearchRoleMatchesWithinTheRolesToKeep_whenBothAreGiven() throws Exception {
+    Address consignor = saveAddress(londonDepot(AddressRole.CONSIGNOR).name("Depot A"));
+    saveAddress(londonDepot(AddressRole.IMPORTER).name("Depot B"));
 
     listAddresses("role", "BRANCH_ADDRESS", "searchRole", "CONSIGNOR")
         .andExpect(status().isOk())
@@ -315,9 +314,9 @@ class AddressSearchIT extends IntegrationBase {
   }
 
   @Test
-  void list_withABlankSearchRoleDropsItAndStillMatchesTheOtherSearchRoles() throws Exception {
-    Address consignor = saveAddress(londonDepot().name("Depot A").roles(List.of(AddressRole.CONSIGNOR)));
-    saveAddress(londonDepot().name("Depot B").roles(List.of(AddressRole.IMPORTER)));
+  void list_shouldIgnoreABlankSearchRole_whenOtherSearchRolesAreGiven() throws Exception {
+    Address consignor = saveAddress(londonDepot(AddressRole.CONSIGNOR).name("Depot A"));
+    saveAddress(londonDepot(AddressRole.IMPORTER).name("Depot B"));
 
     listAddresses("searchRole", "CONSIGNOR", "searchRole", "")
         .andExpect(status().isOk())
@@ -326,7 +325,7 @@ class AddressSearchIT extends IntegrationBase {
   }
 
   @Test
-  void list_withAnUnknownSearchRoleIsABadRequestWithNoErrorsMap() throws Exception {
+  void list_shouldReturn400BadRequestProblemWithNoErrorsMap_whenASearchRoleIsUnknown() throws Exception {
     listAddresses("searchRole", "TRANSPORTER").andExpect(badRequestProblemWithNoErrors());
   }
 
@@ -347,8 +346,8 @@ class AddressSearchIT extends IntegrationBase {
         .countryCode("FR");
   }
 
-  private static Address.AddressBuilder londonDepot() {
-    return addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE)
+  private static Address.AddressBuilder londonDepot(AddressRole... roles) {
+    return addressHolding(ORGANISATION_ID, roles)
         .name("London Depot")
         .addressLine1("10 Downing Street")
         .townOrCity("London")

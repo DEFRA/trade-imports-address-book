@@ -3,11 +3,10 @@ package uk.gov.defra.trade.imports.addressbook.address;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static uk.gov.defra.trade.imports.addressbook.address.AddressService.DEFAULT_PAGE_SIZE;
-import static uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport.NO_LIST_CRITERIA;
 import static uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport.NO_TTL;
+import static uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport.STORED_ADDRESS_ID;
 import static uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport.STORED_CREATED_AT;
 import static uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport.STORED_MODIFIED_AT;
-import static uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport.listCriteria;
 import static uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport.replacementRequest;
 import static uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport.storedAddress;
 import static uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport.validRequest;
@@ -70,12 +69,12 @@ class AddressServiceTest {
   }
 
   @Test
-  void create_stampsOrganisationIdAndActiveStatusFromTheHeader() {
+  void create_setsTheGivenOrganisationIdAndActiveStatus() {
     when(repository.save(any(Address.class)))
         .thenAnswer(
             invocation -> {
               Address saved = invocation.getArgument(0);
-              saved.setId("665f1c2ab3e4d51a2c9d0e77");
+              saved.setId(STORED_ADDRESS_ID);
               saved.setCreatedAt(Instant.parse("2026-07-14T09:15:27Z"));
               saved.setModifiedAt(Instant.parse("2026-07-14T09:15:27Z"));
               return saved;
@@ -87,7 +86,6 @@ class AddressServiceTest {
     assertThat(created.getStatus()).isEqualTo(AddressStatus.ACTIVE);
     assertThat(created.getName()).isEqualTo("Highland Livestock Ltd");
     assertThat(created.getCountryCode()).isEqualTo("GB");
-    assertThat(created.getId()).isEqualTo("665f1c2ab3e4d51a2c9d0e77");
   }
 
   @Test
@@ -143,20 +141,20 @@ class AddressServiceTest {
   @Test
   void get_returnsTheAddressForTheOwningOrganisation() {
     Address stored = storedAddress(ORG, AddressStatus.ACTIVE).build();
-    when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", ORG))
+    when(repository.findByIdAndOrganisationId(STORED_ADDRESS_ID, ORG))
         .thenReturn(Optional.of(stored));
 
-    Optional<Address> found = service.get("665f1c2ab3e4d51a2c9d0e77", ORG);
+    Optional<Address> found = service.get(STORED_ADDRESS_ID, ORG);
 
     assertThat(found).contains(stored);
   }
 
   @Test
   void get_forAnotherOrganisationsIdReturnsEmpty() {
-    when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", "org-other"))
+    when(repository.findByIdAndOrganisationId(STORED_ADDRESS_ID, "org-other"))
         .thenReturn(Optional.empty());
 
-    Optional<Address> found = service.get("665f1c2ab3e4d51a2c9d0e77", "org-other");
+    Optional<Address> found = service.get(STORED_ADDRESS_ID, "org-other");
 
     assertThat(found).isEmpty();
   }
@@ -164,10 +162,10 @@ class AddressServiceTest {
   @Test
   void get_ofADeletedAddressReturnsItWithStatusDeleted() {
     Address tombstone = storedAddress(ORG, AddressStatus.DELETED).build();
-    when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", ORG))
+    when(repository.findByIdAndOrganisationId(STORED_ADDRESS_ID, ORG))
         .thenReturn(Optional.of(tombstone));
 
-    Optional<Address> found = service.get("665f1c2ab3e4d51a2c9d0e77", ORG);
+    Optional<Address> found = service.get(STORED_ADDRESS_ID, ORG);
 
     assertThat(found).isPresent();
     assertThat(found.get().getStatus()).isEqualTo(AddressStatus.DELETED);
@@ -176,12 +174,12 @@ class AddressServiceTest {
   @Test
   void update_appliesAllRequestFieldValuesAndPreservesTheServerOwnedFields() {
     Address existing = storedAddress(ORG, AddressStatus.ACTIVE).build();
-    when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", ORG))
+    when(repository.findByIdAndOrganisationId(STORED_ADDRESS_ID, ORG))
         .thenReturn(Optional.of(existing));
     ArgumentCaptor<Address> captor = ArgumentCaptor.forClass(Address.class);
     when(repository.save(captor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
 
-    Address updated = service.update("665f1c2ab3e4d51a2c9d0e77", replacementRequest().build(), ORG);
+    Address updated = service.update(STORED_ADDRESS_ID, replacementRequest().build(), ORG);
 
     assertThat(updated.getName()).isEqualTo("Lowland Cattle Co");
     assertThat(updated.getAddressLine1()).isEqualTo("2 Market Street");
@@ -193,7 +191,7 @@ class AddressServiceTest {
     assertThat(updated.getPhone()).isEqualTo("+44 1738 111222");
     assertThat(updated.getEmail()).isEqualTo("ops@lowlandcattle.example.com");
     assertThat(updated.getRoles()).containsExactly(AddressRole.BRANCH_ADDRESS);
-    assertThat(updated.getId()).isEqualTo("665f1c2ab3e4d51a2c9d0e77");
+    assertThat(updated.getId()).isEqualTo(STORED_ADDRESS_ID);
     assertThat(updated.getOrganisationId()).isEqualTo(ORG);
     assertThat(updated.getStatus()).isEqualTo(AddressStatus.ACTIVE);
     assertThat(updated.getCreatedAt()).isEqualTo(STORED_CREATED_AT);
@@ -201,7 +199,7 @@ class AddressServiceTest {
     Address persisted = captor.getValue();
     assertThat(persisted.getName()).isEqualTo("Lowland Cattle Co");
     assertThat(persisted.getPhone()).isEqualTo("+44 1738 111222");
-    assertThat(persisted.getId()).isEqualTo("665f1c2ab3e4d51a2c9d0e77");
+    assertThat(persisted.getId()).isEqualTo(STORED_ADDRESS_ID);
     assertThat(persisted.getOrganisationId()).isEqualTo(ORG);
     assertThat(persisted.getStatus()).isEqualTo(AddressStatus.ACTIVE);
     assertThat(persisted.getCreatedAt()).isEqualTo(STORED_CREATED_AT);
@@ -212,12 +210,12 @@ class AddressServiceTest {
     AddressService withTtl = serviceWithTtl(7, "dev");
     Address existing = storedAddress(ORG, AddressStatus.ACTIVE).build();
     existing.setExpireAt(Instant.parse("2026-07-21T09:15:27Z"));
-    when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", ORG))
+    when(repository.findByIdAndOrganisationId(STORED_ADDRESS_ID, ORG))
         .thenReturn(Optional.of(existing));
     ArgumentCaptor<Address> captor = ArgumentCaptor.forClass(Address.class);
     when(repository.save(captor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
 
-    withTtl.update("665f1c2ab3e4d51a2c9d0e77", replacementRequest().build(), ORG);
+    withTtl.update(STORED_ADDRESS_ID, replacementRequest().build(), ORG);
 
     assertThat(captor.getValue().getExpireAt()).isEqualTo(Instant.parse("2026-07-21T09:15:27Z"));
   }
@@ -226,12 +224,12 @@ class AddressServiceTest {
   void update_ofAnAddressWithNoExpireAtLeavesItUnsetEvenWithTtlDaysConfigured() {
     AddressService withTtl = serviceWithTtl(7, "dev");
     Address existing = storedAddress(ORG, AddressStatus.ACTIVE).build();
-    when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", ORG))
+    when(repository.findByIdAndOrganisationId(STORED_ADDRESS_ID, ORG))
         .thenReturn(Optional.of(existing));
     ArgumentCaptor<Address> captor = ArgumentCaptor.forClass(Address.class);
     when(repository.save(captor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
 
-    withTtl.update("665f1c2ab3e4d51a2c9d0e77", replacementRequest().build(), ORG);
+    withTtl.update(STORED_ADDRESS_ID, replacementRequest().build(), ORG);
 
     assertThat(captor.getValue().getExpireAt()).isNull();
   }
@@ -239,46 +237,46 @@ class AddressServiceTest {
   @Test
   void update_ofADeletedAddressThrowsNotFound() {
     Address tombstone = storedAddress(ORG, AddressStatus.DELETED).build();
-    when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", ORG))
+    when(repository.findByIdAndOrganisationId(STORED_ADDRESS_ID, ORG))
         .thenReturn(Optional.of(tombstone));
     AddressRequest request = replacementRequest().build();
 
     assertThatExceptionOfType(NotFoundException.class)
-        .isThrownBy(() -> service.update("665f1c2ab3e4d51a2c9d0e77", request, ORG));
+        .isThrownBy(() -> service.update(STORED_ADDRESS_ID, request, ORG));
   }
 
   @Test
   void update_ofAnotherOrganisationsIdThrowsNotFound() {
-    when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", "org-other"))
+    when(repository.findByIdAndOrganisationId(STORED_ADDRESS_ID, "org-other"))
         .thenReturn(Optional.empty());
     AddressRequest request = replacementRequest().build();
 
     assertThatExceptionOfType(NotFoundException.class)
-        .isThrownBy(() -> service.update("665f1c2ab3e4d51a2c9d0e77", request, "org-other"));
+        .isThrownBy(() -> service.update(STORED_ADDRESS_ID, request, "org-other"));
   }
 
   @Test
   void delete_flipsAnActiveAddressToADeletedTombstone() {
     Address existing = storedAddress(ORG, AddressStatus.ACTIVE).build();
-    when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", ORG))
+    when(repository.findByIdAndOrganisationId(STORED_ADDRESS_ID, ORG))
         .thenReturn(Optional.of(existing));
     ArgumentCaptor<Address> captor = ArgumentCaptor.forClass(Address.class);
     when(repository.save(captor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
 
-    service.delete("665f1c2ab3e4d51a2c9d0e77", ORG);
+    service.delete(STORED_ADDRESS_ID, ORG);
 
     Address persisted = captor.getValue();
     assertThat(persisted.getStatus()).isEqualTo(AddressStatus.DELETED);
-    assertThat(persisted.getId()).isEqualTo("665f1c2ab3e4d51a2c9d0e77");
+    assertThat(persisted.getId()).isEqualTo(STORED_ADDRESS_ID);
   }
 
   @Test
   void delete_isIdempotentForAnAlreadyDeletedTombstone() {
     Address tombstone = storedAddress(ORG, AddressStatus.DELETED).build();
-    when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", ORG))
+    when(repository.findByIdAndOrganisationId(STORED_ADDRESS_ID, ORG))
         .thenReturn(Optional.of(tombstone));
 
-    service.delete("665f1c2ab3e4d51a2c9d0e77", ORG);
+    service.delete(STORED_ADDRESS_ID, ORG);
 
     verify(repository, never()).save(any());
     assertThat(tombstone.getStatus()).isEqualTo(AddressStatus.DELETED);
@@ -287,11 +285,11 @@ class AddressServiceTest {
 
   @Test
   void delete_ofAnUnknownOrAnotherOrganisationsIdThrowsNotFound() {
-    when(repository.findByIdAndOrganisationId("665f1c2ab3e4d51a2c9d0e77", "org-other"))
+    when(repository.findByIdAndOrganisationId(STORED_ADDRESS_ID, "org-other"))
         .thenReturn(Optional.empty());
 
     assertThatExceptionOfType(NotFoundException.class)
-        .isThrownBy(() -> service.delete("665f1c2ab3e4d51a2c9d0e77", "org-other"));
+        .isThrownBy(() -> service.delete(STORED_ADDRESS_ID, "org-other"));
   }
 
   private List<Address> activeAddresses(int count) {
@@ -390,121 +388,103 @@ class AddressServiceTest {
         .isThrownBy(() -> service.list(ORG, 0, null, NO_FILTERS));
   }
 
+
+  private ListCriteria criteriaPassedFor(RequestedListFilters filters) {
+    ArgumentCaptor<ListCriteria> criteriaCaptor = ArgumentCaptor.forClass(ListCriteria.class);
+    when(repository.listLiveAddresses(eq(ORG), criteriaCaptor.capture(), any(Pageable.class)))
+        .thenReturn(emptyFirstPage());
+
+    service.list(ORG, 1, null, filters);
+
+    return criteriaCaptor.getValue();
+  }
+
   @Test
   void list_withSeveralCountryCodesTrimsEachAndDropsBlanksAndNulls() {
-    Address matching = storedAddress(ORG, AddressStatus.ACTIVE).id("matching-id").build();
-    ListCriteria expected = listCriteria().countryCodes("FR", "GB").build();
-    when(repository.listLiveAddresses(eq(ORG), eq(expected), any(Pageable.class)))
-        .thenReturn(pageOf(List.of(matching), 0, DEFAULT_PAGE_SIZE, 1));
+    ListCriteria passed =
+        criteriaPassedFor(filtersWithCountryCodes(Arrays.asList(" FR ", " ", null, "GB")));
 
-    AddressPageResponse response =
-        service.list(
-            ORG, 1, null, filtersWithCountryCodes(Arrays.asList(" FR ", " ", null, "GB")));
-
-    assertThat(response.items()).extracting(AddressResponse::id).containsExactly("matching-id");
+    assertThat(passed)
+        .isEqualTo(
+            new ListCriteria(
+                List.of(), List.of(new ListCriteria.InCountries(List.of("FR", "GB")))));
   }
 
   @Test
   void list_withOnlyBlankCountryCodesPassesNoCountryCodes() {
-    when(repository.listLiveAddresses(eq(ORG), eq(NO_LIST_CRITERIA), any(Pageable.class)))
-        .thenReturn(emptyFirstPage());
+    ListCriteria passed = criteriaPassedFor(filtersWithCountryCodes(List.of("  ")));
 
-    AddressPageResponse response =
-        service.list(ORG, 1, null, filtersWithCountryCodes(List.of("  ")));
-
-    assertThat(response.totalItems()).isZero();
+    assertThat(passed).isEqualTo(new ListCriteria(List.of(), List.of()));
   }
 
   @Test
   void list_passesTheSearchTermAsAPartialMatchPattern() {
-    ListCriteria expected = listCriteria().searchPattern(".*\\Qfarm\\E.*").build();
-    when(repository.listLiveAddresses(eq(ORG), eq(expected), any(Pageable.class)))
-        .thenReturn(emptyFirstPage());
+    ListCriteria passed = criteriaPassedFor(filtersWithSearchTerm("farm"));
 
-    AddressPageResponse response = service.list(ORG, 1, null, filtersWithSearchTerm("farm"));
-
-    assertThat(response.totalItems()).isZero();
+    assertThat(passed)
+        .isEqualTo(
+            new ListCriteria(List.of(), List.of(new ListCriteria.TextMatching(".*\\Qfarm\\E.*"))));
   }
 
   @Test
   void list_trimsTheSearchTermBeforeBuildingThePattern() {
-    Address matching = storedAddress(ORG, AddressStatus.ACTIVE).id("matching-id").build();
-    ListCriteria expected = listCriteria().searchPattern(".*\\Qfarm\\E.*").build();
-    when(repository.listLiveAddresses(eq(ORG), eq(expected), any(Pageable.class)))
-        .thenReturn(pageOf(List.of(matching), 0, DEFAULT_PAGE_SIZE, 1));
+    ListCriteria passed = criteriaPassedFor(filtersWithSearchTerm("  farm  "));
 
-    AddressPageResponse response = service.list(ORG, 1, null, filtersWithSearchTerm("  farm  "));
-
-    assertThat(response.items()).extracting(AddressResponse::id).containsExactly("matching-id");
+    assertThat(passed)
+        .isEqualTo(
+            new ListCriteria(List.of(), List.of(new ListCriteria.TextMatching(".*\\Qfarm\\E.*"))));
   }
 
   @Test
   void list_withABlankSearchTermPassesNoPattern() {
-    when(repository.listLiveAddresses(eq(ORG), eq(NO_LIST_CRITERIA), any(Pageable.class)))
-        .thenReturn(emptyFirstPage());
+    ListCriteria passed = criteriaPassedFor(filtersWithSearchTerm("   "));
 
-    AddressPageResponse response = service.list(ORG, 1, null, filtersWithSearchTerm("   "));
-
-    assertThat(response.totalItems()).isZero();
+    assertThat(passed).isEqualTo(new ListCriteria(List.of(), List.of()));
   }
 
   @Test
   void list_passesTheSearchPatternAndTrimmedCountryCodesTogether() {
-    ListCriteria expected =
-        listCriteria().searchPattern(".*\\QFrance\\E.*").countryCodes("FR").build();
-    when(repository.listLiveAddresses(eq(ORG), eq(expected), any(Pageable.class)))
-        .thenReturn(emptyFirstPage());
+    ListCriteria passed =
+        criteriaPassedFor(new RequestedListFilters("France", List.of(" FR "), null, null));
 
-    AddressPageResponse response =
-        service.list(ORG, 1, null, new RequestedListFilters("France", List.of(" FR "), null, null));
-
-    assertThat(response.totalItems()).isZero();
+    assertThat(passed)
+        .isEqualTo(
+            new ListCriteria(
+                List.of(),
+                List.of(
+                    new ListCriteria.TextMatching(".*\\QFrance\\E.*"),
+                    new ListCriteria.InCountries(List.of("FR")))));
   }
 
   @Test
-  void list_passesTheRolesToKeepWithTheSearchAndCountryCodes() {
-    Address matching = storedAddress(ORG, AddressStatus.ACTIVE).id("matching-id").build();
-    ListCriteria expected =
-        listCriteria()
-            .roles(AddressRole.CONSIGNEE, AddressRole.IMPORTER)
-            .searchPattern(".*\\Qfarm\\E.*")
-            .countryCodes("FR")
-            .build();
-    when(repository.listLiveAddresses(eq(ORG), eq(expected), any(Pageable.class)))
-        .thenReturn(pageOf(List.of(matching), 0, DEFAULT_PAGE_SIZE, 1));
-
-    AddressPageResponse response =
-        service.list(
-            ORG,
-            1,
-            null,
+  void list_passesTheRolesToKeepWithoutNullsOrRepeats() {
+    ListCriteria passed =
+        criteriaPassedFor(
             new RequestedListFilters(
-                "farm",
-                List.of("FR"),
-                Arrays.asList(AddressRole.CONSIGNEE, null, AddressRole.IMPORTER, AddressRole.CONSIGNEE),
+                null,
+                null,
+                Arrays.asList(
+                    AddressRole.CONSIGNEE, null, AddressRole.IMPORTER, AddressRole.CONSIGNEE),
                 null));
 
-    assertThat(response.items()).extracting(AddressResponse::id).containsExactly("matching-id");
+    assertThat(passed)
+        .isEqualTo(
+            new ListCriteria(List.of(AddressRole.CONSIGNEE, AddressRole.IMPORTER), List.of()));
   }
 
   @Test
-  void list_passesTheSearchRolesAsOneSearchTerm() {
-    ListCriteria expected =
-        listCriteria().searchRoles(AddressRole.CONSIGNOR, AddressRole.IMPORTER).build();
-    when(repository.listLiveAddresses(eq(ORG), eq(expected), any(Pageable.class)))
-        .thenReturn(emptyFirstPage());
-
-    AddressPageResponse response =
-        service.list(
-            ORG,
-            1,
-            null,
+  void list_passesTheSearchRolesAsOneMatch() {
+    ListCriteria passed =
+        criteriaPassedFor(
             new RequestedListFilters(
-                null,
-                null,
-                null,
-                Arrays.asList(AddressRole.CONSIGNOR, null, AddressRole.IMPORTER)));
+                null, null, null, Arrays.asList(AddressRole.CONSIGNOR, null, AddressRole.IMPORTER)));
 
-    assertThat(response.totalItems()).isZero();
+    assertThat(passed)
+        .isEqualTo(
+            new ListCriteria(
+                List.of(),
+                List.of(
+                    new ListCriteria.HoldingAnyRole(
+                        List.of(AddressRole.CONSIGNOR, AddressRole.IMPORTER)))));
   }
 }

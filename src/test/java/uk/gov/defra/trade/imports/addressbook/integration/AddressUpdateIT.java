@@ -25,19 +25,21 @@ class AddressUpdateIT extends IntegrationBase {
 
   private Address saveActiveAddressWithRolesAndOptionals() {
     return saveAddress(
-        addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE)
+        addressHolding(ORGANISATION_ID, AddressRole.PLACE_OF_ORIGIN, AddressRole.CONSIGNOR)
             .addressLine2("Unit 3")
-            .county("Highland")
-            .roles(List.of(AddressRole.PLACE_OF_ORIGIN, AddressRole.CONSIGNOR)));
+            .county("Highland"));
   }
 
   private Address storedAddress(String addressId) {
     return addressRepository.findByIdAndOrganisationId(addressId, ORGANISATION_ID).orElseThrow();
   }
 
-  private void assertStoredRolesAreStillTheSeededOnes(Address seeded) {
-    assertThat(storedAddress(seeded.getId()).getRoles())
-        .containsExactlyElementsOf(seeded.getRoles());
+  private void assertStoredValuesAreStillTheSeededOnes(Address seeded) {
+    Address stored = storedAddress(seeded.getId());
+    assertThat(stored.getRoles()).containsExactlyElementsOf(seeded.getRoles());
+    assertThat(stored.getAddressLine2()).isEqualTo(seeded.getAddressLine2());
+    assertThat(stored.getCounty()).isEqualTo(seeded.getCounty());
+    assertThat(stored.getCountryCode()).isEqualTo(seeded.getCountryCode());
   }
 
   @Test
@@ -93,7 +95,7 @@ class AddressUpdateIT extends IntegrationBase {
         .andExpect(
             jsonPath("$.errors.roles[0]").value("Select what this address can be used for"));
 
-    assertStoredRolesAreStillTheSeededOnes(saved);
+    assertStoredValuesAreStillTheSeededOnes(saved);
   }
 
   @Test
@@ -106,7 +108,7 @@ class AddressUpdateIT extends IntegrationBase {
         .andExpect(jsonPath("$.type").value(VALIDATION_ERROR_TYPE))
         .andExpect(jsonPath("$.errors.roles[0]").value("Select valid roles"));
 
-    assertStoredRolesAreStillTheSeededOnes(saved);
+    assertStoredValuesAreStillTheSeededOnes(saved);
   }
 
   @Test
@@ -124,7 +126,7 @@ class AddressUpdateIT extends IntegrationBase {
                     "A consignee, importer or place of destination must be in the United"
                         + " Kingdom"));
 
-    assertStoredRolesAreStillTheSeededOnes(saved);
+    assertStoredValuesAreStillTheSeededOnes(saved);
   }
 
   @Test
@@ -198,7 +200,7 @@ class AddressUpdateIT extends IntegrationBase {
   }
 
   @Test
-  void put_shouldRejectStaleVersion_whenRowWasUpdatedConcurrently() throws Exception {
+  void save_shouldThrowOptimisticLockingFailure_whenTheAddressWasUpdatedSinceItWasRead() throws Exception {
     Address saved = saveActiveAddressWithRolesAndOptionals();
     Address stale = storedAddress(saved.getId());
 

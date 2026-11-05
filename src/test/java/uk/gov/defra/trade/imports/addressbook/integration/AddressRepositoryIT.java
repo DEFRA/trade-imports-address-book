@@ -26,7 +26,7 @@ class AddressRepositoryIT extends IntegrationBase {
   }
 
   @Test
-  void findByIdAndOrganisationId_returnsAddress_whenOrganisationMatches() {
+  void findByIdAndOrganisationId_shouldReturnTheAddress_whenOrganisationMatches() {
     Address saved = saveAddress(addressBuilder(ORG_A, AddressStatus.ACTIVE).name("Acme Farms"));
 
     assertThat(addressRepository.findByIdAndOrganisationId(saved.getId(), ORG_A))
@@ -37,7 +37,7 @@ class AddressRepositoryIT extends IntegrationBase {
   }
 
   @Test
-  void findByIdAndOrganisationId_returnsEmpty_whenOrganisationDiffers() {
+  void findByIdAndOrganisationId_shouldReturnEmpty_whenOrganisationDiffers() {
     Address orgA1 = saveAddress(addressBuilder(ORG_A, AddressStatus.ACTIVE).name("Org A One"));
     saveAddress(addressBuilder(ORG_A, AddressStatus.ACTIVE).name("Org A Two"));
     saveAddress(addressBuilder(ORG_B, AddressStatus.ACTIVE).name("Org B One"));
@@ -46,7 +46,7 @@ class AddressRepositoryIT extends IntegrationBase {
   }
 
   @Test
-  void listLiveAddresses_withACountryCode_isOrgScopedAndExcludesDeleted() {
+  void listLiveAddresses_shouldKeepOnlyTheOrganisationsLiveAddresses_whenACountryCodeIsGiven() {
     saveAddress(addressBuilder(ORG_A, AddressStatus.ACTIVE).name("Org A FR").countryCode("FR"));
     saveAddress(addressBuilder(ORG_B, AddressStatus.ACTIVE).name("Org B FR").countryCode("FR"));
     saveAddress(addressBuilder(ORG_A, AddressStatus.DELETED).name("Org A deleted FR").countryCode("FR"));
@@ -58,7 +58,7 @@ class AddressRepositoryIT extends IntegrationBase {
   }
 
   @Test
-  void listLiveAddresses_withASearchPatternOrACountryCode_isOrgScoped() {
+  void listLiveAddresses_shouldKeepOnlyTheOrganisationsAddresses_whenASearchPatternAndACountryCodeAreGiven() {
     saveAddress(addressBuilder(ORG_A, AddressStatus.ACTIVE).name("Paris").countryCode("FR"));
     saveAddress(addressBuilder(ORG_B, AddressStatus.ACTIVE).name("Other Paris").countryCode("FR"));
 
@@ -70,7 +70,7 @@ class AddressRepositoryIT extends IntegrationBase {
   }
 
   @Test
-  void listLiveAddresses_matchesAnyOfSeveralCountryCodes() {
+  void listLiveAddresses_shouldMatchAnyOfTheCountryCodes_whenSeveralAreGiven() {
     Map<String, Address> depotsByCountryCode = saveDepotsInFranceIrelandAndGermany();
 
     Page<Address> page = listLive(ORG_A, listCriteria().countryCodes("FR", "IE").build());
@@ -82,7 +82,7 @@ class AddressRepositoryIT extends IntegrationBase {
   }
 
   @Test
-  void listLiveAddresses_withASearchPatternAndSeveralCountryCodes_matchesTheCodesWhenTheTextMatchesNothing() {
+  void listLiveAddresses_shouldMatchTheCountryCodes_whenTheSearchPatternMatchesNothing() {
     Map<String, Address> depotsByCountryCode = saveDepotsInFranceIrelandAndGermany();
 
     Page<Address> page =
@@ -97,19 +97,10 @@ class AddressRepositoryIT extends IntegrationBase {
   }
 
   @Test
-  void listLiveAddresses_withSeveralRoles_keepsAddressesHoldingAnyOfThem() {
-    saveAddress(
-        addressBuilder(ORG_A, AddressStatus.ACTIVE)
-            .name("Org A consignee")
-            .roles(List.of(AddressRole.CONSIGNEE)));
-    saveAddress(
-        addressBuilder(ORG_A, AddressStatus.ACTIVE)
-            .name("Org A importer")
-            .roles(List.of(AddressRole.IMPORTER)));
-    saveAddress(
-        addressBuilder(ORG_A, AddressStatus.ACTIVE)
-            .name("Org A branch")
-            .roles(List.of(AddressRole.BRANCH_ADDRESS)));
+  void listLiveAddresses_shouldKeepAddressesHoldingAnyOfTheRoles_whenSeveralRolesAreGiven() {
+    saveAddress(addressHolding(ORG_A, AddressRole.CONSIGNEE).name("Org A consignee"));
+    saveAddress(addressHolding(ORG_A, AddressRole.IMPORTER).name("Org A importer"));
+    saveAddress(addressHolding(ORG_A, AddressRole.BRANCH_ADDRESS).name("Org A branch"));
 
     Page<Address> page =
         listLive(
@@ -122,20 +113,11 @@ class AddressRepositoryIT extends IntegrationBase {
 
   @ParameterizedTest
   @MethodSource("criteriaMatchingTheConsignorAddress")
-  void listLiveAddresses_withARoleOrASearchRole_isOrgScopedAndExcludesDeletedAndOtherRoles(
+  void listLiveAddresses_shouldKeepOnlyTheOrganisationsLiveConsignor_whenARoleOrASearchRoleIsGiven(
       ListCriteria criteria) {
-    saveAddress(
-        addressBuilder(ORG_A, AddressStatus.ACTIVE)
-            .name("Org A consignor")
-            .roles(List.of(AddressRole.CONSIGNOR)));
-    saveAddress(
-        addressBuilder(ORG_A, AddressStatus.ACTIVE)
-            .name("Org A importer")
-            .roles(List.of(AddressRole.IMPORTER)));
-    saveAddress(
-        addressBuilder(ORG_B, AddressStatus.ACTIVE)
-            .name("Org B consignor")
-            .roles(List.of(AddressRole.CONSIGNOR)));
+    saveAddress(addressHolding(ORG_A, AddressRole.CONSIGNOR).name("Org A consignor"));
+    saveAddress(addressHolding(ORG_A, AddressRole.IMPORTER).name("Org A importer"));
+    saveAddress(addressHolding(ORG_B, AddressRole.CONSIGNOR).name("Org B consignor"));
     saveAddress(
         addressBuilder(ORG_A, AddressStatus.DELETED)
             .name("Org A deleted consignor")

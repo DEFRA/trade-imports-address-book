@@ -24,6 +24,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.lang.Nullable;
@@ -39,8 +40,10 @@ import org.testcontainers.mongodb.MongoDBContainer;
 import org.testcontainers.utility.DockerImageName;
 import uk.gov.defra.trade.imports.addressbook.Application;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
+import uk.gov.defra.trade.imports.addressbook.address.AddressRole;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
 import uk.gov.defra.trade.imports.addressbook.address.AddressRepository;
+import uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport;
 
 @SpringBootTest(
     classes = Application.class,
@@ -54,7 +57,7 @@ abstract class IntegrationBase {
   protected static final String OTHER_ORG = "9c1b7e3f-0a2d-5c88-5a8d-2b196f4e4d21";
   protected static final String UNKNOWN_ID = "665f1c2ab3e4d51a2c9d0e77";
 
-  private static final ObjectMapper JSON = new ObjectMapper();
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   private static final String ADDRESSES_PATH = "/organisation/{orgId}/addresses";
   private static final String ADDRESS_PATH = ADDRESSES_PATH + "/{address-id}";
@@ -62,13 +65,13 @@ abstract class IntegrationBase {
   protected static final String VALIDATION_ERROR_TYPE =
       "https://api.cdp.defra.cloud/problems/validation-error";
 
-  protected static final String NAME = "Highland Livestock Ltd";
-  protected static final String ADDRESS_LINE_1 = "14 Drover's Way";
-  protected static final String TOWN_OR_CITY = "Inverness";
-  protected static final String POSTCODE = "IV2 3JH";
-  protected static final String COUNTRY_CODE = "GB";
-  protected static final String PHONE = "+44 1463 234567";
-  protected static final String EMAIL = "exports@highlandlivestock.example.com";
+  protected static final String NAME = AddressTestSupport.SAMPLE_NAME;
+  protected static final String ADDRESS_LINE_1 = AddressTestSupport.SAMPLE_ADDRESS_LINE_1;
+  protected static final String TOWN_OR_CITY = AddressTestSupport.SAMPLE_TOWN_OR_CITY;
+  protected static final String POSTCODE = AddressTestSupport.SAMPLE_POSTCODE;
+  protected static final String COUNTRY_CODE = AddressTestSupport.SAMPLE_COUNTRY_CODE;
+  protected static final String PHONE = AddressTestSupport.SAMPLE_PHONE;
+  protected static final String EMAIL = AddressTestSupport.SAMPLE_EMAIL;
 
   static MongoDBContainer MONGO_CONTAINER = new MongoDBContainer(
       DockerImageName.parse("mongo:7.0")).withExposedPorts(27017).withReplicaSet();
@@ -117,12 +120,21 @@ abstract class IntegrationBase {
         .status(status);
   }
 
+  protected static Address.AddressBuilder addressHolding(
+      String organisationId, AddressRole... roles) {
+    return addressBuilder(organisationId, AddressStatus.ACTIVE).roles(List.of(roles));
+  }
+
   protected static AddressBody addressBody() {
     return new AddressBody();
   }
 
   protected Address saveAddress(Address.AddressBuilder address) {
     return addressRepository.save(address.build());
+  }
+
+  protected long storedAddressCount() {
+    return mongoTemplate.count(new Query(), Address.class);
   }
 
   protected List<Address> activeAddressesFor(String organisationId) {
@@ -144,7 +156,7 @@ abstract class IntegrationBase {
     return mockMvc.perform(postAddressRequest(json));
   }
 
-  protected ResultActions postAddress(String orgId, String callerOrganisationId, AddressBody body)
+  protected ResultActions postAddressAs(String orgId, String callerOrganisationId, AddressBody body)
       throws Exception {
     return mockMvc.perform(
         withJson(
@@ -157,16 +169,16 @@ abstract class IntegrationBase {
   }
 
   protected ResultActions putAddress(String addressId, String json) throws Exception {
-    return putAddress(ORGANISATION_ID, ORGANISATION_ID, addressId, json);
+    return putAddressAs(ORGANISATION_ID, ORGANISATION_ID, addressId, json);
   }
 
-  protected ResultActions putAddress(
+  protected ResultActions putAddressAs(
       String orgId, String callerOrganisationId, String addressId, AddressBody body)
       throws Exception {
-    return putAddress(orgId, callerOrganisationId, addressId, body.json());
+    return putAddressAs(orgId, callerOrganisationId, addressId, body.json());
   }
 
-  private ResultActions putAddress(
+  private ResultActions putAddressAs(
       String orgId, String callerOrganisationId, String addressId, String json) throws Exception {
     return mockMvc.perform(
         withJson(
@@ -191,7 +203,7 @@ abstract class IntegrationBase {
 
   protected static Set<String> readIds(String body) throws Exception {
     Set<String> ids = new HashSet<>();
-    JsonNode items = JSON.readTree(body).get("items");
+    JsonNode items = OBJECT_MAPPER.readTree(body).get("items");
     items.forEach(item -> ids.add(item.get("id").asText()));
     return ids;
   }
@@ -286,7 +298,7 @@ abstract class IntegrationBase {
 
     String json() {
       try {
-        return JSON.writeValueAsString(fields);
+        return OBJECT_MAPPER.writeValueAsString(fields);
       } catch (JsonProcessingException e) {
         throw new UncheckedIOException(e);
       }

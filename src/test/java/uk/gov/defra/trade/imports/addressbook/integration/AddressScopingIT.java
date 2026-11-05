@@ -19,7 +19,7 @@ class AddressScopingIT extends IntegrationBase {
   @Autowired private ObjectMapper objectMapper;
 
   private String createAsOrgA() throws Exception {
-    return createdAddressId(postAddress(ORG_A, ORG_A, addressBody()));
+    return createdAddressId(postAddressAs(ORG_A, ORG_A, addressBody()));
   }
 
   @Test
@@ -31,7 +31,7 @@ class AddressScopingIT extends IntegrationBase {
         .andExpect(jsonPath("$.items").isEmpty())
         .andExpect(jsonPath("$.totalItems").value(0));
     getAddressAs(ORG_B, ORG_B, id).andExpect(status().isNotFound());
-    putAddress(ORG_B, ORG_B, id, addressBody()).andExpect(status().isNotFound());
+    putAddressAs(ORG_B, ORG_B, id, addressBody()).andExpect(status().isNotFound());
     deleteAddressAs(ORG_B, ORG_B, id).andExpect(status().isNotFound());
     getAddressAs(ORG_A, ORG_A, id)
         .andExpect(status().isOk())
@@ -44,13 +44,13 @@ class AddressScopingIT extends IntegrationBase {
 
     getAddressAs(ORG_A, ORG_B, id).andExpect(status().isNotFound());
     listAddressesAs(ORG_A, ORG_B).andExpect(status().isNotFound());
-    putAddress(ORG_A, ORG_B, id, addressBody()).andExpect(status().isNotFound());
+    putAddressAs(ORG_A, ORG_B, id, addressBody()).andExpect(status().isNotFound());
     deleteAddressAs(ORG_A, ORG_B, id).andExpect(status().isNotFound());
     assertThat(addressRepository.findByIdAndOrganisationId(id, ORG_A))
         .get()
         .extracting("status")
         .isEqualTo(AddressStatus.ACTIVE);
-    postAddress(ORG_A, ORG_B, addressBody()).andExpect(status().isNotFound());
+    postAddressAs(ORG_A, ORG_B, addressBody()).andExpect(status().isNotFound());
     assertThat(activeAddressesFor(ORG_A)).singleElement();
   }
 
@@ -66,9 +66,9 @@ class AddressScopingIT extends IntegrationBase {
 
   @Test
   void missingOrgHeaderOnPostIsAPlatformAuthRejection400AndPersistsNothing() throws Exception {
-    postAddress(ORG_A, null, addressBody()).andExpect(badRequestProblemWithNoErrors());
+    postAddressAs(ORG_A, null, addressBody()).andExpect(badRequestProblemWithNoErrors());
 
-    assertThat(activeAddressesFor(ORG_A)).isEmpty();
+    assertThat(storedAddressCount()).isZero();
   }
 
   @Test
@@ -89,7 +89,7 @@ class AddressScopingIT extends IntegrationBase {
   }
 
   @Test
-  void a404ForAnotherOrgsLiveAddressIsByteIdenticalToA404ForAnUnknownId() throws Exception {
+  void a404ForAnotherOrgsLiveAddressHasTheSameProblemBodyAsA404ForAnUnknownId() throws Exception {
     String liveId = createAsOrgA();
 
     MvcResult crossOrg =

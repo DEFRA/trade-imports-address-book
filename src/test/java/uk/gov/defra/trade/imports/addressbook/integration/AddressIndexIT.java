@@ -20,14 +20,11 @@ class AddressIndexIT extends IntegrationBase {
   @Autowired private MongoTemplate mongoTemplate;
 
   @Test
-  void index_shouldDeclareOrgStatusCreatedAndUseItInExplainPlan() {
-    // Given — auto-index-creation builds indexes at context startup
+  void index_shouldDeclareOnlyOrgStatusCreatedOnOrganisationStatusAndCreatedAt() {
     List<IndexInfo> indexes = mongoTemplate.indexOps(Address.class).getIndexInfo();
-    List<String> indexNames = indexes.stream().map(IndexInfo::getName).toList();
 
-    // When / Then — metadata pin
-    assertThat(indexNames).containsExactlyInAnyOrder("_id_", "org_status_created");
-
+    assertThat(indexes.stream().map(IndexInfo::getName).toList())
+        .containsExactlyInAnyOrder("_id_", "org_status_created");
     IndexInfo orgIndex =
         indexes.stream()
             .filter(index -> index.getName().equals("org_status_created"))
@@ -39,8 +36,10 @@ class AddressIndexIT extends IntegrationBase {
             tuple("organisationId", Sort.Direction.ASC),
             tuple("status", Sort.Direction.ASC),
             tuple("createdAt", Sort.Direction.DESC));
+  }
 
-    // When — explain a production-shaped list query
+  @Test
+  void listQuery_shouldUseOrgStatusCreatedIndex() {
     Document explainCommand =
         new Document(
             "explain",
@@ -56,8 +55,8 @@ class AddressIndexIT extends IntegrationBase {
         mongoTemplate.execute(
             (com.mongodb.client.MongoDatabase db) -> db.runCommand(explainCommand));
 
-    // Then — planner chooses the compound index
-    Document winningPlan = explainResult.get("queryPlanner", Document.class).get("winningPlan", Document.class);
+    Document winningPlan =
+        explainResult.get("queryPlanner", Document.class).get("winningPlan", Document.class);
     assertThat(winningPlan.toJson()).contains("org_status_created");
     assertThat(winningPlan.toJson()).doesNotContain("COLLSCAN");
   }

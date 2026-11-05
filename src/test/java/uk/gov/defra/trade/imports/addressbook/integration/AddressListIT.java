@@ -56,21 +56,17 @@ class AddressListIT extends IntegrationBase {
     }
   }
 
-  private void saveActiveAddressWithRoles(String name, String countryCode, AddressRole... roles) {
-    saveAddress(
-        addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE)
-            .name(name)
-            .countryCode(countryCode)
-            .roles(List.of(roles)));
-  }
-
   private void seedAddressesAcrossRolesAndStatuses() {
-    saveActiveAddressWithRoles(
-        ORIGIN_AND_CONSIGNOR, "FR", AddressRole.PLACE_OF_ORIGIN, AddressRole.CONSIGNOR);
-    saveActiveAddressWithRoles(
-        CONSIGNEE_AND_IMPORTER, "GB", AddressRole.CONSIGNEE, AddressRole.IMPORTER);
-    saveActiveAddressWithRoles(IMPORTER, "GB", AddressRole.IMPORTER);
-    saveActiveAddressWithRoles(BRANCH, "FR", AddressRole.BRANCH_ADDRESS);
+    saveAddress(
+        addressHolding(ORGANISATION_ID, AddressRole.PLACE_OF_ORIGIN, AddressRole.CONSIGNOR)
+            .name(ORIGIN_AND_CONSIGNOR)
+            .countryCode("FR"));
+    saveAddress(
+        addressHolding(ORGANISATION_ID, AddressRole.CONSIGNEE, AddressRole.IMPORTER)
+            .name(CONSIGNEE_AND_IMPORTER));
+    saveAddress(addressHolding(ORGANISATION_ID, AddressRole.IMPORTER).name(IMPORTER));
+    saveAddress(
+        addressHolding(ORGANISATION_ID, AddressRole.BRANCH_ADDRESS).name(BRANCH).countryCode("FR"));
     saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE).name(NO_ROLES).roles(null));
     saveAddress(
         addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE).name(EMPTY_ROLES).roles(List.of()));
@@ -79,9 +75,8 @@ class AddressListIT extends IntegrationBase {
             .name("Deleted Branch")
             .roles(List.of(AddressRole.BRANCH_ADDRESS)));
     saveAddress(
-        addressBuilder(OTHER_ORG, AddressStatus.ACTIVE)
-            .name("Other Organisation Consignor")
-            .roles(List.of(AddressRole.CONSIGNOR)));
+        addressHolding(OTHER_ORG, AddressRole.CONSIGNOR)
+            .name("Other Organisation Consignor"));
   }
 
   @Test
@@ -303,9 +298,9 @@ class AddressListIT extends IntegrationBase {
   @Test
   void list_shouldPageAndCountOverTheAddressesHoldingTheRoles() throws Exception {
     for (int i = 0; i < 3; i++) {
-      saveActiveAddressWithRoles("Consignor " + i, "FR", AddressRole.CONSIGNOR);
+      saveAddress(addressHolding(ORGANISATION_ID, AddressRole.CONSIGNOR).name("Consignor " + i));
     }
-    saveActiveAddressWithRoles("Importer", "GB", AddressRole.IMPORTER);
+    saveAddress(addressHolding(ORGANISATION_ID, AddressRole.IMPORTER).name("Importer"));
 
     listAddresses("role", "CONSIGNOR", "pageSize", "2")
         .andExpect(status().isOk())
