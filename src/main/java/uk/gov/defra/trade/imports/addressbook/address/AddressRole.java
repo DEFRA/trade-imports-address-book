@@ -26,9 +26,6 @@ public enum AddressRole {
   }
 
   static List<AddressRole> rolesNamed(Collection<String> names) {
-    if (names == null) {
-      return List.of();
-    }
     return Arrays.stream(values()).filter(role -> names.contains(role.name())).toList();
   }
 }

@@ -19,8 +19,9 @@ import org.hibernate.validator.constraints.Length;
  * <p>{@code type} and {@code role} must be absent: a supplied value fails {@code @Null} and is
  * reported as a per-field validation error. Both are hidden from the OpenAPI schema.
  *
- * <p>{@code roles} must hold at least one entry, each the name of an {@link AddressRole} constant,
- * and duplicates collapse to their first occurrence. The roles must be ones one address can hold
+ * <p>{@code roles} is never null: a missing list reads as empty. It must hold at least one entry,
+ * each the name of an {@link AddressRole} constant, and duplicates collapse to their first
+ * occurrence. The roles must be ones one address can hold
  * together ({@link RolesHeldTogether}), and an address holding a consignee, importer or place of
  * destination role must be in the United Kingdom ({@link ReceivingRolesInTheUnitedKingdom}).
  *
@@ -117,6 +118,6 @@ public record AddressRequest(
         Object role) {
 
   public AddressRequest {
-    roles = roles == null ? null : roles.stream().distinct().toList();
+    roles = roles == null ? List.of() : roles.stream().distinct().toList();
   }
 }
