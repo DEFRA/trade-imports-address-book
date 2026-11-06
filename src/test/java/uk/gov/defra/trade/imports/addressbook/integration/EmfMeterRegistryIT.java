@@ -24,7 +24,8 @@ import uk.gov.defra.trade.imports.addressbook.testsupport.CapturedConsole;
     properties = {
       "aws.emf.enabled=true",
       "aws.emf.environment=Local",
-      "aws.emf.namespace=trade-imports-address-book"
+      "aws.emf.namespace=trade-imports-address-book",
+      "aws.emf.step=1s"
     })
 class EmfMeterRegistryIT extends IntegrationBase {
 
@@ -55,13 +56,13 @@ class EmfMeterRegistryIT extends IntegrationBase {
   }
 
   @Test
-  void theRegistryPublishesARecordedCallOnItsOwnScheduleWithin2Minutes() throws Exception {
+  void theRegistryPublishesARecordedCallOnItsOwnSchedule() throws Exception {
     CapturedConsole console = captureSystemOut();
     try (console) {
       createdAddressId(postAddress(addressBody()));
 
       await()
-          .atMost(Duration.ofMinutes(2))
+          .atMost(Duration.ofSeconds(10))
           .pollInterval(Duration.ofSeconds(1))
           .until(() -> emfDocumentFor("external.call.duration", console).isPresent());
     }

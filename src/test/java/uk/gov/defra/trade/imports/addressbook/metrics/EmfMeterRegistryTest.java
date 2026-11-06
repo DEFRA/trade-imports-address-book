@@ -26,11 +26,12 @@ import org.junit.jupiter.api.Test;
 class EmfMeterRegistryTest {
 
   private static final String NAMESPACE = "trade-imports-address-book";
+  private static final Duration STEP = Duration.ofMinutes(1);
 
   private final MockClock clock = new MockClock();
   private final CapturingEmfEnvironment emf = new CapturingEmfEnvironment();
   private final EmfMeterRegistry registry =
-      new EmfMeterRegistry(NAMESPACE, clock, emf::metricsLogger);
+      new EmfMeterRegistry(NAMESPACE, STEP, clock, emf::metricsLogger);
 
   @Test
   void publish_writesEveryTimerValueInMillisecondsWithItsTagsAsTheOnlyDimensions() {
@@ -84,7 +85,7 @@ class EmfMeterRegistryTest {
     Counter counter = Counter.builder("address.change").tag("change", "create").register(registry);
     counter.increment();
     counter.increment();
-    clock.add(EmfMeterRegistry.STEP);
+    clock.add(STEP);
 
     registry.publish();
 
@@ -135,7 +136,7 @@ class EmfMeterRegistryTest {
   void publish_stillWritesTheOtherMeters_whenOneCannotBePublished() {
     Counter.builder("bad.dimension").tag("action", " ").register(registry).increment();
     Timer.builder("service.create.time").register(registry).record(Duration.ofMillis(4));
-    clock.add(EmfMeterRegistry.STEP);
+    clock.add(STEP);
 
     registry.publish();
 
@@ -156,7 +157,7 @@ class EmfMeterRegistryTest {
             TimeUnit.MILLISECONDS)
         .register(registry);
     TimeGauge.builder("process.uptime", () -> 5, TimeUnit.SECONDS).register(registry);
-    clock.add(EmfMeterRegistry.STEP);
+    clock.add(STEP);
 
     registry.publish();
 

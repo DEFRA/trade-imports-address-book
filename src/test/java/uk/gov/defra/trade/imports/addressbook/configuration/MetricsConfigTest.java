@@ -16,7 +16,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.convert.ApplicationConversionService;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.core.convert.ConversionService;
 import uk.gov.defra.trade.imports.addressbook.metrics.EmfMeterRegistry;
 
 @ExtendWith(MockitoExtension.class)
@@ -26,8 +29,12 @@ class MetricsConfigTest {
       new ApplicationContextRunner()
           .withUserConfiguration(MetricsConfig.class)
           .withBean(
+              ConfigurableApplicationContext.CONVERSION_SERVICE_BEAN_NAME,
+              ConversionService.class,
+              ApplicationConversionService::getSharedInstance)
+          .withBean(
               SimpleMeterRegistry.class, SimpleMeterRegistry::new, bean -> bean.setPrimary(true))
-          .withPropertyValues("aws.emf.namespace=test-namespace");
+          .withPropertyValues("aws.emf.namespace=test-namespace", "aws.emf.step=1m");
 
   private MetricsConfig metricsConfig;
   private MeterRegistry meterRegistry;

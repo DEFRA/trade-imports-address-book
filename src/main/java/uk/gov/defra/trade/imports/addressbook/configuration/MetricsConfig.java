@@ -5,6 +5,7 @@ import io.micrometer.core.aop.TimedAspect;
 import io.micrometer.core.instrument.Clock;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.util.NamedThreadFactory;
+import java.time.Duration;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -27,15 +28,16 @@ public class MetricsConfig {
   @ConditionalOnProperty(name = "aws.emf.enabled", havingValue = "true")
   EmfMeterRegistry emfMeterRegistry(
       @Value("${aws.emf.namespace}") String namespace,
+      @Value("${aws.emf.step}") Duration step,
       @Value("${aws.emf.environment:}") String environment) {
     if (!environment.isBlank()) {
       EnvironmentConfigurationProvider.getConfig()
           .setEnvironmentOverride(Environments.valueOf(environment));
       log.info("Writing metrics to the {} EMF environment", environment);
     }
-    EmfMeterRegistry registry = new EmfMeterRegistry(namespace, Clock.SYSTEM, MetricsLogger::new);
+    EmfMeterRegistry registry = new EmfMeterRegistry(namespace, step, Clock.SYSTEM, MetricsLogger::new);
     registry.start(new NamedThreadFactory("emf-meter-registry"));
-    log.info("Publishing metrics to CloudWatch namespace {}", namespace);
+    log.info("Publishing metrics to CloudWatch namespace {} every {}", namespace, step);
     return registry;
   }
 
