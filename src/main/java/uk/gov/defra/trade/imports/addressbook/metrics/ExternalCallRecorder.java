@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class ExternalCallMetrics {
+public class ExternalCallRecorder {
 
   static final String DURATION_METRIC = "external.call.duration";
   static final String FAILURE_METRIC = "external.call.failure";
