@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Registers the gauge {@code external.dependency.available}, tagged {@code dependency}: 1 while the
- * dependency is available, 0 while it is not, and NaN, which is not published, while unknown.
+ * dependency is available, 0 while it is not, and NaN while unknown.
  */
 @Component
 public class DependencyAvailabilityMetrics {
