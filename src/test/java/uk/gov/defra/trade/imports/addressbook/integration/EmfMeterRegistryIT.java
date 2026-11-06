@@ -3,6 +3,7 @@ package uk.gov.defra.trade.imports.addressbook.integration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static uk.gov.defra.trade.imports.addressbook.testsupport.CapturedConsole.captureSystemOut;
+import static uk.gov.defra.trade.imports.addressbook.testsupport.EmfDocuments.namespaceOf;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -66,8 +67,7 @@ class EmfMeterRegistryIT extends IntegrationBase {
     }
 
     JsonNode document = emfDocumentFor("external.call.duration", console).orElseThrow();
-    assertThat(document.path("_aws").path("CloudWatchMetrics").get(0).path("Namespace").asText())
-        .isEqualTo("trade-imports-address-book");
+    assertThat(namespaceOf(document)).isEqualTo("trade-imports-address-book");
     assertThat(document.path("dependency").asText()).isEqualTo("mongodb");
   }
 

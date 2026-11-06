@@ -1,6 +1,9 @@
 package uk.gov.defra.trade.imports.addressbook.metrics;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static uk.gov.defra.trade.imports.addressbook.testsupport.EmfDocuments.dimensionSetsOf;
+import static uk.gov.defra.trade.imports.addressbook.testsupport.EmfDocuments.namespaceOf;
+import static uk.gov.defra.trade.imports.addressbook.testsupport.EmfDocuments.unitOf;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.micrometer.core.instrument.Counter;
@@ -46,10 +49,11 @@ class EmfMeterRegistryTest {
     registry.publish();
 
     JsonNode document = onlyDocumentFor("external.call.duration");
-    JsonNode directive = document.path("_aws").path("CloudWatchMetrics").get(0);
-    assertThat(directive.path("Namespace").asText()).isEqualTo(NAMESPACE);
-    assertThat(directive.path("Metrics").get(0).path("Unit").asText()).isEqualTo("Milliseconds");
-    assertThat(dimensionKeysOf(directive)).containsExactlyInAnyOrder("dependency", "operation");
+    assertThat(namespaceOf(document)).isEqualTo(NAMESPACE);
+    assertThat(unitOf(document)).isEqualTo("Milliseconds");
+    assertThat(dimensionSetsOf(document)).hasSize(1);
+    assertThat(dimensionSetsOf(document).getFirst())
+        .containsExactlyInAnyOrder("dependency", "operation");
     assertThat(document.path("dependency").asText()).isEqualTo("mongodb");
     assertThat(document.path("operation").asText()).isEqualTo("find");
     assertThat(valuesOf(document, "external.call.duration")).containsExactly(2.0, 5.0);
@@ -90,8 +94,7 @@ class EmfMeterRegistryTest {
     registry.publish();
 
     JsonNode document = onlyDocumentFor("address.change");
-    JsonNode directive = document.path("_aws").path("CloudWatchMetrics").get(0);
-    assertThat(directive.path("Metrics").get(0).path("Unit").asText()).isEqualTo("Count");
+    assertThat(unitOf(document)).isEqualTo("Count");
     assertThat(valuesOf(document, "address.change")).containsExactly(2.0);
   }
 
@@ -116,10 +119,7 @@ class EmfMeterRegistryTest {
 
     registry.publish();
 
-    JsonNode directive =
-        onlyDocumentFor("service.list.time").path("_aws").path("CloudWatchMetrics").get(0);
-    assertThat(directive.path("Dimensions")).hasSize(1);
-    assertThat(directive.path("Dimensions").get(0)).isEmpty();
+    assertThat(dimensionSetsOf(onlyDocumentFor("service.list.time"))).containsExactly(List.of());
   }
 
   @Test
@@ -165,12 +165,6 @@ class EmfMeterRegistryTest {
     List<JsonNode> documents = emf.documentsFor(metricName);
     assertThat(documents).hasSize(1);
     return documents.getFirst();
-  }
-
-  private static List<String> dimensionKeysOf(JsonNode directive) {
-    List<String> keys = new ArrayList<>();
-    directive.path("Dimensions").get(0).forEach(key -> keys.add(key.asText()));
-    return keys;
   }
 
   private static List<Double> valuesOf(JsonNode document, String metricName) {
