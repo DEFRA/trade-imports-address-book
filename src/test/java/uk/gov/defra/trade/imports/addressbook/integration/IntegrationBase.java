@@ -73,11 +73,16 @@ abstract class IntegrationBase {
   protected static final String PHONE = AddressTestSupport.SAMPLE_PHONE;
   protected static final String EMAIL = AddressTestSupport.SAMPLE_EMAIL;
 
-  static MongoDBContainer MONGO_CONTAINER = new MongoDBContainer(
-      DockerImageName.parse("mongo:7.0")).withExposedPorts(27017).withReplicaSet();
+  static MongoDBContainer MONGO_CONTAINER = newMongoContainer();
 
   static {
     Startables.deepStart(MONGO_CONTAINER).join();
+  }
+
+  protected static MongoDBContainer newMongoContainer() {
+    return new MongoDBContainer(DockerImageName.parse("mongo:7.0"))
+        .withExposedPorts(27017)
+        .withReplicaSet();
   }
 
   @LocalServerPort

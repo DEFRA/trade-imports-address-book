@@ -11,7 +11,6 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.testcontainers.mongodb.MongoDBContainer;
-import org.testcontainers.utility.DockerImageName;
 import uk.gov.defra.trade.imports.addressbook.metrics.MongoAvailability;
 
 class MongoAvailabilityIT extends IntegrationBase {
@@ -28,7 +27,7 @@ class MongoAvailabilityIT extends IntegrationBase {
   @Test
   void aDatabaseThatStopsIsReportedUnavailable() {
     MongoAvailability availability = new MongoAvailability();
-    try (MongoDBContainer throwaway = new MongoDBContainer(DockerImageName.parse("mongo:7.0"))) {
+    try (MongoDBContainer throwaway = newMongoContainer()) {
       throwaway.start();
       try (MongoClient _ = clientOf(throwaway, availability)) {
         await()
