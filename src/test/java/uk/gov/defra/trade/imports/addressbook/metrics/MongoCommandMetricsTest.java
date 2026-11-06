@@ -13,7 +13,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.concurrent.TimeUnit;
 import org.bson.BsonDocument;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.Test;
 
 class MongoCommandMetricsTest {
@@ -26,14 +26,21 @@ class MongoCommandMetricsTest {
       new MongoCommandMetrics(new ExternalCallRecorder(meterRegistry));
 
   @ParameterizedTest
-  @CsvSource({"find, find", "findAndModify, findAndModify", "createIndexes, createIndexes",
-      "hello, other", "killCursors, other"})
-  void commandSucceeded_recordsTheCommandAsAnOperationOfMongodb(
-      String commandName, String operation) {
+  @ValueSource(strings = {"find", "findAndModify", "createIndexes"})
+  void commandSucceeded_recordsAKnownCommandUnderItsOwnName(String commandName) {
     listener.commandSucceeded(succeeded(commandName, 5));
 
-    assertThat(durationCount(operation)).isEqualTo(1);
-    assertThat(failureTotal(operation)).isZero();
+    assertThat(durationCount(commandName)).isEqualTo(1);
+    assertThat(failureTotal(commandName)).isZero();
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"hello", "killCursors"})
+  void commandSucceeded_recordsAnUnknownCommandAsOther(String commandName) {
+    listener.commandSucceeded(succeeded(commandName, 5));
+
+    assertThat(durationCount("other")).isEqualTo(1);
+    assertThat(failureTotal("other")).isZero();
   }
 
   @Test
