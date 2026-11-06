@@ -91,6 +91,15 @@ management:
     enable:
       all: false
       controller: true
+      service: true
+      external:
+        call:
+          duration: true
+          failure: true
+        dependency:
+          available: true
+      address:
+        change: true
       jvm:
         memory:
           committed: true
