@@ -92,7 +92,58 @@ class MongoCommandMetricsTest {
         .containsEntry("error.message", "closed");
   }
 
+  @Test
+  void commandSucceeded_recordsAReplyWithWriteErrorsAsAFailureNamedByTheirCodes() {
+    BsonDocument reply =
+        BsonDocument.parse(
+            """
+            {ok: 1, n: 0, writeErrors: [{index: 0, code: 11000,
+              errmsg: "E11000 duplicate key error dup key: { postcode: \\"SW1A 1AA\\" }"}]}
+            """);
+
+    List<ILoggingEvent> lines =
+        loggedBy(
+            ExternalCallRecorder.class,
+            () -> listener.commandSucceeded(succeeded("insert", 4, reply)));
+
+    assertThat(durationCount("insert")).isEqualTo(1);
+    assertThat(failureTotal("insert")).isEqualTo(1);
+    assertThat(lines).hasSize(1);
+    assertThat(keyValues(lines.getFirst()))
+        .containsEntry("event.outcome", "failure")
+        .containsEntry("error.type", MongoReplyWriteException.class.getName())
+        .containsEntry("error.message", "writeErrors codes [11000]");
+  }
+
+  @Test
+  void commandSucceeded_recordsAReplyWithAWriteConcernErrorAsAFailureNamedByItsCode() {
+    BsonDocument reply =
+        BsonDocument.parse(
+            """
+            {ok: 1, n: 1, writeConcernError: {code: 64, codeName: "WriteConcernFailed",
+              errmsg: "waiting for replication timed out"}}
+            """);
+
+    List<ILoggingEvent> lines =
+        loggedBy(
+            ExternalCallRecorder.class,
+            () -> listener.commandSucceeded(succeeded("update", 4, reply)));
+
+    assertThat(durationCount("update")).isEqualTo(1);
+    assertThat(failureTotal("update")).isEqualTo(1);
+    assertThat(lines).hasSize(1);
+    assertThat(keyValues(lines.getFirst()))
+        .containsEntry("event.outcome", "failure")
+        .containsEntry("error.type", MongoReplyWriteException.class.getName())
+        .containsEntry("error.message", "writeConcernError code 64 WriteConcernFailed");
+  }
+
   private static CommandSucceededEvent succeeded(String commandName, long elapsedMillis) {
+    return succeeded(commandName, elapsedMillis, BsonDocument.parse("{ok: 1}"));
+  }
+
+  private static CommandSucceededEvent succeeded(
+      String commandName, long elapsedMillis, BsonDocument reply) {
     return new CommandSucceededEvent(
         null,
         1,
@@ -100,7 +151,7 @@ class MongoCommandMetricsTest {
         CONNECTION,
         "trade-imports-address-book",
         commandName,
-        new BsonDocument(),
+        reply,
         TimeUnit.MILLISECONDS.toNanos(elapsedMillis));
   }
 

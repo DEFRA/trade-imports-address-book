@@ -8,9 +8,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.bson.Document;
+import org.bson.types.ObjectId;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import uk.gov.defra.trade.imports.addressbook.testsupport.CapturedConsole;
 
@@ -41,6 +44,18 @@ class ExternalCallRecorderIT extends IntegrationBase {
                     "{find: 'address', filter: {$notAnOperator: 1}}"));
 
     assertThat(failureTotal("find")).isEqualTo(before + 1);
+  }
+
+  @Test
+  void aDuplicateKeyInsertIsRecordedAsAFailureOfInsert() {
+    Document address = new Document("_id", new ObjectId());
+    mongoTemplate.insert(address, "address");
+    double before = failureTotal("insert");
+
+    assertThatExceptionOfType(DuplicateKeyException.class)
+        .isThrownBy(() -> mongoTemplate.insert(address, "address"));
+
+    assertThat(failureTotal("insert")).isEqualTo(before + 1);
   }
 
   @Test

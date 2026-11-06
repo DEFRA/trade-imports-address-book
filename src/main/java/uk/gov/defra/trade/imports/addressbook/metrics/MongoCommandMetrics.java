@@ -10,7 +10,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Records every MongoDB command as an external call to {@code mongodb}, its operation the command
- * name, or {@code other} for a command outside the fixed set.
+ * name, or {@code other} for a command outside the fixed set. A command fails when it errors or
+ * when its reply reports {@code writeErrors} or a {@code writeConcernError}.
  */
 @Component
 @RequiredArgsConstructor
@@ -22,10 +23,13 @@ public class MongoCommandMetrics implements CommandListener {
 
   @Override
   public void commandSucceeded(CommandSucceededEvent event) {
-    externalCallRecorder.recordSuccess(
-        DEPENDENCY,
-        operationOf(event.getCommandName()),
-        Duration.ofNanos(event.getElapsedTime(TimeUnit.NANOSECONDS)));
+    String operation = operationOf(event.getCommandName());
+    Duration elapsed = Duration.ofNanos(event.getElapsedTime(TimeUnit.NANOSECONDS));
+    MongoReplyWriteException.reportedBy(event.getResponse())
+        .ifPresentOrElse(
+            writeFailure ->
+                externalCallRecorder.recordFailure(DEPENDENCY, operation, elapsed, writeFailure),
+            () -> externalCallRecorder.recordSuccess(DEPENDENCY, operation, elapsed));
   }
 
   @Override
