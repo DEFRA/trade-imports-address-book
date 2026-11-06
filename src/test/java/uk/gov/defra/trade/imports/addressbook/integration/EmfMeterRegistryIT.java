@@ -40,7 +40,8 @@ class EmfMeterRegistryIT extends IntegrationBase {
   }
 
   @Test
-  void everyMongoCommandAndAddressChangeMeterIsLetThroughTheAllowlist() throws Exception {
+  void theMetersAnAddressCreateRecordsAndTheDependencyGaugeAreLetThroughTheAllowlist()
+      throws Exception {
     createdAddressId(postAddress(addressBody()));
 
     for (String name :
