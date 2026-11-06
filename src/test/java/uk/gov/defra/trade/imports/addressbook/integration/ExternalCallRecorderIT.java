@@ -2,24 +2,17 @@ package uk.gov.defra.trade.imports.addressbook.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static uk.gov.defra.trade.imports.addressbook.testsupport.CapturedLogs.keyValues;
-import static uk.gov.defra.trade.imports.addressbook.testsupport.CapturedLogs.loggedBy;
+import static uk.gov.defra.trade.imports.addressbook.testsupport.CapturedConsole.captureSystemOut;
 
-import ch.qos.logback.classic.Logger;
-import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.OutputStreamAppender;
-import ch.qos.logback.core.encoder.Encoder;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.util.List;
 import org.junit.jupiter.api.Test;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import uk.gov.defra.trade.imports.addressbook.metrics.ExternalCallRecorder;
+import uk.gov.defra.trade.imports.addressbook.testsupport.CapturedConsole;
 
 class ExternalCallRecorderIT extends IntegrationBase {
 
@@ -52,63 +45,53 @@ class ExternalCallRecorderIT extends IntegrationBase {
 
   @Test
   void theConsoleWritesTheCallLineWithTheTraceIdAndANestedEventObject() throws Exception {
-    List<ILoggingEvent> lines =
-        loggedBy(
-            ExternalCallRecorder.class,
-            () -> {
-              try {
-                mockMvc.perform(
-                    postAddressRequest(addressBody().json())
-                        .header("x-cdp-request-id", "trace-from-the-caller"));
-              } catch (Exception e) {
-                throw new IllegalStateException(e);
-              }
-            });
-    ILoggingEvent insert =
-        lines.stream()
-            .filter(line -> "mongodb/insert".equals(keyValues(line).get("event.action")))
-            .findFirst()
-            .orElseThrow();
+    CapturedConsole console = captureSystemOut();
+    try (console) {
+      mockMvc.perform(
+          postAddressRequest(addressBody().json())
+              .header("x-cdp-request-id", "trace-from-the-caller"));
+    }
 
-    JsonNode encoded = JSON.readTree(consoleEncoder().encode(insert));
+    JsonNode insert = consoleLineWithAction("mongodb/insert", console);
 
-    assertThat(encoded.path("trace.id").asText()).isEqualTo("trace-from-the-caller");
-    assertThat(encoded.path("event").path("category").asText()).isEqualTo("external-call");
-    assertThat(encoded.path("event").path("action").asText()).isEqualTo("mongodb/insert");
-    assertThat(encoded.path("event").path("outcome").asText()).isEqualTo("success");
-    assertThat(encoded.path("event").path("duration").isIntegralNumber()).isTrue();
+    assertThat(insert.path("trace.id").asText()).isEqualTo("trace-from-the-caller");
+    assertThat(insert.path("event").path("category").asText()).isEqualTo("external-call");
+    assertThat(insert.path("event").path("outcome").asText()).isEqualTo("success");
+    assertThat(insert.path("event").path("duration").isIntegralNumber()).isTrue();
   }
 
   @Test
   void theConsoleWritesAFailedCallLineWithTheErrorTypeAndMessageButNoStackTrace()
       throws Exception {
-    List<ILoggingEvent> lines =
-        loggedBy(
-            ExternalCallRecorder.class,
-            () ->
-                assertThatExceptionOfType(DataAccessException.class)
-                    .isThrownBy(
-                        () ->
-                            mongoTemplate.executeCommand(
-                                "{find: 'address', filter: {$notAnOperator: 1}}")));
-    ILoggingEvent failedFind =
-        lines.stream()
-            .filter(line -> "failure".equals(keyValues(line).get("event.outcome")))
-            .findFirst()
-            .orElseThrow();
+    CapturedConsole console = captureSystemOut();
+    try (console) {
+      assertThatExceptionOfType(DataAccessException.class)
+          .isThrownBy(
+              () ->
+                  mongoTemplate.executeCommand(
+                      "{find: 'address', filter: {$notAnOperator: 1}}"));
+    }
 
-    JsonNode encoded = JSON.readTree(consoleEncoder().encode(failedFind));
+    JsonNode failedFind = consoleLineWithAction("mongodb/find", console);
 
-    assertThat(encoded.path("event").path("action").asText()).isEqualTo("mongodb/find");
-    assertThat(encoded.path("error.type").asText()).isEqualTo("com.mongodb.MongoCommandException");
-    assertThat(encoded.path("error.message").asText()).contains("$notAnOperator");
-    assertThat(encoded.has("error.stack_trace")).isFalse();
+    assertThat(failedFind.path("event").path("outcome").asText()).isEqualTo("failure");
+    assertThat(failedFind.path("error.type").asText())
+        .isEqualTo("com.mongodb.MongoCommandException");
+    assertThat(failedFind.path("error.message").asText()).contains("$notAnOperator");
+    assertThat(failedFind.has("error.stack_trace")).isFalse();
   }
 
-  @SuppressWarnings("unchecked")
-  private static Encoder<ILoggingEvent> consoleEncoder() {
-    Logger root = (Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
-    return ((OutputStreamAppender<ILoggingEvent>) root.getAppender("CONSOLE")).getEncoder();
+  private static JsonNode consoleLineWithAction(String action, CapturedConsole console)
+      throws Exception {
+    for (String line : console.text().split("\n")) {
+      if (line.trim().startsWith("{")) {
+        JsonNode json = JSON.readTree(line);
+        if (action.equals(json.path("event").path("action").asText())) {
+          return json;
+        }
+      }
+    }
+    throw new AssertionError("No console line has event.action " + action);
   }
 
   private long durationCount(String operation) {
