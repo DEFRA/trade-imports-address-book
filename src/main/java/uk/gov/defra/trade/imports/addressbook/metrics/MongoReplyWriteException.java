@@ -14,9 +14,10 @@ final class MongoReplyWriteException extends RuntimeException {
 
   static Optional<MongoReplyWriteException> reportedBy(BsonDocument reply) {
     List<String> writeFailures = new ArrayList<>();
-    if (reply.isArray("writeErrors") && !reply.getArray("writeErrors").isEmpty()) {
+    BsonValue writeErrors = reply.get("writeErrors");
+    if (writeErrors != null && writeErrors.isArray() && !writeErrors.asArray().isEmpty()) {
       List<String> codes =
-          reply.getArray("writeErrors").stream()
+          writeErrors.asArray().stream()
               .map(BsonValue::asDocument)
               .map(MongoReplyWriteException::errorCodeOf)
               .toList();
