@@ -14,7 +14,10 @@ public class DependencyAvailabilityMetrics {
   static final String AVAILABLE_METRIC = "external.dependency.available";
 
   DependencyAvailabilityMetrics(MeterRegistry meterRegistry, MongoAvailability mongoAvailability) {
-    Gauge.builder(AVAILABLE_METRIC, mongoAvailability, each -> gaugeValueOf(each.state()))
+    Gauge.builder(
+            AVAILABLE_METRIC,
+            mongoAvailability,
+            availability -> gaugeValueOf(availability.state()))
         .tag("dependency", MongoCommandMetrics.DEPENDENCY)
         .register(meterRegistry);
   }
