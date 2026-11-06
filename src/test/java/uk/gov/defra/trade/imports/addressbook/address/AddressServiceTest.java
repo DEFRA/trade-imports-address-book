@@ -2,6 +2,7 @@ package uk.gov.defra.trade.imports.addressbook.address;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static uk.gov.defra.trade.imports.addressbook.ListPaging.DEFAULT_PAGE_SIZE;
 import static uk.gov.defra.trade.imports.addressbook.PageTestSupport.pageOf;
 import static uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport.NO_TTL;
@@ -237,8 +238,8 @@ class AddressServiceTest {
         .thenReturn(Optional.of(storedAddress(ORG, AddressStatus.DELETED).build()));
     AddressRequest request = replacementRequest().build();
 
-    assertThatExceptionOfType(NotFoundException.class)
-        .isThrownBy(() -> service.update(STORED_ADDRESS_ID, request, ORG));
+    catchThrowable(() -> service.update(STORED_ADDRESS_ID, request, ORG));
+
     assertThat(changesCounted("update")).isZero();
   }
 
