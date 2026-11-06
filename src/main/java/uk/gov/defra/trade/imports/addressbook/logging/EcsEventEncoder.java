@@ -9,38 +9,57 @@ import org.slf4j.event.KeyValuePair;
 /**
  * The ECS encoder, plus a nested {@code event} object built from the line's {@code event.*}
  * key-value pairs. A {@link Number} value is written as a JSON number, and a non-finite one as a
- * string. A line with no {@code event.*} key-value pairs is written exactly as the ECS encoder
+ * string. The line's {@code error.*} key-value pairs are written as top-level fields, unless the
+ * line carries a throwable, whose own ECS {@code error.*} fields are written instead. A line with
+ * no {@code event.*} or {@code error.*} key-value pairs is written exactly as the ECS encoder
  * writes it.
  */
 public class EcsEventEncoder extends EcsEncoder {
 
   private static final String EVENT_PREFIX = "event.";
+  private static final String ERROR_PREFIX = "error.";
 
   @Override
   protected void addCustomFields(ILoggingEvent event, StringBuilder builder) {
     super.addCustomFields(event, builder);
-    List<KeyValuePair> eventFields = eventFields(event);
+    appendEventObject(fieldsStartingWith(EVENT_PREFIX, event), builder);
+    if (event.getThrowableProxy() == null) {
+      appendFlatFields(fieldsStartingWith(ERROR_PREFIX, event), builder);
+    }
+  }
+
+  private static void appendEventObject(List<KeyValuePair> eventFields, StringBuilder builder) {
     if (eventFields.isEmpty()) {
       return;
     }
     builder.append("\"event\":{");
     for (KeyValuePair field : eventFields) {
-      builder.append('"');
-      JsonUtils.quoteAsString(field.key.substring(EVENT_PREFIX.length()), builder);
-      builder.append("\":");
-      appendValue(field.value, builder);
-      builder.append(',');
+      appendField(field.key.substring(EVENT_PREFIX.length()), field.value, builder);
     }
     builder.setLength(builder.length() - 1);
     builder.append("},");
   }
 
-  private static List<KeyValuePair> eventFields(ILoggingEvent event) {
+  private static void appendFlatFields(List<KeyValuePair> fields, StringBuilder builder) {
+    for (KeyValuePair field : fields) {
+      appendField(field.key, field.value, builder);
+    }
+  }
+
+  private static void appendField(String key, Object value, StringBuilder builder) {
+    builder.append('"');
+    JsonUtils.quoteAsString(key, builder);
+    builder.append("\":");
+    appendValue(value, builder);
+    builder.append(',');
+  }
+
+  private static List<KeyValuePair> fieldsStartingWith(String prefix, ILoggingEvent event) {
     List<KeyValuePair> pairs = event.getKeyValuePairs();
     if (pairs == null) {
       return List.of();
     }
-    return pairs.stream().filter(pair -> pair.key.startsWith(EVENT_PREFIX)).toList();
+    return pairs.stream().filter(pair -> pair.key.startsWith(prefix)).toList();
   }
 
   private static void appendValue(Object value, StringBuilder builder) {

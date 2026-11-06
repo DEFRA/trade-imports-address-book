@@ -79,6 +79,32 @@ class ExternalCallMetricsIT extends IntegrationBase {
     assertThat(encoded.path("event").path("duration").isIntegralNumber()).isTrue();
   }
 
+  @Test
+  void theConsoleWritesAFailedCallLineWithTheErrorTypeAndMessageButNoStackTrace()
+      throws Exception {
+    List<ILoggingEvent> lines =
+        loggedBy(
+            ExternalCallMetrics.class,
+            () ->
+                assertThatExceptionOfType(DataAccessException.class)
+                    .isThrownBy(
+                        () ->
+                            mongoTemplate.executeCommand(
+                                "{find: 'address', filter: {$notAnOperator: 1}}")));
+    ILoggingEvent failedFind =
+        lines.stream()
+            .filter(line -> "failure".equals(keyValues(line).get("event.outcome")))
+            .findFirst()
+            .orElseThrow();
+
+    JsonNode encoded = JSON.readTree(consoleEncoder().encode(failedFind));
+
+    assertThat(encoded.path("event").path("action").asText()).isEqualTo("mongodb/find");
+    assertThat(encoded.path("error.type").asText()).isEqualTo("com.mongodb.MongoCommandException");
+    assertThat(encoded.path("error.message").asText()).contains("$notAnOperator");
+    assertThat(encoded.has("error.stack_trace")).isFalse();
+  }
+
   @SuppressWarnings("unchecked")
   private static Encoder<ILoggingEvent> consoleEncoder() {
     Logger root = (Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
