@@ -1,5 +1,6 @@
 package uk.gov.defra.trade.imports.addressbook.metrics;
 
+import com.mongodb.ServerAddress;
 import com.mongodb.connection.ServerConnectionState;
 import com.mongodb.connection.ServerDescription;
 import com.mongodb.event.ClusterDescriptionChangedEvent;
@@ -13,7 +14,7 @@ import org.springframework.stereotype.Component;
  * Whether MongoDB is available, from the servers the driver monitors: available while a connected
  * server accepts writes (a primary, standalone, mongos or load balancer), unavailable once every
  * server has been checked and none accepts writes, and unknown while there are none or one has not
- * been checked yet. Logs each change to available or unavailable.
+ * been checked yet. Logs each change to available or unavailable, naming the servers checked.
  */
 @Slf4j
 @Component
@@ -37,7 +38,7 @@ public class MongoAvailability implements ClusterListener {
     }
     state = reported;
     if (reported == State.AVAILABLE) {
-      log.info("MongoDB is available");
+      log.info("MongoDB is available, servers {}", addressesOf(servers));
     } else if (reported == State.UNAVAILABLE) {
       logUnavailable(servers);
     }
@@ -55,9 +56,11 @@ public class MongoAvailability implements ClusterListener {
 
   private static void logUnavailable(List<ServerDescription> servers) {
     if (servers.stream().anyMatch(MongoAvailability::isConnected)) {
-      log.warn("MongoDB is unavailable: servers are connected but none accepts writes");
+      log.warn(
+          "MongoDB is unavailable: servers {} are connected but none accepts writes",
+          addressesOf(servers));
     } else {
-      log.warn("MongoDB is unavailable", firstFailure(servers));
+      log.warn("MongoDB is unavailable, servers {}", addressesOf(servers), firstFailure(servers));
     }
   }
 
@@ -71,6 +74,10 @@ public class MongoAvailability implements ClusterListener {
 
   private static boolean isConnected(ServerDescription server) {
     return server.getState() == ServerConnectionState.CONNECTED;
+  }
+
+  private static List<ServerAddress> addressesOf(List<ServerDescription> servers) {
+    return servers.stream().map(ServerDescription::getAddress).toList();
   }
 
   private static Throwable firstFailure(List<ServerDescription> servers) {
