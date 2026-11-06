@@ -24,7 +24,17 @@ public class ValueRecordingTimer extends StepTimer {
   @Override
   protected void recordNonNegative(long amount, TimeUnit unit) {
     super.recordNonNegative(amount, unit);
-    recordedNanos.add(unit.toNanos(amount));
+    recordedNanos.add((double) unit.toNanos(amount));
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    return super.equals(other);
+  }
+
+  @Override
+  public int hashCode() {
+    return super.hashCode();
   }
 
   /**

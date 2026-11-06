@@ -24,6 +24,16 @@ public class ValueRecordingDistributionSummary extends StepDistributionSummary {
     recordedAmounts.add(amount);
   }
 
+  @Override
+  public boolean equals(Object other) {
+    return super.equals(other);
+  }
+
+  @Override
+  public int hashCode() {
+    return super.hashCode();
+  }
+
   /**
    * The amounts recorded, already scaled.
    *
