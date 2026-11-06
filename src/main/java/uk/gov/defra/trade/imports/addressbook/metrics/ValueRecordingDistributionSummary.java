@@ -4,6 +4,7 @@ import io.micrometer.core.instrument.Clock;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
 import io.micrometer.core.instrument.step.StepDistributionSummary;
 
+@SuppressWarnings("java:S2160")
 class ValueRecordingDistributionSummary extends StepDistributionSummary {
 
   private final RecordedValues recordedAmounts = new RecordedValues();
@@ -21,16 +22,6 @@ class ValueRecordingDistributionSummary extends StepDistributionSummary {
   protected void recordNonNegative(double amount) {
     super.recordNonNegative(amount);
     recordedAmounts.add(amount);
-  }
-
-  @Override
-  public boolean equals(Object other) {
-    return super.equals(other);
-  }
-
-  @Override
-  public int hashCode() {
-    return super.hashCode();
   }
 
   RecordedValues recordedAmounts() {
