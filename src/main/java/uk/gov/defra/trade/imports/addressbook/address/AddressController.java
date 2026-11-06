@@ -52,7 +52,7 @@ public class AddressController {
 
   private static void authoriseOrg(String orgId, String organisationId) {
     if (!organisationId.equals(orgId)) {
-      throw new NotFoundException("Address not found");
+      throw NotFoundException.organisationMismatch(orgId, organisationId);
     }
   }
 
@@ -291,7 +291,7 @@ public class AddressController {
     Address address =
         addressService
             .get(addressId, organisationId)
-            .orElseThrow(() -> new NotFoundException("Address not found"));
+            .orElseThrow(() -> NotFoundException.addressNotFound(addressId, organisationId));
     return addressMapper.toResponse(address);
   }
 
