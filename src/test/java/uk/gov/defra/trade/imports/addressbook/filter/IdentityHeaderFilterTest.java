@@ -2,24 +2,25 @@ package uk.gov.defra.trade.imports.addressbook.filter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import uk.gov.defra.trade.imports.addressbook.testsupport.CapturedLogs;
 
 class IdentityHeaderFilterTest {
 
@@ -251,21 +252,21 @@ class IdentityHeaderFilterTest {
     request.setServletPath("/organisation/org-1/addresses");
     MockHttpServletResponse response = new MockHttpServletResponse();
 
-    Logger filterLogger = (Logger) LoggerFactory.getLogger(IdentityHeaderFilter.class);
-    ListAppender<ILoggingEvent> appender = new ListAppender<>();
-    appender.start();
-    filterLogger.addAppender(appender);
-
     // When
-    try {
-      filter.doFilter(request, response, new RecordingChain());
-    } finally {
-      filterLogger.detachAppender(appender);
-    }
+    List<ILoggingEvent> events =
+        CapturedLogs.loggedBy(
+            IdentityHeaderFilter.class,
+            () -> {
+              try {
+                filter.doFilter(request, response, new RecordingChain());
+              } catch (IOException | ServletException e) {
+                throw new IllegalStateException(e);
+              }
+            });
 
     // Then
-    assertThat(appender.list).isNotEmpty();
-    assertThat(appender.list)
+    assertThat(events).isNotEmpty();
+    assertThat(events)
         .allSatisfy(
             event -> {
               assertThat(event.getFormattedMessage()).doesNotContain("Highland Livestock Ltd");
