@@ -6,8 +6,7 @@ import io.micrometer.core.instrument.distribution.pause.PauseDetector;
 import io.micrometer.core.instrument.step.StepTimer;
 import java.util.concurrent.TimeUnit;
 
-/** A step timer that also keeps each recorded duration, in nanoseconds, until it is taken. */
-public class ValueRecordingTimer extends StepTimer {
+class ValueRecordingTimer extends StepTimer {
 
   private final RecordedValues recordedNanos = new RecordedValues();
 
@@ -37,12 +36,7 @@ public class ValueRecordingTimer extends StepTimer {
     return super.hashCode();
   }
 
-  /**
-   * The durations recorded.
-   *
-   * @return the recorded durations, in nanoseconds
-   */
-  public RecordedValues recordedNanos() {
+  RecordedValues recordedNanos() {
     return recordedNanos;
   }
 }

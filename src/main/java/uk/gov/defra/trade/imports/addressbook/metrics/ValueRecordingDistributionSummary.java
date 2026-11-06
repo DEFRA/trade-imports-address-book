@@ -4,8 +4,7 @@ import io.micrometer.core.instrument.Clock;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
 import io.micrometer.core.instrument.step.StepDistributionSummary;
 
-/** A step distribution summary that also keeps each recorded amount until it is taken. */
-public class ValueRecordingDistributionSummary extends StepDistributionSummary {
+class ValueRecordingDistributionSummary extends StepDistributionSummary {
 
   private final RecordedValues recordedAmounts = new RecordedValues();
 
@@ -34,12 +33,7 @@ public class ValueRecordingDistributionSummary extends StepDistributionSummary {
     return super.hashCode();
   }
 
-  /**
-   * The amounts recorded, already scaled.
-   *
-   * @return the recorded amounts
-   */
-  public RecordedValues recordedAmounts() {
+  RecordedValues recordedAmounts() {
     return recordedAmounts;
   }
 }
