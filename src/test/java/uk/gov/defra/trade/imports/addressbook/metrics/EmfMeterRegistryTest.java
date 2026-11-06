@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.FunctionCounter;
+import io.micrometer.core.instrument.FunctionTimer;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.LongTaskTimer;
 import io.micrometer.core.instrument.MockClock;
@@ -143,9 +144,16 @@ class EmfMeterRegistryTest {
   }
 
   @Test
-  void publish_skipsLongTaskTimersFunctionCountersAndTimeGauges() {
+  void publish_skipsLongTaskTimersFunctionCountersFunctionTimersAndTimeGauges() {
     LongTaskTimer.builder("long.task.timer").register(registry).start();
     FunctionCounter.builder("function.counter", new AtomicInteger(5), AtomicInteger::get)
+        .register(registry);
+    FunctionTimer.builder(
+            "function.timer",
+            new AtomicInteger(5),
+            AtomicInteger::get,
+            AtomicInteger::get,
+            TimeUnit.MILLISECONDS)
         .register(registry);
     TimeGauge.builder("process.uptime", () -> 5, TimeUnit.SECONDS).register(registry);
     clock.add(EmfMeterRegistry.STEP);
