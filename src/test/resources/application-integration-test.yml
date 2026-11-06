@@ -35,7 +35,6 @@ aws:
   region: ${AWS_REGION:eu-west-2}
   emf:
     enabled: ${AWS_EMF_ENABLED:false}
-    environment: ${AWS_EMF_ENVIRONMENT:Local}
     namespace: ${AWS_EMF_NAMESPACE:}
     service:
       name: ${AWS_EMF_SERVICE_NAME:trade-imports-address-book}
