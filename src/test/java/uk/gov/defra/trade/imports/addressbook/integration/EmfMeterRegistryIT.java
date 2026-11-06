@@ -2,14 +2,12 @@ package uk.gov.defra.trade.imports.addressbook.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static uk.gov.defra.trade.imports.addressbook.testsupport.CapturedConsole.captureSystemOut;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.PrintStream;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
@@ -19,6 +17,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
 import uk.gov.defra.trade.imports.addressbook.metrics.EmfMeterRegistry;
+import uk.gov.defra.trade.imports.addressbook.testsupport.CapturedConsole;
 
 @TestPropertySource(
     properties = {
@@ -56,18 +55,14 @@ class EmfMeterRegistryIT extends IntegrationBase {
 
   @Test
   void theRegistryPublishesARecordedCallOnItsOwnScheduleWithin2Minutes() throws Exception {
-    ByteArrayOutputStream console = new ByteArrayOutputStream();
-    PrintStream originalOut = System.out;
-    System.setOut(new PrintStream(console, true, StandardCharsets.UTF_8));
-    try {
+    CapturedConsole console = captureSystemOut();
+    try (console) {
       createdAddressId(postAddress(addressBody()));
 
       await()
           .atMost(Duration.ofMinutes(2))
           .pollInterval(Duration.ofSeconds(1))
           .until(() -> emfDocumentFor("external.call.duration", console).isPresent());
-    } finally {
-      System.setOut(originalOut);
     }
 
     JsonNode document = emfDocumentFor("external.call.duration", console).orElseThrow();
@@ -76,9 +71,9 @@ class EmfMeterRegistryIT extends IntegrationBase {
     assertThat(document.path("dependency").asText()).isEqualTo("mongodb");
   }
 
-  private static Optional<JsonNode> emfDocumentFor(String metricName, ByteArrayOutputStream console)
+  private static Optional<JsonNode> emfDocumentFor(String metricName, CapturedConsole console)
       throws IOException {
-    for (String line : console.toString(StandardCharsets.UTF_8).split("\n")) {
+    for (String line : console.text().split("\n")) {
       if (line.contains("\"_aws\"") && line.contains("\"" + metricName + "\"")) {
         return Optional.of(JSON.readTree(line));
       }
