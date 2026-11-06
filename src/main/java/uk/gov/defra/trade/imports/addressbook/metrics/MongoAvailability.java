@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
  * Whether MongoDB is available, from the servers the driver monitors: available while a connected
  * server accepts writes (a primary, standalone, mongos or load balancer), unavailable once every
  * server has been checked and none accepts writes, and unknown while there are none or one has not
- * been checked yet. Logs each change to available or unavailable, naming the servers checked.
+ * been checked yet. Logs each change of state, naming the servers monitored.
  */
 @Slf4j
 @Component
@@ -35,12 +35,14 @@ public class MongoAvailability implements ClusterListener {
     State reported = stateOf(servers);
     if (reported == state) {
       return;
-    }
-    state = reported;
-    if (reported == State.AVAILABLE) {
-      log.info("MongoDB is available, servers {}", addressesOf(servers));
-    } else if (reported == State.UNAVAILABLE) {
-      logUnavailable(servers);
+    }    state = reported;
+    switch (reported) {
+      case AVAILABLE -> log.info("MongoDB is available, servers {}", addressesOf(servers));
+      case UNAVAILABLE -> logUnavailable(servers);
+      case UNKNOWN ->
+          log.warn(
+              "MongoDB availability is unknown until every server is checked, servers {}",
+              addressesOf(servers));
     }
   }
 

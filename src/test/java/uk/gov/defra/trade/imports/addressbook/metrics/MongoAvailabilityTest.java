@@ -149,6 +149,27 @@ class MongoAvailabilityTest {
   }
 
   @Test
+  void clusterDescriptionChanged_turnsUnknownLoggingOnceAtWarnNamingTheServers_fromAvailable() {
+    report(availability, primary(FIRST), primary(SECOND));
+
+    List<ILoggingEvent> lines =
+        loggedBy(
+            MongoAvailability.class,
+            () -> {
+              report(availability, unchecked(FIRST), unchecked(SECOND));
+              report(availability, unchecked(FIRST), unchecked(SECOND));
+            });
+
+    assertThat(availability.state()).isEqualTo(MongoAvailability.State.UNKNOWN);
+    assertThat(lines).hasSize(1);
+    assertThat(lines.getFirst().getLevel()).isEqualTo(Level.WARN);
+    assertThat(lines.getFirst().getFormattedMessage())
+        .isEqualTo(
+            "MongoDB availability is unknown until every server is checked, servers"
+                + " [mongo-1:27017, mongo-2:27017]");
+  }
+
+  @Test
   void clusterDescriptionChanged_logsNothing_whileAnotherServerStillAcceptsWrites() {
     report(availability, primary(FIRST), primary(SECOND));
 
