@@ -1,10 +1,21 @@
 package uk.gov.defra.trade.imports.addressbook.integration;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport.NO_LIST_CRITERIA;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.UncheckedIOException;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.bson.Document;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,19 +24,26 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.lang.Nullable;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.ResultMatcher;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.mongodb.MongoDBContainer;
 import org.testcontainers.utility.DockerImageName;
 import uk.gov.defra.trade.imports.addressbook.Application;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
+import uk.gov.defra.trade.imports.addressbook.address.AddressRole;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
-import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
+import uk.gov.defra.trade.imports.addressbook.address.AddressRepository;
+import uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport;
 
 @SpringBootTest(
     classes = Application.class,
@@ -39,6 +57,29 @@ abstract class IntegrationBase {
   protected static final String OTHER_ORG = "9c1b7e3f-0a2d-5c88-5a8d-2b196f4e4d21";
   protected static final String UNKNOWN_ID = "665f1c2ab3e4d51a2c9d0e77";
 
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+  private static final String ADDRESSES_PATH = "/organisation/{orgId}/addresses";
+  private static final String ADDRESS_PATH = ADDRESSES_PATH + "/{address-id}";
+
+  protected static final String VALIDATION_ERROR_TYPE =
+      "https://api.cdp.defra.cloud/problems/validation-error";
+
+  protected static final String NAME = AddressTestSupport.SAMPLE_NAME;
+  protected static final String ADDRESS_LINE_1 = AddressTestSupport.SAMPLE_ADDRESS_LINE_1;
+  protected static final String TOWN_OR_CITY = AddressTestSupport.SAMPLE_TOWN_OR_CITY;
+  protected static final String POSTCODE = AddressTestSupport.SAMPLE_POSTCODE;
+  protected static final String COUNTRY_CODE = AddressTestSupport.SAMPLE_COUNTRY_CODE;
+  protected static final String PHONE = AddressTestSupport.SAMPLE_PHONE;
+  protected static final String EMAIL = AddressTestSupport.SAMPLE_EMAIL;
+
+  static MongoDBContainer MONGO_CONTAINER = new MongoDBContainer(
+      DockerImageName.parse("mongo:7.0")).withExposedPorts(27017).withReplicaSet();
+
+  static {
+    Startables.deepStart(MONGO_CONTAINER).join();
+  }
+
   @LocalServerPort
   int port;
 
@@ -49,49 +90,7 @@ abstract class IntegrationBase {
   private MongoTemplate mongoTemplate;
 
   @Autowired
-  protected OperatorRepository operatorRepository;
-
-  protected static Address.AddressBuilder addressBuilder(
-      String organisationId, AddressStatus status) {
-    return Address.builder()
-        .name("Highland Livestock Ltd")
-        .addressLine1("14 Drover's Way")
-        .townOrCity("Inverness")
-        .postcode("IV2 3JH")
-        .countryCode("GB")
-        .phone("+44 1463 234567")
-        .email("exports@highlandlivestock.example.com")
-        .organisationId(organisationId)
-        .status(status);
-  }
-
-  protected Address saveAddress(Address.AddressBuilder address) {
-    return operatorRepository.save(address.build());
-  }
-
-  protected List<Address> activeAddressesFor(String organisationId) {
-    return operatorRepository
-        .findByOrganisationIdAndStatus(
-            organisationId, AddressStatus.ACTIVE, PageRequest.of(0, 100))
-        .getContent();
-  }
-
-  protected static ResultMatcher badRequestProblemWithNoErrors() {
-    return ResultMatcher.matchAll(
-        status().isBadRequest(),
-        header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE),
-        jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/bad-request"),
-        jsonPath("$.title").value("Bad Request"),
-        jsonPath("$.status").value(400),
-        jsonPath("$.errors").doesNotExist());
-  }
-
-  static MongoDBContainer MONGO_CONTAINER = new MongoDBContainer(
-      DockerImageName.parse("mongo:7.0")).withExposedPorts(27017).withReplicaSet();
-
-  static {
-    Startables.deepStart(MONGO_CONTAINER).join();
-  }
+  protected AddressRepository addressRepository;
 
   @DynamicPropertySource
   static void setProperties(DynamicPropertyRegistry registry) {
@@ -105,5 +104,204 @@ abstract class IntegrationBase {
         .getDb()
         .listCollectionNames()
         .forEach(name -> mongoTemplate.getCollection(name).deleteMany(new Document()));
+  }
+
+  protected static Address.AddressBuilder addressBuilder(
+      String organisationId, AddressStatus status) {
+    return Address.builder()
+        .name(NAME)
+        .addressLine1(ADDRESS_LINE_1)
+        .townOrCity(TOWN_OR_CITY)
+        .postcode(POSTCODE)
+        .countryCode(COUNTRY_CODE)
+        .phone(PHONE)
+        .email(EMAIL)
+        .organisationId(organisationId)
+        .status(status);
+  }
+
+  protected static Address.AddressBuilder addressHolding(
+      String organisationId, AddressRole... roles) {
+    return addressBuilder(organisationId, AddressStatus.ACTIVE).roles(List.of(roles));
+  }
+
+  protected static AddressBody addressBody() {
+    return new AddressBody();
+  }
+
+  protected Address saveAddress(Address.AddressBuilder address) {
+    return addressRepository.save(address.build());
+  }
+
+  protected long storedAddressCount() {
+    return mongoTemplate.count(new Query(), Address.class);
+  }
+
+  protected List<Address> activeAddressesFor(String organisationId) {
+    return addressRepository
+        .listLiveAddresses(organisationId, NO_LIST_CRITERIA, PageRequest.of(0, 100))
+        .getContent();
+  }
+
+  protected static MockHttpServletRequestBuilder postAddressRequest(String json) {
+    return withJson(
+        addressesRequest(HttpMethod.POST, ORGANISATION_ID, ADDRESSES_PATH, ORGANISATION_ID), json);
+  }
+
+  protected ResultActions postAddress(AddressBody body) throws Exception {
+    return postAddress(body.json());
+  }
+
+  protected ResultActions postAddress(String json) throws Exception {
+    return mockMvc.perform(postAddressRequest(json));
+  }
+
+  protected ResultActions postAddressAs(String orgId, String callerOrganisationId, AddressBody body)
+      throws Exception {
+    return mockMvc.perform(
+        withJson(
+            addressesRequest(HttpMethod.POST, callerOrganisationId, ADDRESSES_PATH, orgId),
+            body.json()));
+  }
+
+  protected ResultActions putAddress(String addressId, AddressBody body) throws Exception {
+    return putAddress(addressId, body.json());
+  }
+
+  protected ResultActions putAddress(String addressId, String json) throws Exception {
+    return putAddressAs(ORGANISATION_ID, ORGANISATION_ID, addressId, json);
+  }
+
+  protected ResultActions putAddressAs(
+      String orgId, String callerOrganisationId, String addressId, AddressBody body)
+      throws Exception {
+    return putAddressAs(orgId, callerOrganisationId, addressId, body.json());
+  }
+
+  private ResultActions putAddressAs(
+      String orgId, String callerOrganisationId, String addressId, String json) throws Exception {
+    return mockMvc.perform(
+        withJson(
+            addressesRequest(HttpMethod.PUT, callerOrganisationId, ADDRESS_PATH, orgId, addressId),
+            json));
+  }
+
+  protected ResultActions listAddresses(String... queryParameterNamesAndValues) throws Exception {
+    MockHttpServletRequestBuilder request =
+        addressesRequest(HttpMethod.GET, ORGANISATION_ID, ADDRESSES_PATH, ORGANISATION_ID);
+    for (int i = 0; i < queryParameterNamesAndValues.length; i += 2) {
+      request = request.param(queryParameterNamesAndValues[i], queryParameterNamesAndValues[i + 1]);
+    }
+    return mockMvc.perform(request);
+  }
+
+  protected ResultActions listAddressesAs(String orgId, String callerOrganisationId)
+      throws Exception {
+    return mockMvc.perform(
+        addressesRequest(HttpMethod.GET, callerOrganisationId, ADDRESSES_PATH, orgId));
+  }
+
+  protected static Set<String> readIds(String body) throws Exception {
+    Set<String> ids = new HashSet<>();
+    JsonNode items = OBJECT_MAPPER.readTree(body).get("items");
+    items.forEach(item -> ids.add(item.get("id").asText()));
+    return ids;
+  }
+
+  protected static MockHttpServletRequestBuilder getAddressRequest(String addressId) {
+    return addressesRequest(
+        HttpMethod.GET, ORGANISATION_ID, ADDRESS_PATH, ORGANISATION_ID, addressId);
+  }
+
+  protected ResultActions getAddress(String addressId) throws Exception {
+    return mockMvc.perform(getAddressRequest(addressId));
+  }
+
+  protected ResultActions getAddressAs(String orgId, String callerOrganisationId, String addressId)
+      throws Exception {
+    return mockMvc.perform(
+        addressesRequest(HttpMethod.GET, callerOrganisationId, ADDRESS_PATH, orgId, addressId));
+  }
+
+  protected ResultActions deleteAddress(String addressId) throws Exception {
+    return deleteAddressAs(ORGANISATION_ID, ORGANISATION_ID, addressId);
+  }
+
+  protected ResultActions deleteAddressAs(
+      String orgId, String callerOrganisationId, String addressId) throws Exception {
+    return mockMvc.perform(
+        addressesRequest(
+            HttpMethod.DELETE, callerOrganisationId, ADDRESS_PATH, orgId, addressId));
+  }
+
+  private static MockHttpServletRequestBuilder addressesRequest(
+      HttpMethod method,
+      @Nullable String callerOrganisationId,
+      String path,
+      Object... pathVariables) {
+    MockHttpServletRequestBuilder request = request(method, path, pathVariables);
+    return callerOrganisationId == null
+        ? request
+        : request.header(ORG_HEADER, callerOrganisationId);
+  }
+
+  private static MockHttpServletRequestBuilder withJson(
+      MockHttpServletRequestBuilder request, String json) {
+    return request.contentType(MediaType.APPLICATION_JSON).content(json);
+  }
+
+  protected String createdAddressId(ResultActions created) throws Exception {
+    String location =
+        created.andExpect(status().isCreated()).andReturn().getResponse().getHeader("Location");
+    assertThat(location).isNotNull();
+    return location.substring(location.lastIndexOf('/') + 1);
+  }
+
+  protected static ResultMatcher badRequestProblemWithNoErrors() {
+    return ResultMatcher.matchAll(
+        status().isBadRequest(),
+        header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE),
+        jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/bad-request"),
+        jsonPath("$.title").value("Bad Request"),
+        jsonPath("$.status").value(400),
+        jsonPath("$.errors").doesNotExist());
+  }
+
+  protected static final class AddressBody {
+
+    private final Map<String, Object> fields = new LinkedHashMap<>();
+
+    private AddressBody() {
+      fields.put("name", NAME);
+      fields.put("addressLine1", ADDRESS_LINE_1);
+      fields.put("townOrCity", TOWN_OR_CITY);
+      fields.put("postcode", POSTCODE);
+      fields.put("countryCode", COUNTRY_CODE);
+      fields.put("phone", PHONE);
+      fields.put("email", EMAIL);
+      fields.put("roles", List.of("PLACE_OF_ORIGIN"));
+    }
+
+    AddressBody without(String field) {
+      fields.remove(field);
+      return this;
+    }
+
+    AddressBody with(String field, Object value) {
+      fields.put(field, value);
+      return this;
+    }
+
+    AddressBody blank(String field) {
+      return with(field, "");
+    }
+
+    String json() {
+      try {
+        return OBJECT_MAPPER.writeValueAsString(fields);
+      } catch (JsonProcessingException e) {
+        throw new UncheckedIOException(e);
+      }
+    }
   }
 }

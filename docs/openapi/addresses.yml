@@ -9,7 +9,7 @@ tags:
 - name: addresses
   description: Address book, scoped to the caller's organisation
 paths:
-  /organisation/{orgId}/addresses/{operator-id}:
+  /organisation/{orgId}/addresses/{address-id}:
     get:
       tags:
       - addresses
@@ -26,7 +26,7 @@ paths:
         required: true
         schema:
           type: string
-      - name: operator-id
+      - name: address-id
         in: path
         required: true
         schema:
@@ -37,7 +37,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OperatorResponse'
+                $ref: '#/components/schemas/AddressResponse'
         '404':
           description: Unknown id, or an id outside the caller's organisation scope
           content:
@@ -68,7 +68,7 @@ paths:
         required: true
         schema:
           type: string
-      - name: operator-id
+      - name: address-id
         in: path
         required: true
         schema:
@@ -85,7 +85,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OperatorResponse'
+                $ref: '#/components/schemas/AddressResponse'
         '400':
           description: Validation error, or a missing org header
           content:
@@ -131,7 +131,7 @@ paths:
         required: true
         schema:
           type: string
-      - name: operator-id
+      - name: address-id
         in: path
         required: true
         schema:
@@ -197,25 +197,43 @@ paths:
           minimum: 1
       - name: q
         in: query
+        description: Case-insensitive partial-word search over name, address line 1, address line 2, town or city, county and postcode. An address matching q, a countryCode or a searchRole is returned.
         required: false
         schema:
           type: string
       - name: countryCode
         in: query
+        description: ISO alpha-2 country codes. Repeatable. An address in any of them matches the search, as one matching q or a searchRole does.
         required: false
         schema:
           type: array
           items:
             type: string
+      - name: role
+        in: query
+        description: Keeps only addresses holding any of these roles. Repeatable. Narrows the search (q, countryCode and searchRole); an address with no roles never matches. An unknown value is refused with 400.
+        required: false
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/AddressRole'
+      - name: searchRole
+        in: query
+        description: 'Roles that make an address match the search: an address holding any of them matches, as one matching q or countryCode does. Repeatable. An unknown value is refused with 400.'
+        required: false
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/AddressRole'
       responses:
         '200':
           description: One page of the caller's live addresses
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OperatorPageResponse'
+                $ref: '#/components/schemas/AddressPageResponse'
         '400':
-          description: An out-of-range or non-numeric page or page size, or a missing org header
+          description: An out-of-range or non-numeric page or page size, an unknown role or search role, or a missing org header
           content:
             application/problem+json:
               schema:
@@ -268,7 +286,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OperatorResponse'
+                $ref: '#/components/schemas/AddressResponse'
         '400':
           description: Validation error, or a missing identity header
           content:
@@ -302,13 +320,13 @@ components:
           description: Display name for the address
           example: Highland Livestock Ltd
           maxLength: 255
-          minLength: 1
+          minLength: 0
         addressLine1:
           type: string
           description: First line of the postal address
           example: 14 Drover's Way
           maxLength: 255
-          minLength: 1
+          minLength: 0
         addressLine2:
           type: string
           description: Second line of the postal address
@@ -319,7 +337,7 @@ components:
           description: Town or city
           example: Inverness
           maxLength: 100
-          minLength: 1
+          minLength: 0
         county:
           type: string
           description: County or region
@@ -330,10 +348,10 @@ components:
           description: Postal or ZIP code
           example: IV2 3JH
           maxLength: 12
-          minLength: 1
+          minLength: 0
         countryCode:
           type: string
-          description: Country code (stored as-given)
+          description: Country code (stored as given). GB when the address holds a CONSIGNEE, IMPORTER or PLACE_OF_DESTINATION role
           example: GB
           minLength: 1
         phone:
@@ -341,13 +359,19 @@ components:
           description: Contact telephone number
           example: +44 1463 234567
           maxLength: 20
-          minLength: 1
+          minLength: 0
         email:
           type: string
           description: Contact email address
           example: exports@highlandlivestock.example.com
           maxLength: 254
-          minLength: 1
+          minLength: 0
+        roles:
+          type: array
+          description: 'The roles a notification can choose this address for. Duplicates collapse. Every role must come from one group: sending (PLACE_OF_ORIGIN, CONSIGNOR), receiving (CONSIGNEE, IMPORTER, PLACE_OF_DESTINATION) or branch (BRANCH_ADDRESS)'
+          items:
+            $ref: '#/components/schemas/AddressRole'
+          minItems: 1
       required:
       - addressLine1
       - countryCode
@@ -355,8 +379,19 @@ components:
       - name
       - phone
       - postcode
+      - roles
       - townOrCity
-    OperatorResponse:
+    AddressRole:
+      type: string
+      description: 'A role a notification can choose this address for: a party, or a place'
+      enum:
+      - PLACE_OF_ORIGIN
+      - CONSIGNOR
+      - PLACE_OF_DESTINATION
+      - CONSIGNEE
+      - IMPORTER
+      - BRANCH_ADDRESS
+    AddressResponse:
       description: An address in the caller's organisation-scoped address book
       properties:
         id:
@@ -391,6 +426,11 @@ components:
         email:
           type: string
           description: Contact email address
+        roles:
+          type: array
+          description: The roles a notification can choose this address for; empty when it has none
+          items:
+            $ref: '#/components/schemas/AddressRole'
         organisationId:
           type: string
           description: Organisation that owns this address
@@ -461,14 +501,14 @@ components:
       - status
       - title
       - type
-    OperatorPageResponse:
+    AddressPageResponse:
       description: Paginated list of live addresses (never a bare array)
       properties:
         items:
           type: array
           description: Addresses on this page
           items:
-            $ref: '#/components/schemas/OperatorResponse'
+            $ref: '#/components/schemas/AddressResponse'
         page:
           type: integer
           format: int32

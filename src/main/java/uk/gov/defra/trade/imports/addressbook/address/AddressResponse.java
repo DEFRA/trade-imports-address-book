@@ -1,7 +1,9 @@
 package uk.gov.defra.trade.imports.addressbook.address;
 
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 import lombok.Builder;
 
@@ -12,11 +14,12 @@ import lombok.Builder;
  * enum.
  *
  * <p>Every field except {@code addressLine2} and {@code county} is required: the compact
- * constructor throws {@link NullPointerException} when one is null.
+ * constructor throws {@link NullPointerException} when one is null, except {@code roles}, which
+ * reads as empty.
  */
 @Builder
 @Schema(description = "An address in the caller's organisation-scoped address book")
-public record OperatorResponse(
+public record AddressResponse(
     @Schema(
             description = "Opaque address identifier",
             requiredMode = Schema.RequiredMode.REQUIRED,
@@ -41,6 +44,15 @@ public record OperatorResponse(
         String phone,
     @Schema(description = "Contact email address", requiredMode = Schema.RequiredMode.REQUIRED)
         String email,
+    @ArraySchema(
+            schema = @Schema(implementation = AddressRole.class),
+            arraySchema =
+                @Schema(
+                    description =
+                        "The roles a notification can choose this address for; empty when it has"
+                            + " none",
+                    requiredMode = Schema.RequiredMode.REQUIRED))
+        List<AddressRole> roles,
     @Schema(
             description = "Organisation that owns this address",
             requiredMode = Schema.RequiredMode.REQUIRED)
@@ -60,7 +72,7 @@ public record OperatorResponse(
             format = "date-time")
         Instant modifiedAt) {
 
-  public OperatorResponse {
+  public AddressResponse {
     Objects.requireNonNull(id, "id");
     Objects.requireNonNull(name, "name");
     Objects.requireNonNull(addressLine1, "addressLine1");
@@ -72,5 +84,6 @@ public record OperatorResponse(
     Objects.requireNonNull(organisationId, "organisationId");
     Objects.requireNonNull(createdAt, "createdAt");
     Objects.requireNonNull(modifiedAt, "modifiedAt");
+    roles = roles == null ? List.of() : List.copyOf(roles);
   }
 }

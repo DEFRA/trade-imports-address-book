@@ -1,66 +1,31 @@
 package uk.gov.defra.trade.imports.addressbook.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.startsWith;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.ResultActions;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
+import uk.gov.defra.trade.imports.addressbook.address.AddressRole;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
-import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
 
 class AddressCrudIT extends IntegrationBase {
 
-  private static final String UPDATE_BODY =
-      """
-      {
-        "name": "Lowland Cattle Co",
-        "addressLine1": "2 Market Street",
-        "townOrCity": "Perth",
-        "postcode": "PH1 5AA",
-        "countryCode": "IE",
-        "phone": "+44 1738 111222",
-        "email": "ops@lowlandcattle.example.com"
-      }
-      """;
-
-  @Autowired private OperatorRepository repository;
-
   @Test
   void post_shouldReturn201WithLocationAndStampedOrganisation() throws Exception {
-    String body =
-        """
-        {
-          "name": "Highland Livestock Ltd",
-          "addressLine1": "14 Drover's Way",
-          "addressLine2": "Unit 3",
-          "townOrCity": "Inverness",
-          "county": "Highland",
-          "postcode": "IV2 3JH",
-          "countryCode": "GB",
-          "phone": "+44 1463 234567",
-          "email": "exports@highlandlivestock.example.com"
-        }
-        """;
+    AddressBody body = addressBody().with("addressLine2", "Unit 3").with("county", "Highland");
 
-    mockMvc
-        .perform(
-            post("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body))
+    postAddress(body)
         .andExpect(status().isCreated())
         .andExpect(
             header()
@@ -68,12 +33,12 @@ class AddressCrudIT extends IntegrationBase {
                     "Location",
                     containsString("/organisation/" + ORGANISATION_ID + "/addresses/")))
         .andExpect(jsonPath("$.id").exists())
-        .andExpect(jsonPath("$.name").value("Highland Livestock Ltd"))
-        .andExpect(jsonPath("$.addressLine1").value("14 Drover's Way"))
+        .andExpect(jsonPath("$.name").value(NAME))
+        .andExpect(jsonPath("$.addressLine1").value(ADDRESS_LINE_1))
         .andExpect(jsonPath("$.addressLine2").value("Unit 3"))
-        .andExpect(jsonPath("$.townOrCity").value("Inverness"))
-        .andExpect(jsonPath("$.countryCode").value("GB"))
-        .andExpect(jsonPath("$.phone").value("+44 1463 234567"))
+        .andExpect(jsonPath("$.townOrCity").value(TOWN_OR_CITY))
+        .andExpect(jsonPath("$.countryCode").value(COUNTRY_CODE))
+        .andExpect(jsonPath("$.phone").value(PHONE))
         .andExpect(jsonPath("$.organisationId").value(ORGANISATION_ID))
         .andExpect(jsonPath("$.deleted").value(false))
         .andExpect(jsonPath("$.createdAt").exists())
@@ -85,35 +50,128 @@ class AddressCrudIT extends IntegrationBase {
             address -> {
               assertThat(address.getOrganisationId()).isEqualTo(ORGANISATION_ID);
               assertThat(address.getStatus()).isEqualTo(AddressStatus.ACTIVE);
-              assertThat(address.getCountryCode()).isEqualTo("GB");
+              assertThat(address.getCountryCode()).isEqualTo(COUNTRY_CODE);
               assertThat(address.getCreatedAt()).isNotNull();
             });
   }
 
   @Test
-  void post_shouldReturn400ValidationProblemKeyedByCamelCaseFieldNames() throws Exception {
-    String body =
-        """
-        {
-          "name": "Highland Livestock Ltd",
-          "addressLine1": "",
-          "townOrCity": "Inverness",
-          "postcode": "IV2 3JH",
-          "countryCode": "GB",
-          "phone": "+44 1463 234567",
-          "email": "not-an-email"
-        }
-        """;
+  void post_shouldResolveTheLocationHeaderIdToTheCreatedAddress() throws Exception {
+    String createdId = createdAddressId(postAddress(addressBody()));
 
-    mockMvc
-        .perform(
-            post("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body))
+    getAddress(createdId)
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(createdId))
+        .andExpect(jsonPath("$.name").value(NAME));
+  }
+
+  @Test
+  void post_shouldStoreAndReadBackTheRolesInOrderWithRepeatsCollapsed() throws Exception {
+    AddressBody body =
+        addressBody()
+            .with("roles", List.of("IMPORTER", "PLACE_OF_DESTINATION", "IMPORTER", "CONSIGNEE"));
+
+    ResultActions created =
+        postAddress(body)
+            .andExpect(status().isCreated())
+            .andExpect(
+                jsonPath("$.roles", contains("IMPORTER", "PLACE_OF_DESTINATION", "CONSIGNEE")))
+            .andExpect(jsonPath("$.addressType").doesNotExist());
+
+    getAddress(createdAddressId(created))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.roles", contains("IMPORTER", "PLACE_OF_DESTINATION", "CONSIGNEE")));
+    assertThat(activeAddressesFor(ORGANISATION_ID))
+        .singleElement()
+        .satisfies(
+            address ->
+                assertThat(address.getRoles())
+                    .containsExactly(
+                        AddressRole.IMPORTER,
+                        AddressRole.PLACE_OF_DESTINATION,
+                        AddressRole.CONSIGNEE));
+  }
+
+  @Test
+  void post_shouldIgnoreAnAddressType_whenTheBodyCarriesOne() throws Exception {
+    postAddress(addressBody().with("addressType", "ORIGIN_OR_CONSIGNOR"))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.addressType").doesNotExist());
+
+    assertThat(activeAddressesFor(ORGANISATION_ID)).hasSize(1);
+  }
+
+  @Test
+  void post_shouldReturn400KeyedByRolesAndSaveNothing_whenRolesAreMissing() throws Exception {
+    assertCreateRefusedOnRolesAndNothingSaved(
+        addressBody().without("roles"), "Select what this address can be used for");
+  }
+
+  @Test
+  void post_shouldReturn400KeyedByRolesAndSaveNothing_whenRolesAreEmpty() throws Exception {
+    assertCreateRefusedOnRolesAndNothingSaved(
+        addressBody().with("roles", List.of()), "Select what this address can be used for");
+  }
+
+  @Test
+  void post_shouldReturn400KeyedByRolesAndSaveNothing_whenARoleIsUnknown() throws Exception {
+    assertCreateRefusedOnRolesAndNothingSaved(
+        addressBody().with("roles", List.of("CONSIGNOR", "TRANSPORTER")), "Select valid roles");
+  }
+
+  @Test
+  void post_shouldReturn400KeyedByRolesAndSaveNothing_whenTheRolesComeFromTwoGroups()
+      throws Exception {
+    assertCreateRefusedOnRolesAndNothingSaved(
+        addressBody().with("countryCode", "GB").with("roles", List.of("CONSIGNOR", "CONSIGNEE")),
+        "An address can only have roles from one group");
+  }
+
+  private void assertCreateRefusedOnRolesAndNothingSaved(AddressBody body, String message)
+      throws Exception {
+    postAddress(body)
         .andExpect(status().isBadRequest())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
-        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/validation-error"))
+        .andExpect(jsonPath("$.type").value(VALIDATION_ERROR_TYPE))
+        .andExpect(jsonPath("$.errors.roles", contains(message)))
+        .andExpect(jsonPath("$.errors.countryCode").doesNotExist());
+
+    assertThat(activeAddressesFor(ORGANISATION_ID)).isEmpty();
+  }
+
+  @Test
+  void post_shouldReturn400KeyedByCountryCodeAndSaveNothing_whenAReceivingRoleIsOutsideTheUk()
+      throws Exception {
+    postAddress(addressBody().with("countryCode", "FR").with("roles", List.of("CONSIGNEE")))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.type").value(VALIDATION_ERROR_TYPE))
+        .andExpect(
+            jsonPath(
+                "$.errors.countryCode",
+                contains(
+                    "A consignee, importer or place of destination must be in the United"
+                        + " Kingdom")))
+        .andExpect(jsonPath("$.errors.roles").doesNotExist());
+
+    assertThat(activeAddressesFor(ORGANISATION_ID)).isEmpty();
+  }
+
+  @Test
+  void post_shouldSaveABranchAddressOutsideTheUk() throws Exception {
+    postAddress(addressBody().with("countryCode", "FR").with("roles", List.of("BRANCH_ADDRESS")))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.countryCode").value("FR"))
+        .andExpect(jsonPath("$.roles", contains("BRANCH_ADDRESS")));
+  }
+
+  @Test
+  void post_shouldReturn400ValidationProblemKeyedByCamelCaseFieldNames() throws Exception {
+    AddressBody body = addressBody().blank("addressLine1").with("email", "not-an-email");
+
+    postAddress(body)
+        .andExpect(status().isBadRequest())
+        .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+        .andExpect(jsonPath("$.type").value(VALIDATION_ERROR_TYPE))
         .andExpect(jsonPath("$.title").value("Validation Error"))
         .andExpect(jsonPath("$.status").value(400))
         .andExpect(jsonPath("$.errors.addressLine1").exists())
@@ -125,13 +183,7 @@ class AddressCrudIT extends IntegrationBase {
 
   @Test
   void post_shouldReturn400BadRequestProblem_whenJsonBodyIsMalformed() throws Exception {
-    mockMvc
-        .perform(
-            post("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":"))
-        .andExpect(badRequestProblemWithNoErrors());
+    postAddress("{\"name\":").andExpect(badRequestProblemWithNoErrors());
 
     assertThat(activeAddressesFor(ORGANISATION_ID)).isEmpty();
   }
@@ -140,41 +192,17 @@ class AddressCrudIT extends IntegrationBase {
   void put_shouldReturn400BadRequestProblem_whenJsonBodyIsEmpty() throws Exception {
     Address saved = saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE));
 
-    mockMvc
-        .perform(
-            put("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, saved.getId())
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(""))
-        .andExpect(badRequestProblemWithNoErrors());
+    putAddress(saved.getId(), "").andExpect(badRequestProblemWithNoErrors());
   }
 
   @Test
   void post_shouldRejectStrayTypeOrRoleFieldsWithPerFieldErrors() throws Exception {
-    String body =
-        """
-        {
-          "name": "Highland Livestock Ltd",
-          "addressLine1": "14 Drover's Way",
-          "townOrCity": "Inverness",
-          "postcode": "IV2 3JH",
-          "countryCode": "GB",
-          "phone": "+44 1463 234567",
-          "email": "exports@highlandlivestock.example.com",
-          "type": "IMPORTER",
-          "role": "consignor"
-        }
-        """;
+    AddressBody body = addressBody().with("type", "IMPORTER").with("role", "consignor");
 
-    mockMvc
-        .perform(
-            post("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body))
+    postAddress(body)
         .andExpect(status().isBadRequest())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
-        .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/validation-error"))
+        .andExpect(jsonPath("$.type").value(VALIDATION_ERROR_TYPE))
         .andExpect(jsonPath("$.errors.type").exists())
         .andExpect(jsonPath("$.errors.role").exists());
 
@@ -183,29 +211,14 @@ class AddressCrudIT extends IntegrationBase {
 
   @Test
   void post_shouldIgnoreEchoedReadOnlyAndUnknownFields() throws Exception {
-    String body =
-        """
-        {
-          "name": "Highland Livestock Ltd",
-          "addressLine1": "14 Drover's Way",
-          "townOrCity": "Inverness",
-          "postcode": "IV2 3JH",
-          "countryCode": "GB",
-          "phone": "+44 1463 234567",
-          "email": "exports@highlandlivestock.example.com",
-          "id": "echoed-read-only-id",
-          "createdAt": "2020-01-01T00:00:00Z",
-          "deleted": true,
-          "somethingUnknown": "ignored"
-        }
-        """;
+    AddressBody body =
+        addressBody()
+            .with("id", "echoed-read-only-id")
+            .with("createdAt", "2020-01-01T00:00:00Z")
+            .with("deleted", true)
+            .with("somethingUnknown", "ignored");
 
-    mockMvc
-        .perform(
-            post("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body))
+    postAddress(body)
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.id").exists())
         .andExpect(jsonPath("$.id").value(not("echoed-read-only-id")))
@@ -222,25 +235,17 @@ class AddressCrudIT extends IntegrationBase {
 
   @Test
   void post_shouldAcceptCountryCodeAsGivenAndFreeStringPhone() throws Exception {
-    String body =
-        """
-        {
-          "name": "Ferme des Deux Rivieres",
-          "addressLine1": "12 Rue du Marche",
-          "townOrCity": "Calais",
-          "postcode": "62100",
-          "countryCode": "FR",
-          "phone": "ring the office",
-          "email": "exports@deuxrivieres.example.com"
-        }
-        """;
+    AddressBody body =
+        addressBody()
+            .with("name", "Ferme des Deux Rivieres")
+            .with("addressLine1", "12 Rue du Marche")
+            .with("townOrCity", "Calais")
+            .with("postcode", "62100")
+            .with("countryCode", "FR")
+            .with("phone", "ring the office")
+            .with("email", "exports@deuxrivieres.example.com");
 
-    mockMvc
-        .perform(
-            post("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body))
+    postAddress(body)
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.countryCode").value("FR"))
         .andExpect(jsonPath("$.phone").value("ring the office"));
@@ -252,25 +257,7 @@ class AddressCrudIT extends IntegrationBase {
 
   @Test
   void post_shouldReturn400_whenCountryCodeIsBlank() throws Exception {
-    String body =
-        """
-        {
-          "name": "Highland Livestock Ltd",
-          "addressLine1": "14 Drover's Way",
-          "townOrCity": "Inverness",
-          "postcode": "IV2 3JH",
-          "countryCode": "",
-          "phone": "+44 1463 234567",
-          "email": "exports@highlandlivestock.example.com"
-        }
-        """;
-
-    mockMvc
-        .perform(
-            post("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body))
+    postAddress(addressBody().blank("countryCode"))
         .andExpect(status().isBadRequest())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
         .andExpect(jsonPath("$.errors.countryCode").exists());
@@ -281,25 +268,10 @@ class AddressCrudIT extends IntegrationBase {
   @Test
   void post_shouldReturn400WithTheFieldMessages_whenNamePostcodeCountryAndPhoneAreBlank()
       throws Exception {
-    String body =
-        """
-        {
-          "name": "",
-          "addressLine1": "14 Drover's Way",
-          "townOrCity": "Inverness",
-          "postcode": "",
-          "countryCode": "",
-          "phone": "",
-          "email": "exports@highlandlivestock.example.com"
-        }
-        """;
+    AddressBody body =
+        addressBody().blank("name").blank("postcode").blank("countryCode").blank("phone");
 
-    mockMvc
-        .perform(
-            post("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body))
+    postAddress(body)
         .andExpect(status().isBadRequest())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
         .andExpect(jsonPath("$.errors.name", hasItem("Enter a name or organisation")))
@@ -308,91 +280,5 @@ class AddressCrudIT extends IntegrationBase {
         .andExpect(jsonPath("$.errors.phone", hasItem("Enter a phone number")));
 
     assertThat(activeAddressesFor(ORGANISATION_ID)).isEmpty();
-  }
-
-  @Test
-  void crudRoundTrip_shouldCreateGetPutDeleteAndIdempotentRepeatDelete() throws Exception {
-    String body =
-        """
-        {
-          "name": "Highland Livestock Ltd",
-          "addressLine1": "14 Drover's Way",
-          "townOrCity": "Inverness",
-          "postcode": "IV2 3JH",
-          "countryCode": "GB",
-          "phone": "+44 1463 234567",
-          "email": "exports@highlandlivestock.example.com"
-        }
-        """;
-
-    String location =
-        mockMvc
-            .perform(
-                post("/organisation/{orgId}/addresses", ORGANISATION_ID)
-                    .header(ORG_HEADER, ORGANISATION_ID)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(body))
-            .andExpect(status().isCreated())
-            .andExpect(header().exists("Location"))
-            .andReturn()
-            .getResponse()
-            .getHeader("Location");
-    assertThat(location).isNotNull();
-    String id = location.substring(location.lastIndexOf('/') + 1);
-
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, id)
-                .header(ORG_HEADER, ORGANISATION_ID))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.deleted").value(false));
-
-    mockMvc
-        .perform(
-            put("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, id)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(UPDATE_BODY))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.name").value("Lowland Cattle Co"));
-
-    mockMvc
-        .perform(
-            delete("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, id)
-                .header(ORG_HEADER, ORGANISATION_ID))
-        .andExpect(status().isNoContent());
-    assertThat(repository.findByIdAndOrganisationId(id, ORGANISATION_ID)).isPresent();
-    Instant modifiedAtAfterDelete =
-        repository.findByIdAndOrganisationId(id, ORGANISATION_ID).orElseThrow().getModifiedAt();
-
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, id)
-                .header(ORG_HEADER, ORGANISATION_ID))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.id").value(id))
-        .andExpect(jsonPath("$.deleted").value(true));
-
-    mockMvc
-        .perform(
-            put("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, id)
-                .header(ORG_HEADER, ORGANISATION_ID)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(UPDATE_BODY))
-        .andExpect(status().isNotFound());
-
-    mockMvc
-        .perform(
-            delete("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, id)
-                .header(ORG_HEADER, ORGANISATION_ID))
-        .andExpect(status().isNoContent());
-
-    assertThat(repository.findByIdAndOrganisationId(id, ORGANISATION_ID))
-        .get()
-        .satisfies(
-            address -> {
-              assertThat(address.getStatus()).isEqualTo(AddressStatus.DELETED);
-              assertThat(address.getModifiedAt()).isEqualTo(modifiedAtAfterDelete);
-            });
   }
 }

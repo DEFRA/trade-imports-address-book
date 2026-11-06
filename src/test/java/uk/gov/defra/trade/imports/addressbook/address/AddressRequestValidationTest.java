@@ -1,11 +1,14 @@
 package uk.gov.defra.trade.imports.addressbook.address;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport.validRequest;
 
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterAll;
@@ -15,19 +18,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-/**
- * Field-table validation matrix for {@link AddressRequest}. Pins the Bean Validation contract of
- * the create/update body against the Standard Address Block field table: every mandatory field,
- * every max-length, and the email format leg.
- *
- * <p>{@code countryCode} is stored as-given with presence-only validation.
- *
- * <p>{@code type} and {@code role} are {@code @Null}: the book is untyped/unroled, so a supplied
- * value is a violation on that field, while their absence (the normal case) is valid.
- *
- * <p>Keys here are the Java property paths (e.g. {@code addressLine1}); the wire keys are identical
- * (camelCase).
- */
 class AddressRequestValidationTest {
 
   private static ValidatorFactory factory;
@@ -44,27 +34,14 @@ class AddressRequestValidationTest {
     factory.close();
   }
 
-  private static AddressRequest.AddressRequestBuilder validRequest() {
-    return AddressRequest.builder()
-        .name("Highland Livestock Ltd")
-        .addressLine1("14 Drover's Way")
-        .townOrCity("Inverness")
-        .postcode("IV2 3JH")
-        .countryCode("GB")
-        .phone("+44 1463 234567")
-        .email("exports@highlandlivestock.example.com");
-  }
-
   private static String repeat(int length) {
     return "a".repeat(length);
   }
 
-  /** Format-valid email one character over the 254-char @Size limit (local part within RFC 64). */
   private static String overLengthValidEmail() {
     return repeat(64) + "@" + repeat(63) + "." + repeat(63) + "." + repeat(62);
   }
 
-  /** Format-valid email at exactly the 254-char @Size limit. */
   private static String maxLengthValidEmail() {
     return repeat(64) + "@" + repeat(63) + "." + repeat(63) + "." + repeat(61);
   }
@@ -78,7 +55,6 @@ class AddressRequestValidationTest {
 
   static Stream<Arguments> invalidFields() {
     return Stream.of(
-        // missing mandatory
         Arguments.of(
             "blank name",
             validRequest().name("").build(),
@@ -108,7 +84,6 @@ class AddressRequestValidationTest {
             "blank phone", validRequest().phone("").build(), "phone", "Enter a phone number"),
         Arguments.of(
             "blank email", validRequest().email("").build(), "email", "Enter an email address"),
-        // over max length
         Arguments.of(
             "over-length name",
             validRequest().name(repeat(256)).build(),
@@ -149,13 +124,71 @@ class AddressRequestValidationTest {
             validRequest().email(overLengthValidEmail()).build(),
             "email",
             "Email address must be 254 characters or less"),
-        // format
         Arguments.of(
             "malformed email",
             validRequest().email("not-an-email").build(),
             "email",
             "Enter an email address in the correct format"),
-        // untyped/unroled — a stray type/role is a per-field violation
+        Arguments.of(
+            "missing roles",
+            validRequest().roles(null).build(),
+            "roles",
+            "Select what this address can be used for"),
+        Arguments.of(
+            "empty roles",
+            validRequest().roles(List.of()).build(),
+            "roles",
+            "Select what this address can be used for"),
+        Arguments.of(
+            "unknown role",
+            validRequest().roles(List.of("CONSIGNOR", "TRANSPORTER")).build(),
+            "roles",
+            "Select valid roles"),
+        Arguments.of(
+            "lower-case role",
+            validRequest().roles(List.of("consignor")).build(),
+            "roles",
+            "Select valid roles"),
+        Arguments.of(
+            "null role",
+            validRequest().roles(Arrays.asList("CONSIGNOR", null)).build(),
+            "roles",
+            "Select valid roles"),
+        Arguments.of(
+            "blank role",
+            validRequest().roles(List.of("CONSIGNOR", " ")).build(),
+            "roles",
+            "Select valid roles"),
+        Arguments.of(
+            "sending and receiving roles",
+            validRequest().roles(List.of("PLACE_OF_ORIGIN", "CONSIGNEE")).build(),
+            "roles",
+            "An address can only have roles from one group"),
+        Arguments.of(
+            "receiving and branch roles",
+            validRequest().roles(List.of("IMPORTER", "BRANCH_ADDRESS")).build(),
+            "roles",
+            "An address can only have roles from one group"),
+        Arguments.of(
+            "sending and branch roles",
+            validRequest().roles(List.of("CONSIGNOR", "BRANCH_ADDRESS")).build(),
+            "roles",
+            "An address can only have roles from one group"),
+        Arguments.of(
+            "receiving role outside the United Kingdom",
+            validRequest().roles(List.of("PLACE_OF_DESTINATION")).countryCode("FR").build(),
+            "countryCode",
+            "A consignee, importer or place of destination must be in the United Kingdom"),
+        Arguments.of(
+            "receiving role with a blank countryCode",
+            validRequest().roles(List.of("PLACE_OF_DESTINATION")).countryCode("").build(),
+            "countryCode",
+            "Select a country"),
+        Arguments.of(
+            "receiving role with no countryCode",
+            validRequest().roles(List.of("PLACE_OF_DESTINATION")).countryCode(null).build(),
+            "countryCode",
+            "Select a country"),
         Arguments.of(
             "stray type",
             validRequest().type("IMPORTER").build(),
@@ -168,18 +201,16 @@ class AddressRequestValidationTest {
             "role is not a supported field"));
   }
 
-  @ParameterizedTest(name = "{0} -> violation on {2}: {3}")
+  @ParameterizedTest(name = "{0} -> only violation on {2}: {3}")
   @MethodSource("invalidFields")
-  void invalidFieldProducesAViolationOnThatFieldWithTheDeclaredMessage(
+  void validate_producesOnlyTheDeclaredMessageOnAnInvalidField(
       String description, AddressRequest request, String expectedProperty, String expectedMessage) {
     Set<ConstraintViolation<AddressRequest>> violations = validator.validate(request);
 
     assertThat(violations)
-        .anySatisfy(
-            violation -> {
-              assertThat(violation.getPropertyPath().toString()).isEqualTo(expectedProperty);
-              assertThat(violation.getMessage()).isEqualTo(expectedMessage);
-            });
+        .filteredOn(violation -> violation.getPropertyPath().toString().equals(expectedProperty))
+        .extracting(ConstraintViolation::getMessage)
+        .containsExactly(expectedMessage);
   }
 
   static Stream<Arguments> fieldsAtMaximumLength() {
@@ -203,15 +234,49 @@ class AddressRequestValidationTest {
   }
 
   @Test
-  void countryCodeIsPresenceOnlyAndAcceptsAnyNonBlankValueRegardlessOfLength() {
+  void countryCodeOfASendingAddressIsPresenceOnlyAndAcceptsAnyNonBlankValue() {
     AddressRequest request = validRequest().countryCode(repeat(50)).build();
 
     assertThat(validator.validate(request)).isEmpty();
   }
 
+  static Stream<Arguments> rolesHeldTogetherInTheirOwnCountries() {
+    return Stream.of(
+        Arguments.of(List.of("PLACE_OF_ORIGIN", "CONSIGNOR"), "FR"),
+        Arguments.of(List.of("CONSIGNEE", "IMPORTER", "PLACE_OF_DESTINATION"), "GB"),
+        Arguments.of(List.of("BRANCH_ADDRESS"), "GB"),
+        Arguments.of(List.of("BRANCH_ADDRESS"), "IE"));
+  }
+
+  @ParameterizedTest(name = "{0} in {1} has no violations")
+  @MethodSource("rolesHeldTogetherInTheirOwnCountries")
+  void validate_findsNoViolationForRolesOneAddressCanHoldTogether(
+      List<String> roles, String countryCode) {
+    AddressRequest request = validRequest().roles(roles).countryCode(countryCode).build();
+
+    assertThat(validator.validate(request)).isEmpty();
+  }
+
+  @Test
+  void validate_reportsNoRoleGroupOrCountryViolationForAnUnknownRoleAlone() {
+    AddressRequest request =
+        validRequest().roles(List.of("TRANSPORTER")).countryCode("FR").build();
+
+    assertThat(validator.validate(request))
+        .extracting(violation -> violation.getPropertyPath().toString())
+        .containsExactly("roles");
+  }
+
+  @Test
+  void roles_collapseRepeatsToTheFirstOfEach() {
+    AddressRequest request =
+        validRequest().roles(List.of("CONSIGNOR", "PLACE_OF_ORIGIN", "CONSIGNOR")).build();
+
+    assertThat(request.roles()).containsExactly("CONSIGNOR", "PLACE_OF_ORIGIN");
+  }
+
   @Test
   void phoneIsNotFormatValidatedSoAFreeStringIsAccepted() {
-    // Phone keeps @NotBlank/@Size only — no format check.
     AddressRequest request = validRequest().phone("call the office").build();
 
     assertThat(validator.validate(request)).isEmpty();

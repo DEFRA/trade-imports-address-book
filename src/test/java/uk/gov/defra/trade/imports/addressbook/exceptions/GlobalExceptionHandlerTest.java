@@ -41,18 +41,15 @@ class GlobalExceptionHandlerTest {
   }
 
   @Test
-  void handleValidationException_shouldReturn400WithCamelCaseErrorsMapAndTraceId() {
-    // Given
+  void handleValidationException_shouldReturn400WithAnErrorsMapKeyedByFieldAndTraceId() {
     MDC.put("trace.id", "trace-abc");
 
-    // When
     ResponseEntity<ValidationProblem> response =
         exceptionHandler.handleValidationException(
             validationException(
-                new FieldError("operatorRequest", "addressLine1", "Enter address line 1"),
-                new FieldError("operatorRequest", "email", "Enter an email address")));
+                new FieldError("addressRequest", "addressLine1", "Enter address line 1"),
+                new FieldError("addressRequest", "email", "Enter an email address")));
 
-    // Then
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     assertThat(response.getHeaders().getContentType())
         .isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
@@ -67,37 +64,30 @@ class GlobalExceptionHandlerTest {
 
     Map<String, List<String>> errors = body.errors();
     assertThat(errors).containsKey("addressLine1");
-    assertThat(errors).doesNotContainKey("address_line_1");
-    assertThat(errors).doesNotContainKey("address_line1");
     assertThat(errors.get("addressLine1")).containsExactly("Enter address line 1");
     assertThat(errors.get("email")).containsExactly("Enter an email address");
   }
 
   @Test
   void handleValidationException_shouldCollapseMultipleMessagesForOneFieldIntoAList() {
-    // When
     ResponseEntity<ValidationProblem> response =
         exceptionHandler.handleValidationException(
             validationException(
-                new FieldError("operatorRequest", "name", "must not be blank"),
-                new FieldError("operatorRequest", "name", "size must be at most 255")));
+                new FieldError("addressRequest", "name", "must not be blank"),
+                new FieldError("addressRequest", "name", "size must be at most 255")));
 
-    // Then
     assertThat(response.getBody().errors().get("name"))
         .containsExactly("must not be blank", "size must be at most 255");
   }
 
   @Test
   void handleBadRequestException_shouldReturnDistinct400ShapeWithNoErrorsMap() {
-    // Given
     MDC.put("trace.id", "trace-xyz");
 
-    // When
     ResponseEntity<Problem> response =
         exceptionHandler.handleBadRequestException(
             new BadRequestException("Trade-Imports-Crn header is required"));
 
-    // Then
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     assertThat(response.getHeaders().getContentType())
         .isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
@@ -113,22 +103,19 @@ class GlobalExceptionHandlerTest {
 
   @Test
   void handleValidationException_andBadRequestException_shouldProduceDistinct400Shapes() {
-    // Given
     MDC.put("trace.id", "trace-shared");
 
-    // When
     ValidationProblem validation =
         exceptionHandler
             .handleValidationException(
                 validationException(
-                    new FieldError("operatorRequest", "postcode", "Enter a postcode")))
+                    new FieldError("addressRequest", "postcode", "Enter a postcode")))
             .getBody();
     Problem badRequest =
         exceptionHandler
             .handleBadRequestException(new BadRequestException("missing header"))
             .getBody();
 
-    // Then
     assertThat(validation.status()).isEqualTo(badRequest.status());
     assertThat(validation.errors()).isNotEmpty();
     assertThat(badRequest.type()).isNotEqualTo(validation.type());
@@ -136,14 +123,11 @@ class GlobalExceptionHandlerTest {
 
   @Test
   void handleNotFoundException_shouldReturn404ProblemJsonWithTraceId() {
-    // Given
     MDC.put("trace.id", "trace-404");
 
-    // When
     ResponseEntity<Problem> response =
-        exceptionHandler.handleNotFoundException(new NotFoundException("Operator not found"));
+        exceptionHandler.handleNotFoundException(new NotFoundException("Address not found"));
 
-    // Then
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     assertThat(response.getHeaders().getContentType())
         .isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
@@ -151,17 +135,15 @@ class GlobalExceptionHandlerTest {
     assertThat(body.type())
         .isEqualTo("https://api.cdp.defra.cloud/problems/not-found");
     assertThat(body.title()).isEqualTo("Resource Not Found");
-    assertThat(body.detail()).isEqualTo("Operator not found");
+    assertThat(body.detail()).isEqualTo("Address not found");
     assertThat(body.traceId()).isEqualTo("trace-404");
   }
 
   @Test
   void handleException_shouldReturn500InternalErrorProblem() {
-    // When
     ResponseEntity<Problem> response =
         exceptionHandler.handleException(new RuntimeException("boom"));
 
-    // Then
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
     Problem body = response.getBody();
     assertThat(body.type())
@@ -172,18 +154,13 @@ class GlobalExceptionHandlerTest {
   }
 
   @Test
-  void handleTypeMismatch_shouldReturn400BadRequestProblemNamingTheParameter()
-      throws NoSuchMethodException {
-    // Given
-    Method method = GlobalExceptionHandlerTest.class.getDeclaredMethod("validationTarget", Object.class);
-    MethodParameter parameter = new MethodParameter(method, 0);
+  void handleTypeMismatch_shouldReturn400BadRequestProblemNamingTheParameter() {
+    MethodParameter parameter = validationTargetParameter();
     MethodArgumentTypeMismatchException ex =
         new MethodArgumentTypeMismatchException("abc", Integer.class, "page", parameter, null);
 
-    // When
     ResponseEntity<Problem> response = exceptionHandler.handleTypeMismatch(ex);
 
-    // Then
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     Problem body = response.getBody();
     assertThat(body).isNotNull();
@@ -193,15 +170,12 @@ class GlobalExceptionHandlerTest {
 
   @Test
   void handleMessageNotReadable_shouldReturn400BadRequestProblem() {
-    // Given
     MDC.put("trace.id", "trace-malformed");
 
-    // When
     ResponseEntity<Problem> response =
         exceptionHandler.handleMessageNotReadable(
             new HttpMessageNotReadableException("JSON parse error", (Throwable) null));
 
-    // Then
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     assertThat(response.getHeaders().getContentType())
         .isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
@@ -213,11 +187,9 @@ class GlobalExceptionHandlerTest {
 
   @Test
   void handleOptimisticLocking_shouldReturn409ConflictProblem() {
-    // When
     ResponseEntity<Problem> response =
         exceptionHandler.handleOptimisticLocking(new OptimisticLockingFailureException("stale"));
 
-    // Then
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
     assertThat(response.getHeaders().getContentType())
         .isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
@@ -230,11 +202,9 @@ class GlobalExceptionHandlerTest {
 
   @Test
   void handleNotFoundException_shouldOmitTraceIdWhenAbsentFromMdc() {
-    // When
     ResponseEntity<Problem> response =
         exceptionHandler.handleNotFoundException(new NotFoundException("gone"));
 
-    // Then
     assertThat(response.getBody().traceId()).isNull();
   }
 

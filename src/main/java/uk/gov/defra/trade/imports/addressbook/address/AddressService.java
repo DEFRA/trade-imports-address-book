@@ -4,6 +4,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -20,24 +21,24 @@ import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
 /** Lists, creates, reads, updates and soft-deletes an organisation's addresses. */
 @Service
 @Slf4j
-public class OperatorService {
+public class AddressService {
 
   static final int MIN_PAGE_SIZE = 1;
   static final int MAX_PAGE_SIZE = 100;
   public static final int DEFAULT_PAGE_SIZE = 25;
 
-  private final OperatorRepository repository;
-  private final OperatorMapper operatorMapper;
+  private final AddressRepository repository;
+  private final AddressMapper addressMapper;
   private final MeterRegistry meterRegistry;
   private final AddressTtlConfig ttlConfig;
 
-  public OperatorService(
-      OperatorRepository repository,
-      OperatorMapper operatorMapper,
+  public AddressService(
+      AddressRepository repository,
+      AddressMapper addressMapper,
       MeterRegistry meterRegistry,
       AddressTtlConfig ttlConfig) {
     this.repository = repository;
-    this.operatorMapper = operatorMapper;
+    this.addressMapper = addressMapper;
     this.meterRegistry = meterRegistry;
     this.ttlConfig = ttlConfig;
   }
@@ -49,20 +50,13 @@ public class OperatorService {
    * @param page the 1-based page number
    * @param requestedPageSize the page size from {@link #MIN_PAGE_SIZE} to {@link #MAX_PAGE_SIZE},
    *     or null for {@link #DEFAULT_PAGE_SIZE}
-   * @param q optional case-insensitive partial-word search over name, address line 1, address line
-   *     2, town or city, county and postcode
-   * @param countryCodes optional ISO alpha-2 country codes; an address in any of them matches. With
-   *     {@code q}, an address matching either {@code q} or one of these codes is returned
+   * @param filters the request's filters, each optional
    * @return one page of live addresses with pagination metadata
    * @throws BadRequestException if {@code page} is less than 1 or {@code requestedPageSize} is
    *     outside {@link #MIN_PAGE_SIZE} to {@link #MAX_PAGE_SIZE}
    */
-  public OperatorPageResponse list(
-      String organisationId,
-      int page,
-      Integer requestedPageSize,
-      String q,
-      List<String> countryCodes) {
+  public AddressPageResponse list(
+      String organisationId, int page, Integer requestedPageSize, RequestedListFilters filters) {
     if (page < 1) {
       throw new BadRequestException("page must be 1 or greater");
     }
@@ -76,10 +70,11 @@ public class OperatorService {
 
     Timer.Sample sample = Timer.start(meterRegistry);
     try {
-      Page<Address> result = queryPage(organisationId, q, countryCodes, pageable);
-      List<OperatorResponse> items =
-          result.getContent().stream().map(operatorMapper::toResponse).toList();
-      return new OperatorPageResponse(
+      Page<Address> result =
+          repository.listLiveAddresses(organisationId, criteriaOf(filters), pageable);
+      List<AddressResponse> items =
+          result.getContent().stream().map(addressMapper::toResponse).toList();
+      return new AddressPageResponse(
           items, page, pageSize, (int) result.getTotalElements(), result.getTotalPages());
     } finally {
       sample.stop(meterRegistry.timer("controller.listOperators.query.time"));
@@ -97,47 +92,26 @@ public class OperatorService {
     return requestedPageSize;
   }
 
-  private Page<Address> queryPage(
-      String organisationId, String q, List<String> countryCodes, Pageable pageable) {
-    List<String> searchedCountryCodes = nonBlankTrimmed(countryCodes);
-    boolean hasQuery = q != null && !q.isBlank();
-    boolean hasCountryCodes = !searchedCountryCodes.isEmpty();
-
-    if (!hasQuery && !hasCountryCodes) {
-      return repository.findByOrganisationIdAndStatus(
-          organisationId, AddressStatus.ACTIVE, pageable);
-    }
-
-    if (hasQuery && hasCountryCodes) {
-      return repository.searchByQueryOrAnyCountryCode(
-          organisationId,
-          AddressStatus.ACTIVE,
-          toPartialMatchRegex(q),
-          searchedCountryCodes,
-          pageable);
-    }
-
-    if (hasQuery) {
-      return repository.searchByQuery(
-          organisationId, AddressStatus.ACTIVE, toPartialMatchRegex(q), pageable);
-    }
-
-    return repository.searchByAnyCountryCode(
-        organisationId, AddressStatus.ACTIVE, searchedCountryCodes, pageable);
+  private static ListCriteria criteriaOf(RequestedListFilters requested) {
+    return new ListCriteria(requested.roles(), matchesOf(requested));
   }
 
-  private static List<String> nonBlankTrimmed(List<String> countryCodes) {
-    if (countryCodes == null) {
-      return List.of();
+  private static List<ListCriteria.Match> matchesOf(RequestedListFilters requested) {
+    List<ListCriteria.Match> matches = new ArrayList<>();
+    if (!requested.searchTerm().isEmpty()) {
+      matches.add(new ListCriteria.TextMatching(toPartialMatchRegex(requested.searchTerm())));
     }
-    return countryCodes.stream()
-        .filter(code -> code != null && !code.isBlank())
-        .map(String::trim)
-        .toList();
+    if (!requested.countryCodes().isEmpty()) {
+      matches.add(new ListCriteria.InCountries(requested.countryCodes()));
+    }
+    if (!requested.searchRoles().isEmpty()) {
+      matches.add(new ListCriteria.HoldingAnyRole(requested.searchRoles()));
+    }
+    return matches;
   }
 
-  private static String toPartialMatchRegex(String q) {
-    return ".*" + Pattern.quote(q.trim()) + ".*";
+  private static String toPartialMatchRegex(String searchTerm) {
+    return ".*" + Pattern.quote(searchTerm) + ".*";
   }
 
   /**
@@ -150,7 +124,7 @@ public class OperatorService {
    * @return the saved address, with its assigned id and timestamps
    */
   public Address create(AddressRequest request, String organisationId) {
-    Address address = operatorMapper.toEntity(request);
+    Address address = addressMapper.toEntity(request);
     address.setOrganisationId(organisationId);
     address.setStatus(AddressStatus.ACTIVE);
     stampExpiry(address);
@@ -199,7 +173,7 @@ public class OperatorService {
             .filter(address -> address.getStatus() != AddressStatus.DELETED)
             .orElseThrow(() -> new NotFoundException("Address not found"));
 
-    operatorMapper.updateEntity(request, existing);
+    addressMapper.updateEntity(request, existing);
 
     Address saved = repository.save(existing);
     log.info("Updated address {}", saved.getId());

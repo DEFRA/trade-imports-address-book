@@ -18,7 +18,7 @@ import org.springframework.context.annotation.Configuration;
 public class JacksonConfig {
 
   @Bean
-  Jackson2ObjectMapperBuilderCustomizer camelCaseNamingStrategy() {
+  public Jackson2ObjectMapperBuilderCustomizer apiJsonConventions() {
     return builder ->
         builder
             .propertyNamingStrategy(PropertyNamingStrategies.LOWER_CAMEL_CASE)

@@ -97,10 +97,11 @@ isolation relies entirely on a trusted-forwarded-header contract:
 reads this header on every `/organisation/**` request and scopes all reads and writes to that
 organisation id.
 
-`OperatorRepository` extends Spring Data's bare `Repository`, not `CrudRepository`, so it
+`AddressRepository` extends Spring Data's bare `Repository`, not `CrudRepository`, so it
 inherits no unscoped `findById`, `deleteById` or `deleteAll`. It declares `save` and queries that
 take an organisation id, so no code path reads or deletes another organisation's addresses by
-address id alone.
+address id alone. The list query is a custom repository fragment (`AddressListQuery`) that takes
+the organisation id and always scopes by it and by `ACTIVE` status.
 
 **Filter behaviour**
 
@@ -123,9 +124,9 @@ returns **404** (no existence disclosure).
 | --- | --- | --- |
 | `GET` | `/organisation/{orgId}/addresses` | Paginated list of live addresses (newest first) |
 | `POST` | `/organisation/{orgId}/addresses` | Create an address |
-| `GET` | `/organisation/{orgId}/addresses/{operator-id}` | Fetch one address (tombstones included) |
-| `PUT` | `/organisation/{orgId}/addresses/{operator-id}` | Full replace of mutable fields |
-| `DELETE` | `/organisation/{orgId}/addresses/{operator-id}` | Soft delete (idempotent 204) |
+| `GET` | `/organisation/{orgId}/addresses/{address-id}` | Fetch one address (tombstones included) |
+| `PUT` | `/organisation/{orgId}/addresses/{address-id}` | Full replace of mutable fields |
+| `DELETE` | `/organisation/{orgId}/addresses/{address-id}` | Soft delete (idempotent 204) |
 
 **List query parameters**
 
@@ -134,7 +135,9 @@ returns **404** (no existence disclosure).
 | `page` | 1-based page number (default `1`) |
 | `pageSize` | Addresses a page, from `1` to `100` (default `25`); any other value is a `400` |
 | `q` | Case-insensitive partial search over `name`, `addressLine1`, `addressLine2`, `townOrCity`, `county` and `postcode` |
-| `countryCode` | One or more ISO country codes (repeat the parameter). Alone, it lists the addresses in any of them. With `q`, an address matches when the search term appears in a searched field **or** its stored `countryCode` is one of them (OR semantics, not AND) |
+| `countryCode` | One or more ISO country codes (repeat the parameter). Alone, it lists the addresses in any of them. With `q` or `searchRole`, an address matches when the search term appears in a searched field, its stored `countryCode` is one of them **or** it holds a search role (OR semantics, not AND) |
+| `role` | One or more roles (repeat the parameter): `PLACE_OF_ORIGIN`, `CONSIGNOR`, `PLACE_OF_DESTINATION`, `CONSIGNEE`, `IMPORTER` or `BRANCH_ADDRESS`. Lists only the addresses holding any of them, across every page. It narrows the search (`q`, `countryCode` and `searchRole`), an address with no roles never matches it, and an unknown value is a `400`. Without it, every live address is listed |
+| `searchRole` | One or more roles (repeat the parameter), with the same values as `role`. An address holding any of them matches the search, as one matching `q` or `countryCode` does (OR semantics). Alone, it lists the addresses holding any of them. An unknown value is a `400` |
 
 **Wire conventions**
 
@@ -145,6 +148,17 @@ returns **404** (no existence disclosure).
   never a bare array.
 - Soft-deleted addresses expose `deleted: true` on read; the internal `status` enum is not on the wire.
 - Validation failures return **400** `application/problem+json` with a camelCase `errors` map.
+- `roles` (a list of at least one) is required on create and update. Each role is one of
+  `PLACE_OF_ORIGIN`, `CONSIGNOR`, `PLACE_OF_DESTINATION`, `CONSIGNEE`, `IMPORTER` or
+  `BRANCH_ADDRESS`: a party a notification can choose the address for. A repeated role collapses to
+  its first occurrence. A missing list, or a value outside it, is a **400** validation problem keyed
+  by `roles`, and nothing is saved. An update replaces the roles.
+- The address book enforces two rules on create and update (see [Role rules](#role-rules)): an
+  address's roles must all come from one group (**400** keyed by `roles`: "An address can only have
+  roles from one group"), and an address holding `CONSIGNEE`, `IMPORTER` or
+  `PLACE_OF_DESTINATION` must have `countryCode` `GB` (**400** keyed by `countryCode`: "A
+  consignee, importer or place of destination must be in the United Kingdom").
+- An `addressType` in a body is ignored.
 
 **Example — create an address**
 
@@ -159,9 +173,31 @@ curl -s -X POST "http://localhost:8089/organisation/{orgId}/addresses" \
     "postcode": "IV2 3JH",
     "countryCode": "GB",
     "phone": "+44 1463 234567",
-    "email": "exports@example.com"
+    "email": "exports@example.com",
+    "roles": ["CONSIGNEE", "IMPORTER"]
   }'
 ```
+
+### Role rules
+
+The rules belong to the address book. Each `AddressRole` names its one group (`RoleGroup`), so a new
+role cannot be added without a group, and the receiving group is the one that must be in the United
+Kingdom. The grouping is internal: it is not part of the API, and a caller only sees it as a
+refusal.
+
+| Group | Roles | Country |
+| --- | --- | --- |
+| Sending | `PLACE_OF_ORIGIN`, `CONSIGNOR` | any |
+| Receiving | `CONSIGNEE`, `IMPORTER`, `PLACE_OF_DESTINATION` | United Kingdom (`GB`) only |
+| Branch | `BRANCH_ADDRESS` | any |
+
+- An address's roles must all come from one group.
+- An address holding a receiving role must be in the United Kingdom. The INS frontend also fixes the
+  country to the United Kingdom for these addresses, deliberately: this is a service for imports into
+  the United Kingdom, so the rule is a domain invariant rather than a choice that may change. The
+  address book is its owner; the frontend's copy helps the user.
+- A branch address can be in any country, because the journey's consignment contact is saved as a
+  branch address and may be abroad.
 
 ## MongoDB
 
@@ -209,7 +245,7 @@ mvn clean verify
 ```
 
 Integration tests cover CRUD, org scoping, soft delete, search, pagination, RFC 9457 error
-shapes, and OpenAPI contract compliance (`OperatorComplianceIT`).
+shapes, and OpenAPI contract compliance (`AddressComplianceIT`).
 
 ## OpenAPI contract
 
@@ -217,11 +253,14 @@ The API surface is locked and tested on every `mvn verify`:
 
 | File | Role |
 | --- | --- |
-| [`docs/openapi/api-contract.locked.yaml`](docs/openapi/api-contract.locked.yaml) | Human-authored source of truth (paths, operationIds, 400 `anyOf` shapes) |
-| [`docs/openapi/operators.yml`](docs/openapi/operators.yml) | springdoc-generated spec, committed for downstream consumers |
+| [`docs/openapi/api-contract.locked.yaml`](docs/openapi/api-contract.locked.yaml) | Human-authored source of truth (paths, operationIds, 400 `anyOf` shapes, allowed values of enum properties, the `AddressRequest` required list, the minimum number of `AddressRequest.roles`) |
+| [`docs/openapi/addresses.yml`](docs/openapi/addresses.yml) | springdoc-generated spec, committed for downstream consumers |
 
-`OperatorComplianceIT` fails the build if `operators.yml` is stale against live `/v3/api-docs`, or
-if paths, HTTP methods, operationIds, or component schema property names diverge from the locked contract.
+`AddressComplianceIT` fails the build if `addresses.yml` is stale against live `/v3/api-docs`, or
+if paths, HTTP methods, operationIds, operation parameter names, component schema property
+names, the allowed values of `roles` and the list's `role` and `searchRole` parameters, the 400
+`anyOf` shapes of create and update, the required list of `AddressRequest` or the minimum number
+of `AddressRequest.roles` diverge from the locked contract.
 
 Regenerate the committed artifact after an intentional API change (no Testcontainers required):
 
@@ -229,7 +268,9 @@ Regenerate the committed artifact after an intentional API change (no Testcontai
 mvn verify -Dopenapi.generate=true -Dit.test=OpenApiArtifactGeneratorIT
 ```
 
-`OperatorComplianceIT` still byte-checks the artifact on every full `mvn verify`.
+`AddressComplianceIT` still byte-checks the artifact on every full `mvn verify`.
+The generator IT lives in the `openapi` package rather than `integration` so a nested
+`@SpringBootApplication` does not shadow `Application`.
 
 `/v3/api-docs` and Swagger UI are enabled only under the `local` profile
 (see [application-local.yml](src/main/resources/application-local.yml)); they are disabled in the
@@ -237,7 +278,7 @@ default configuration.
 
 ## Soft delete (tombstones)
 
-`DELETE /organisation/{orgId}/addresses/{operator-id}` is a **soft delete**: the document stays in MongoDB,
+`DELETE /organisation/{orgId}/addresses/{address-id}` is a **soft delete**: the document stays in MongoDB,
 its internal `status` flips to `DELETED`, and `modifiedAt` is bumped. The tombstone remains
 fetchable by id with `deleted: true` on the wire.
 
@@ -275,7 +316,7 @@ Both default to the prod-safe value. Prod is protected by two independent safegu
 ## Indexes
 
 The list read path is served by the `org_status_created` compound index on
-`{ organisationId, status, createdAt }`. A lost index fails no functional test, so `OperatorIndexIT`
+`{ organisationId, status, createdAt }`. A lost index fails no functional test, so `AddressIndexIT`
 pins it twice: by name and key order from `listIndexes`, and as the explain plan's choice. Datasets are one
 user's address book today (tens to hundreds of rows), so a bounded scan is acceptable. Reassess any
 future index against real collection size before adding it.
@@ -287,9 +328,16 @@ future index against real collection size before adding it.
 - A validation failure is logged with the rejected field names only. The exception's message holds the rejected values, which can be personal data, so it is not logged.
 - `IdentityHeaderFilter` writes its own problem bodies, because `@RestControllerAdvice` does not handle exceptions thrown from servlet filters. It reads the path from `servletPath`, falling back to `requestURI` when a proxy or MockMvc leaves `servletPath` empty.
 - springdoc resolves schemas through the application `ObjectMapper`. Otherwise swagger-core would use its own mapper and the generated document could drift from the camelCase wire.
-- `OperatorResponse` null-guards every required field, so a null is a server fault that fails loudly. `AddressRequest` has no null guards, so Bean Validation can report every missing field at once.
+- `AddressResponse` null-guards every required field, so a null is a server fault that fails loudly. `AddressRequest` has no null guards, so Bean Validation can report every missing field at once.
+- `AddressRequest` carries `roles` as strings, checked by `@AddressRoleNames`, rather than binding the enum. An unknown enum constant would make Jackson throw before validation, which answers as a `bad-request` problem with no `errors` map and hides every other field error. A string component fails Bean Validation, so the `validation-error` problem names `roles` beside the other field errors. `@Pattern` would write the list a second time, and a constraint on each list element would key the error `roles[1]`.
+- The role rules are class-level constraints on `AddressRequest` (`@RolesHeldTogether`, `@ReceivingRolesInTheUnitedKingdom`), so each refusal is keyed by the field the user fixes (`roles` or `countryCode`) beside the other field errors. Both skip role names that are not roles; `@AddressRoleNames` reports those.
+- `AddressMapper.updateEntity` assigns a new `roles` list (`CollectionMappingStrategy.TARGET_IMMUTABLE`). MapStruct's default clears and refills the stored list in place, which throws when that list is immutable.
 - The `org_status_created` index was created while the collection was empty, so no later index build runs on a populated collection.
 - An address's `expireAt` is counted from the moment of creation rather than from `createdAt`, which auditing only fills in during the save.
+- The list is one composed query (`AddressListQuery`), not a fixed query per combination of search term, country code, roles and search roles. Each added filter would otherwise double the fixed queries, and each would repeat the organisation and status scope.
+- A caller searches by role label through `searchRole`, naming the roles whose label contains the term, and the service matches stored roles. The labels are the caller's copy: the address book stores enum names and holds no labels, so matching a label here would make it a second owner of text in one language. A regular expression over the stored names would never match a label such as 'place of origin'.
+- The list's filters travel as two records. `RequestedListFilters` holds them as the request supplied them, tidied: the search term trimmed, country codes trimmed without blanks, roles without repeats, and an absent filter empty rather than null. `ListCriteria` holds them as the query matches them: the roles to keep (empty keeps every address) and the matches the caller asked for, each a `Match` (`TextMatching`, `InCountries`, `HoldingAnyRole`). `AddressService` is the one place that turns the first into the second, so a field never holds a search term in one place and a pattern in another.
+- A caller's groupings of roles, such as the INS address book's tabs, are the caller's: it sends the roles a tab shows as repeated `role` values.
 
 ## Licence
 

@@ -1,12 +1,7 @@
 package uk.gov.defra.trade.imports.addressbook.openapi;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -15,7 +10,6 @@ import org.springframework.boot.autoconfigure.data.mongo.MongoRepositoriesAutoCo
 import org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -24,21 +18,11 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.web.client.RestClient;
-import org.yaml.snakeyaml.DumperOptions;
-import org.yaml.snakeyaml.Yaml;
-import uk.gov.defra.trade.imports.addressbook.address.OperatorRepository;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import uk.gov.defra.trade.imports.addressbook.address.AddressRepository;
 import uk.gov.defra.trade.imports.addressbook.configuration.MongoConfig;
+import uk.gov.defra.trade.imports.addressbook.testsupport.ApiDocs;
 
-/**
- * Regenerates {@code docs/openapi/operators.yml} without Testcontainers — for local doc refresh
- * when Docker is unavailable. The compliance IT still byte-checks the artifact on every build.
- *
- * <p>Kept outside {@code integration} so a nested {@link SpringBootApplication} does not shadow
- * {@link uk.gov.defra.trade.imports.addressbook.Application} for integration tests.
- *
- * <p>{@code mvn verify -Dopenapi.generate=true -Dit.test=OpenApiArtifactGeneratorIT}
- */
 @EnabledIfSystemProperty(named = "openapi.generate", matches = "true")
 @SpringBootTest(
     classes = OpenApiArtifactGeneratorIT.OpenApiGeneratorApplication.class,
@@ -46,42 +30,17 @@ import uk.gov.defra.trade.imports.addressbook.configuration.MongoConfig;
 @ActiveProfiles("integration-test")
 class OpenApiArtifactGeneratorIT {
 
-  private static final Path GENERATED_DOC = Path.of("docs/openapi/operators.yml");
-
   @LocalServerPort int port;
 
-  @MockBean OperatorRepository operatorRepository;
+  @MockitoBean AddressRepository addressRepository;
 
-  @MockBean MongoTemplate mongoTemplate;
+  @MockitoBean MongoTemplate mongoTemplate;
 
   @Test
+  @SuppressWarnings("java:S2699")
   void regenerateCommittedOpenApiArtifact() throws IOException {
-    Map<String, Object> live = fetchApiDocs();
-    live.remove("servers");
-    Files.writeString(GENERATED_DOC, yaml().dump(live));
-    assertThat(GENERATED_DOC).exists();
-  }
-
-  @SuppressWarnings("unchecked")
-  private Map<String, Object> fetchApiDocs() {
-    String json =
-        RestClient.create()
-            .get()
-            .uri("http://localhost:" + port + "/v3/api-docs")
-            .retrieve()
-            .body(String.class);
-    try {
-      return new ObjectMapper().readValue(json, Map.class);
-    } catch (IOException e) {
-      throw new AssertionError("could not parse /v3/api-docs", e);
-    }
-  }
-
-  private static Yaml yaml() {
-    DumperOptions options = new DumperOptions();
-    options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
-    options.setSplitLines(false);
-    return new Yaml(options);
+    Files.writeString(
+        ApiDocs.COMMITTED_ARTIFACT, ApiDocs.renderCommittedForm(ApiDocs.fetchLive(port)));
   }
 
   @SpringBootApplication(

@@ -1,6 +1,5 @@
 package uk.gov.defra.trade.imports.addressbook.integration;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -8,33 +7,34 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
+import uk.gov.defra.trade.imports.addressbook.address.AddressRole;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
 
-/**
- * GET /organisation/{orgId}/addresses/{id}. Returns a soft-deleted row with {@code deleted: true}.
- * Cross-org and unknown ids yield 404 not-found problems.
- */
 class AddressGetIT extends IntegrationBase {
 
   @Test
   void get_shouldReturn200WithAllMappedFields_whenAddressIsLive() throws Exception {
-    // Given
-    Address saved = saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE));
+    Address saved =
+        saveAddress(
+            addressHolding(ORGANISATION_ID, AddressRole.CONSIGNEE, AddressRole.IMPORTER)
+                .addressLine2("Unit 3")
+                .county("Highland"));
 
-    // When / Then
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, saved.getId())
-                .header(ORG_HEADER, ORGANISATION_ID))
+    getAddress(saved.getId())
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(saved.getId()))
-        .andExpect(jsonPath("$.name").value("Highland Livestock Ltd"))
-        .andExpect(jsonPath("$.addressLine1").value("14 Drover's Way"))
-        .andExpect(jsonPath("$.townOrCity").value("Inverness"))
-        .andExpect(jsonPath("$.postcode").value("IV2 3JH"))
-        .andExpect(jsonPath("$.countryCode").value("GB"))
-        .andExpect(jsonPath("$.phone").value("+44 1463 234567"))
-        .andExpect(jsonPath("$.email").value("exports@highlandlivestock.example.com"))
+        .andExpect(jsonPath("$.name").value(NAME))
+        .andExpect(jsonPath("$.addressLine1").value(ADDRESS_LINE_1))
+        .andExpect(jsonPath("$.addressLine2").value("Unit 3"))
+        .andExpect(jsonPath("$.townOrCity").value(TOWN_OR_CITY))
+        .andExpect(jsonPath("$.county").value("Highland"))
+        .andExpect(jsonPath("$.postcode").value(POSTCODE))
+        .andExpect(jsonPath("$.countryCode").value(COUNTRY_CODE))
+        .andExpect(jsonPath("$.phone").value(PHONE))
+        .andExpect(jsonPath("$.email").value(EMAIL))
+        .andExpect(jsonPath("$.roles[0]").value("CONSIGNEE"))
+        .andExpect(jsonPath("$.roles[1]").value("IMPORTER"))
+        .andExpect(jsonPath("$.roles.length()").value(2))
         .andExpect(jsonPath("$.organisationId").value(ORGANISATION_ID))
         .andExpect(jsonPath("$.createdAt").exists())
         .andExpect(jsonPath("$.modifiedAt").exists())
@@ -43,14 +43,9 @@ class AddressGetIT extends IntegrationBase {
 
   @Test
   void get_shouldReturn200WithDeletedTrue_whenAddressIsTombstoned() throws Exception {
-    // Given
     Address saved = saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.DELETED));
 
-    // When / Then
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, saved.getId())
-                .header(ORG_HEADER, ORGANISATION_ID))
+    getAddress(saved.getId())
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(saved.getId()))
         .andExpect(jsonPath("$.deleted").value(true));
@@ -58,11 +53,7 @@ class AddressGetIT extends IntegrationBase {
 
   @Test
   void get_shouldReturn404NotFoundProblem_whenIdIsUnknown() throws Exception {
-    // When / Then
-    mockMvc
-        .perform(
-            get("/organisation/{orgId}/addresses/{operator-id}", ORGANISATION_ID, UNKNOWN_ID)
-                .header(ORG_HEADER, ORGANISATION_ID))
+    getAddress(UNKNOWN_ID)
         .andExpect(status().isNotFound())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
         .andExpect(jsonPath("$.type").value("https://api.cdp.defra.cloud/problems/not-found"))

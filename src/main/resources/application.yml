@@ -111,8 +111,6 @@ info:
     version: ${cdp.service-version}
     environment: ${ENVIRONMENT:local}
 
-# OpenAPI: api-docs and swagger-ui are disabled here; application-local.yml re-enables both for
-# local dev and application-integration-test.yml re-enables api-docs for OperatorComplianceIT.
 springdoc:
   api-docs:
     enabled: false
