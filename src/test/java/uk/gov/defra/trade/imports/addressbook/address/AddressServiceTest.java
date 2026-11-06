@@ -70,8 +70,8 @@ class AddressServiceTest {
         new AddressTtlConfig(days, environment));
   }
 
-  private double changesCounted(String action) {
-    var counter = meterRegistry.find("address.change").tag("action", action).counter();
+  private double changesCounted(String change) {
+    var counter = meterRegistry.find("address.change").tag("change", change).counter();
     return counter == null ? 0 : counter.count();
   }
 

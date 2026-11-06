@@ -80,7 +80,7 @@ class EmfMeterRegistryTest {
 
   @Test
   void publish_writesACountersCountForTheLastMinute() {
-    Counter counter = Counter.builder("address.change").tag("action", "create").register(registry);
+    Counter counter = Counter.builder("address.change").tag("change", "create").register(registry);
     counter.increment();
     counter.increment();
     clock.add(EmfMeterRegistry.STEP);

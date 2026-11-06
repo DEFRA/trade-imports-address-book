@@ -6,7 +6,7 @@ import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-/** Counts changes to addresses as {@code address.change}, tagged {@code action}. */
+/** Counts changes to addresses as {@code address.change}, tagged {@code change}. */
 @Component
 @RequiredArgsConstructor
 public class AddressMetrics {
@@ -29,7 +29,7 @@ public class AddressMetrics {
    */
   public void countChange(Change change) {
     Counter.builder(CHANGE_METRIC)
-        .tag("action", change.name().toLowerCase(Locale.ROOT))
+        .tag("change", change.name().toLowerCase(Locale.ROOT))
         .register(meterRegistry)
         .increment();
   }
