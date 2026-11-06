@@ -35,7 +35,9 @@ class ExternalCallRecorderTest {
   void recordFailure_recordsTheDurationAndAFailureOfOne() {
     recorder.recordFailure("mongodb", "insert", Duration.ofMillis(3), new IllegalStateException());
 
-    assertThat(timer("mongodb", "insert").count()).isEqualTo(1);
+    Timer duration = timer("mongodb", "insert");
+    assertThat(duration.count()).isEqualTo(1);
+    assertThat(duration.totalTime(TimeUnit.MILLISECONDS)).isEqualTo(3);
     DistributionSummary failure = failureSummary("mongodb", "insert");
     assertThat(failure.count()).isEqualTo(1);
     assertThat(failure.totalAmount()).isEqualTo(1);
