@@ -1,7 +1,10 @@
 package uk.gov.defra.trade.imports.addressbook.metrics;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static uk.gov.defra.trade.imports.addressbook.testsupport.CapturedLogs.keyValues;
+import static uk.gov.defra.trade.imports.addressbook.testsupport.CapturedLogs.loggedBy;
 
+import ch.qos.logback.classic.spi.ILoggingEvent;
 import com.mongodb.MongoSocketReadException;
 import com.mongodb.ServerAddress;
 import com.mongodb.connection.ClusterId;
@@ -10,6 +13,7 @@ import com.mongodb.connection.ServerId;
 import com.mongodb.event.CommandFailedEvent;
 import com.mongodb.event.CommandSucceededEvent;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.bson.BsonDocument;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -57,20 +61,35 @@ class MongoCommandMetricsTest {
   }
 
   @Test
-  void commandFailed_recordsAFailureOfTheOperation() {
-    listener.commandFailed(
-        new CommandFailedEvent(
-            null,
-            1,
-            1,
-            CONNECTION,
-            "trade-imports-address-book",
-            "insert",
-            TimeUnit.MILLISECONDS.toNanos(3),
-            new MongoSocketReadException("closed", new ServerAddress())));
+  void commandFailed_recordsTheElapsedTimeAndAFailureAndLogsTheCause() {
+    List<ILoggingEvent> lines =
+        loggedBy(
+            ExternalCallRecorder.class,
+            () ->
+                listener.commandFailed(
+                    new CommandFailedEvent(
+                        null,
+                        1,
+                        1,
+                        CONNECTION,
+                        "trade-imports-address-book",
+                        "insert",
+                        TimeUnit.MILLISECONDS.toNanos(3),
+                        new MongoSocketReadException("closed", new ServerAddress()))));
 
-    assertThat(durationCount("insert")).isEqualTo(1);
+    assertThat(
+            meterRegistry
+                .get("external.call.duration")
+                .tags("dependency", "mongodb", "operation", "insert")
+                .timer()
+                .totalTime(TimeUnit.MILLISECONDS))
+        .isEqualTo(3);
     assertThat(failureTotal("insert")).isEqualTo(1);
+    assertThat(lines).hasSize(1);
+    assertThat(keyValues(lines.getFirst()))
+        .containsEntry("event.action", "mongodb/insert")
+        .containsEntry("error.type", "com.mongodb.MongoSocketReadException")
+        .containsEntry("error.message", "closed");
   }
 
   private static CommandSucceededEvent succeeded(String commandName, long elapsedMillis) {
