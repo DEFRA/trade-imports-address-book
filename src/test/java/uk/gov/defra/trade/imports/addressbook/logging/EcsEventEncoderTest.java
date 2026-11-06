@@ -104,6 +104,45 @@ class EcsEventEncoderTest {
   }
 
   @Test
+  void encode_writesTheErrorKeyValuePairsAsTopLevelFieldsWithNoStackTrace() throws IOException {
+    ILoggingEvent event =
+        logged(
+            () ->
+                LOG.atWarn()
+                    .addKeyValue("event.outcome", "failure")
+                    .addKeyValue("error.type", "java.lang.IllegalStateException")
+                    .addKeyValue("error.message", "mongo unavailable")
+                    .log("External call failed"));
+
+    JsonNode line = encode(event);
+
+    assertThat(line.path("error.type").asText()).isEqualTo("java.lang.IllegalStateException");
+    assertThat(line.path("error.message").asText()).isEqualTo("mongo unavailable");
+    assertThat(line.has("error.stack_trace")).isFalse();
+    assertThat(line.path("event").path("outcome").asText()).isEqualTo("failure");
+  }
+
+  @Test
+  void encode_writesTheThrowablesErrorFieldsInsteadOfTheErrorKeyValuePairs() {
+    ILoggingEvent event =
+        logged(
+            () ->
+                LOG.atWarn()
+                    .addKeyValue("error.type", "java.lang.IllegalArgumentException")
+                    .addKeyValue("error.message", "from the key-value pair")
+                    .setCause(new IllegalStateException("from the throwable"))
+                    .log("External call failed"));
+
+    String line = new String(encoder.encode(event));
+
+    assertThat(line)
+        .contains("\"error.type\":\"java.lang.IllegalStateException\"")
+        .contains("\"error.message\":\"from the throwable\"")
+        .doesNotContain("java.lang.IllegalArgumentException")
+        .doesNotContain("from the key-value pair");
+  }
+
+  @Test
   void encode_writesALineWithNoEventKeyValuePairsExactlyAsTheEcsEncoderDoes() {
     MDC.put("trace.id", "trace-from-the-caller");
     ILoggingEvent event =

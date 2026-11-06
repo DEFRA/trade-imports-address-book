@@ -7,12 +7,14 @@ import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.event.Level;
+import org.slf4j.spi.LoggingEventBuilder;
 import org.springframework.stereotype.Component;
 
 /**
  * Records each call to a dependency as the timer {@code external.call.duration} and the
  * distribution summary {@code external.call.failure} (1 for a failure, 0 for a success), both
  * tagged {@code dependency} and {@code operation}, and logs it with the ECS {@code event.*} fields.
+ * A failure's line also carries the ECS {@code error.type} and {@code error.message} fields.
  */
 @Slf4j
 @Component
@@ -65,12 +67,16 @@ public class ExternalCallMetrics {
 
   private static void logCall(
       Level level, String action, String outcome, Duration elapsed, Throwable cause) {
-    log.atLevel(level)
-        .addKeyValue("event.category", "external-call")
-        .addKeyValue("event.action", action)
-        .addKeyValue("event.outcome", outcome)
-        .addKeyValue("event.duration", elapsed.toNanos())
-        .setCause(cause)
-        .log("External call {} {} in {} ms", action, outcome, elapsed.toMillis());
+    LoggingEventBuilder line =
+        log.atLevel(level)
+            .addKeyValue("event.category", "external-call")
+            .addKeyValue("event.action", action)
+            .addKeyValue("event.outcome", outcome)
+            .addKeyValue("event.duration", elapsed.toNanos());
+    if (cause != null) {
+      line.addKeyValue("error.type", cause.getClass().getName())
+          .addKeyValue("error.message", cause.getMessage());
+    }
+    line.log("External call {} {} in {} ms", action, outcome, elapsed.toMillis());
   }
 }

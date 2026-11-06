@@ -61,7 +61,7 @@ class ExternalCallMetricsTest {
   }
 
   @Test
-  void recordFailure_logsOneWarnLineWithTheCause() {
+  void recordFailure_logsOneWarnLineWithTheErrorTypeAndMessageButNoStackTrace() {
     IllegalStateException cause = new IllegalStateException("not primary");
 
     List<ILoggingEvent> lines =
@@ -74,8 +74,10 @@ class ExternalCallMetricsTest {
     assertThat(line.getLevel()).isEqualTo(Level.WARN);
     assertThat(keyValues(line))
         .containsEntry("event.action", "mongodb/update")
-        .containsEntry("event.outcome", "failure");
-    assertThat(line.getThrowableProxy().getMessage()).isEqualTo("not primary");
+        .containsEntry("event.outcome", "failure")
+        .containsEntry("error.type", "java.lang.IllegalStateException")
+        .containsEntry("error.message", "not primary");
+    assertThat(line.getThrowableProxy()).isNull();
   }
 
   private Timer timer(String dependency, String operation) {
