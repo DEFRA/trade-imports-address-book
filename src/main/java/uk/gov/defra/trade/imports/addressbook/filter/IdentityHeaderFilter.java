@@ -17,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
 import uk.gov.defra.trade.imports.addressbook.exceptions.Problem;
 
 /**
@@ -64,27 +65,26 @@ public class IdentityHeaderFilter extends OncePerRequestFilter {
 
     String organisationId = request.getHeader(ORGANISATION_ID_HEADER);
     if (isBlank(organisationId)) {
-      reject(response, HttpStatus.BAD_REQUEST, BAD_REQUEST_TYPE, "Bad Request", "Missing required header " + ORGANISATION_ID_HEADER);
+      String detail = "Missing required header " + ORGANISATION_ID_HEADER;
+      reject(response, HttpStatus.BAD_REQUEST, BAD_REQUEST_TYPE, "Bad Request", detail, detail);
       return;
     }
     if (!ORGANISATION_ID_VALUE.matcher(organisationId).matches()) {
-      reject(
-          response,
-          HttpStatus.BAD_REQUEST,
-          BAD_REQUEST_TYPE,
-          "Bad Request",
-          "Invalid " + ORGANISATION_ID_HEADER);
+      String detail = "Invalid " + ORGANISATION_ID_HEADER;
+      reject(response, HttpStatus.BAD_REQUEST, BAD_REQUEST_TYPE, "Bad Request", detail, detail);
       return;
     }
 
     String pathOrgId = extractPathOrganisationId(organisationRequestPath(request));
     if (pathOrgId != null && !organisationId.equals(pathOrgId)) {
+      NotFoundException refusal = NotFoundException.organisationMismatch(pathOrgId, organisationId);
       reject(
           response,
           HttpStatus.NOT_FOUND,
           NOT_FOUND_TYPE,
           "Resource Not Found",
-          "Address not found");
+          refusal.detail(),
+          refusal.getMessage());
       return;
     }
 
@@ -130,10 +130,11 @@ public class IdentityHeaderFilter extends OncePerRequestFilter {
       HttpStatus status,
       String type,
       String title,
-      String detail)
+      String detail,
+      String reason)
       throws IOException {
     String traceId = MDC.get(MDC_TRACE_ID);
-    log.warn("Rejected /organisation request: {} (trace: {})", detail, traceId);
+    log.warn("Rejected /organisation request: {} (trace: {})", reason, traceId);
 
     Problem problem = new Problem(type, title, status.value(), detail, traceId);
 

@@ -1,7 +1,6 @@
 package uk.gov.defra.trade.imports.addressbook.address;
 
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.annotation.Timed;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -17,6 +16,7 @@ import org.springframework.stereotype.Service;
 import uk.gov.defra.trade.imports.addressbook.configuration.AddressTtlConfig;
 import uk.gov.defra.trade.imports.addressbook.exceptions.BadRequestException;
 import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
+import uk.gov.defra.trade.imports.addressbook.metrics.AddressMetrics;
 
 /** Lists, creates, reads, updates and soft-deletes an organisation's addresses. */
 @Service
@@ -29,17 +29,17 @@ public class AddressService {
 
   private final AddressRepository repository;
   private final AddressMapper addressMapper;
-  private final MeterRegistry meterRegistry;
+  private final AddressMetrics addressMetrics;
   private final AddressTtlConfig ttlConfig;
 
   public AddressService(
       AddressRepository repository,
       AddressMapper addressMapper,
-      MeterRegistry meterRegistry,
+      AddressMetrics addressMetrics,
       AddressTtlConfig ttlConfig) {
     this.repository = repository;
     this.addressMapper = addressMapper;
-    this.meterRegistry = meterRegistry;
+    this.addressMetrics = addressMetrics;
     this.ttlConfig = ttlConfig;
   }
 
@@ -55,6 +55,7 @@ public class AddressService {
    * @throws BadRequestException if {@code page} is less than 1 or {@code requestedPageSize} is
    *     outside {@link #MIN_PAGE_SIZE} to {@link #MAX_PAGE_SIZE}
    */
+  @Timed("service.list.time")
   public AddressPageResponse list(
       String organisationId, int page, Integer requestedPageSize, RequestedListFilters filters) {
     if (page < 1) {
@@ -68,17 +69,12 @@ public class AddressService {
             pageSize,
             Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id")));
 
-    Timer.Sample sample = Timer.start(meterRegistry);
-    try {
-      Page<Address> result =
-          repository.listLiveAddresses(organisationId, criteriaOf(filters), pageable);
-      List<AddressResponse> items =
-          result.getContent().stream().map(addressMapper::toResponse).toList();
-      return new AddressPageResponse(
-          items, page, pageSize, (int) result.getTotalElements(), result.getTotalPages());
-    } finally {
-      sample.stop(meterRegistry.timer("controller.listOperators.query.time"));
-    }
+    Page<Address> result =
+        repository.listLiveAddresses(organisationId, criteriaOf(filters), pageable);
+    List<AddressResponse> items =
+        result.getContent().stream().map(addressMapper::toResponse).toList();
+    return new AddressPageResponse(
+        items, page, pageSize, (int) result.getTotalElements(), result.getTotalPages());
   }
 
   private int servedPageSize(Integer requestedPageSize) {
@@ -123,6 +119,7 @@ public class AddressService {
    * @param organisationId the owning organisation id
    * @return the saved address, with its assigned id and timestamps
    */
+  @Timed("service.create.time")
   public Address create(AddressRequest request, String organisationId) {
     Address address = addressMapper.toEntity(request);
     address.setOrganisationId(organisationId);
@@ -130,7 +127,8 @@ public class AddressService {
     stampExpiry(address);
 
     Address saved = repository.save(address);
-    log.info("Created address {}", saved.getId());
+    addressMetrics.countChange(AddressMetrics.Change.CREATE);
+    log.info("Created address {} in organisation {}", saved.getId(), organisationId);
     return saved;
   }
 
@@ -150,6 +148,7 @@ public class AddressService {
    * @return the address, with {@code status DELETED} if it was soft-deleted; empty if the id is
    *     unknown or belongs to another organisation
    */
+  @Timed("service.get.time")
   public Optional<Address> get(String id, String organisationId) {
     return repository.findByIdAndOrganisationId(id, organisationId);
   }
@@ -166,17 +165,19 @@ public class AddressService {
    * @throws NotFoundException if the id is unknown, belongs to another organisation, or is
    *     soft-deleted
    */
+  @Timed("service.update.time")
   public Address update(String id, AddressRequest request, String organisationId) {
     Address existing =
         repository
             .findByIdAndOrganisationId(id, organisationId)
             .filter(address -> address.getStatus() != AddressStatus.DELETED)
-            .orElseThrow(() -> new NotFoundException("Address not found"));
+            .orElseThrow(() -> NotFoundException.addressNotFound(id, organisationId));
 
     addressMapper.updateEntity(request, existing);
 
     Address saved = repository.save(existing);
-    log.info("Updated address {}", saved.getId());
+    addressMetrics.countChange(AddressMetrics.Change.UPDATE);
+    log.info("Updated address {} in organisation {}", saved.getId(), organisationId);
     return saved;
   }
 
@@ -188,18 +189,21 @@ public class AddressService {
    * @param organisationId the caller's organisation id
    * @throws NotFoundException if the id is unknown or belongs to another organisation
    */
+  @Timed("service.delete.time")
   public void delete(String id, String organisationId) {
     Address existing =
         repository
             .findByIdAndOrganisationId(id, organisationId)
-            .orElseThrow(() -> new NotFoundException("Address not found"));
+            .orElseThrow(() -> NotFoundException.addressNotFound(id, organisationId));
 
     if (existing.getStatus() == AddressStatus.DELETED) {
+      log.info("Address {} in organisation {} already deleted, left unchanged", id, organisationId);
       return;
     }
 
     existing.setStatus(AddressStatus.DELETED);
     repository.save(existing);
-    log.info("Soft-deleted address {}", existing.getId());
+    addressMetrics.countChange(AddressMetrics.Change.DELETE);
+    log.info("Soft-deleted address {} in organisation {}", existing.getId(), organisationId);
   }
 }

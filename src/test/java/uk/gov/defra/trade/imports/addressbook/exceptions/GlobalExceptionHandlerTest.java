@@ -126,7 +126,8 @@ class GlobalExceptionHandlerTest {
     MDC.put("trace.id", "trace-404");
 
     ResponseEntity<Problem> response =
-        exceptionHandler.handleNotFoundException(new NotFoundException("Address not found"));
+        exceptionHandler.handleNotFoundException(
+            NotFoundException.addressNotFound("addr-1", "org-a"));
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     assertThat(response.getHeaders().getContentType())
@@ -203,9 +204,62 @@ class GlobalExceptionHandlerTest {
   @Test
   void handleNotFoundException_shouldOmitTraceIdWhenAbsentFromMdc() {
     ResponseEntity<Problem> response =
-        exceptionHandler.handleNotFoundException(new NotFoundException("gone"));
+        exceptionHandler.handleNotFoundException(
+            NotFoundException.addressNotFound("addr-1", "org-a"));
 
     assertThat(response.getBody().traceId()).isNull();
+  }
+
+  @Test
+  void handleNotFoundException_logsAnUnknownAddressWithTheAddressIdAndOrganisationId() {
+    List<ILoggingEvent> events =
+        CapturedLogs.loggedBy(
+            GlobalExceptionHandler.class,
+            () ->
+                exceptionHandler.handleNotFoundException(
+                    NotFoundException.addressNotFound("addr-1", "org-a")));
+
+    assertThat(events)
+        .singleElement()
+        .extracting(ILoggingEvent::getFormattedMessage)
+        .asString()
+        .endsWith("Address addr-1 not found in organisation org-a");
+  }
+
+  @Test
+  void handleNotFoundException_logsAnOrganisationMismatchWithBothOrganisationIds() {
+    List<ILoggingEvent> events =
+        CapturedLogs.loggedBy(
+            GlobalExceptionHandler.class,
+            () ->
+                exceptionHandler.handleNotFoundException(
+                    NotFoundException.organisationMismatch("org-path", "org-header")));
+
+    assertThat(events)
+        .singleElement()
+        .extracting(ILoggingEvent::getFormattedMessage)
+        .asString()
+        .endsWith(
+            "Organisation mismatch: path orgId org-path is not the caller's organisation"
+                + " org-header");
+  }
+
+  @Test
+  void handleNotFoundException_answersAnOrganisationMismatchWithTheUnknownAddressBody() {
+    MDC.put("trace.id", "trace-404");
+
+    Problem mismatch =
+        exceptionHandler
+            .handleNotFoundException(
+                NotFoundException.organisationMismatch("org-path", "org-header"))
+            .getBody();
+    Problem unknownAddress =
+        exceptionHandler
+            .handleNotFoundException(NotFoundException.addressNotFound("addr-1", "org-a"))
+            .getBody();
+
+    assertThat(mismatch).isEqualTo(unknownAddress);
+    assertThat(mismatch.detail()).isEqualTo("Address not found");
   }
 
   @Test

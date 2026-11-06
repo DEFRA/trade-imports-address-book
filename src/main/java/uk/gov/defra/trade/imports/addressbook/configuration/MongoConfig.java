@@ -15,18 +15,9 @@ import org.springframework.data.mongodb.config.EnableMongoAuditing;
 import javax.net.ssl.SSLContext;
 import java.util.concurrent.TimeUnit;
 import uk.gov.defra.trade.imports.addressbook.configuration.tls.TrustStoreConfiguration;
+import uk.gov.defra.trade.imports.addressbook.metrics.MongoAvailability;
+import uk.gov.defra.trade.imports.addressbook.metrics.MongoCommandMetrics;
 
-/**
- * MongoDB configuration for Trade Imports Address Book.
- *
- * <p>Configures MongoDB connection with: - AWS IAM authentication (via connection string
- * authMechanism=MONGODB-AWS) - Custom SSL/TLS certificates from TRUSTSTORE_* environment variables
- * - Read preference: secondary (configurable) - Write concern: majority (configurable) - Connection
- * pooling - Graceful shutdown
- *
- * <p>Connection string format for AWS IAM auth:
- * mongodb://host:port/database?authMechanism=MONGODB-AWS&authSource=$external
- */
 @Configuration
 @EnableMongoAuditing
 @Slf4j
@@ -55,27 +46,29 @@ public class MongoConfig {
       @Value("${spring.data.mongodb.read-preference}") ReadPreference readPreference,
       @Value("${spring.data.mongodb.write-concern}") WriteConcern writeConcern,
       TrustStoreConfiguration trustStoreConfiguration,
-      ConnectionPoolSettings connectionPoolSettings) {
+      ConnectionPoolSettings connectionPoolSettings,
+      MongoCommandMetrics mongoCommandMetrics,
+      MongoAvailability mongoAvailability) {
 
-      MongoClientSettings.Builder builder = MongoClientSettings.builder()
-          .applyConnectionString(new ConnectionString(mongoUri))
-          .applyToConnectionPoolSettings(bdr -> bdr.applySettings(connectionPoolSettings))
-          .readPreference(readPreference)
-          .writeConcern(writeConcern);
-      
-      if (sslEnabled) {
-          SSLContext sslContext = trustStoreConfiguration.customSslContext();
-          builder.applyToSslSettings(bdr -> bdr.context(sslContext));
-          log.info("MongoDB SSL configured with SSL Bundle");
-      }
-      log.info("MongoDB client configuration complete");
-      
+    MongoClientSettings.Builder builder = MongoClientSettings.builder()
+        .applyConnectionString(new ConnectionString(mongoUri))
+        .applyToConnectionPoolSettings(bdr -> bdr.applySettings(connectionPoolSettings))
+        .applyToClusterSettings(bdr -> bdr.addClusterListener(mongoAvailability))
+        .addCommandListener(mongoCommandMetrics)
+        .readPreference(readPreference)
+        .writeConcern(writeConcern);
+
+    if (sslEnabled) {
+      SSLContext sslContext = trustStoreConfiguration.customSslContext();
+      builder.applyToSslSettings(bdr -> bdr.context(sslContext));
+      log.info("MongoDB TLS configured from the TRUSTSTORE_* certificates");
+    }
+
     return builder.build();
   }
 
   @Bean
   MongoClient mongoClient(MongoClientSettings mongoClientSettings) {
-      log.info("Creating MongoDB client");
     return MongoClients.create(mongoClientSettings);
   }
 }
