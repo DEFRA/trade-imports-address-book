@@ -4,7 +4,6 @@ import com.mongodb.event.CommandFailedEvent;
 import com.mongodb.event.CommandListener;
 import com.mongodb.event.CommandSucceededEvent;
 import java.time.Duration;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -18,22 +17,6 @@ import org.springframework.stereotype.Component;
 public class MongoCommandMetrics implements CommandListener {
 
   static final String DEPENDENCY = "mongodb";
-
-  private static final Set<String> OPERATIONS =
-      Set.of(
-          "find",
-          "getMore",
-          "insert",
-          "update",
-          "delete",
-          "findAndModify",
-          "aggregate",
-          "count",
-          "distinct",
-          "createIndexes",
-          "listIndexes",
-          "dropIndexes",
-          "listCollections");
 
   private final ExternalCallRecorder externalCallRecorder;
 
@@ -55,6 +38,22 @@ public class MongoCommandMetrics implements CommandListener {
   }
 
   private static String operationOf(String commandName) {
-    return OPERATIONS.contains(commandName) ? commandName : "other";
+    return switch (commandName) {
+      case "find",
+          "getMore",
+          "insert",
+          "update",
+          "delete",
+          "findAndModify",
+          "aggregate",
+          "count",
+          "distinct",
+          "createIndexes",
+          "listIndexes",
+          "dropIndexes",
+          "listCollections" ->
+          commandName;
+      default -> "other";
+    };
   }
 }
