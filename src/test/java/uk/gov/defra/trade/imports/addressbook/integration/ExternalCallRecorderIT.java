@@ -19,9 +19,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import uk.gov.defra.trade.imports.addressbook.metrics.ExternalCallMetrics;
+import uk.gov.defra.trade.imports.addressbook.metrics.ExternalCallRecorder;
 
-class ExternalCallMetricsIT extends IntegrationBase {
+class ExternalCallRecorderIT extends IntegrationBase {
 
   private static final ObjectMapper JSON = new ObjectMapper();
 
@@ -54,7 +54,7 @@ class ExternalCallMetricsIT extends IntegrationBase {
   void theConsoleWritesTheCallLineWithTheTraceIdAndANestedEventObject() throws Exception {
     List<ILoggingEvent> lines =
         loggedBy(
-            ExternalCallMetrics.class,
+            ExternalCallRecorder.class,
             () -> {
               try {
                 mockMvc.perform(
@@ -84,7 +84,7 @@ class ExternalCallMetricsIT extends IntegrationBase {
       throws Exception {
     List<ILoggingEvent> lines =
         loggedBy(
-            ExternalCallMetrics.class,
+            ExternalCallRecorder.class,
             () ->
                 assertThatExceptionOfType(DataAccessException.class)
                     .isThrownBy(

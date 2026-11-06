@@ -35,11 +35,11 @@ public class MongoCommandMetrics implements CommandListener {
           "dropIndexes",
           "listCollections");
 
-  private final ExternalCallMetrics externalCallMetrics;
+  private final ExternalCallRecorder externalCallRecorder;
 
   @Override
   public void commandSucceeded(CommandSucceededEvent event) {
-    externalCallMetrics.recordSuccess(
+    externalCallRecorder.recordSuccess(
         DEPENDENCY,
         operationOf(event.getCommandName()),
         Duration.ofNanos(event.getElapsedTime(TimeUnit.NANOSECONDS)));
@@ -47,7 +47,7 @@ public class MongoCommandMetrics implements CommandListener {
 
   @Override
   public void commandFailed(CommandFailedEvent event) {
-    externalCallMetrics.recordFailure(
+    externalCallRecorder.recordFailure(
         DEPENDENCY,
         operationOf(event.getCommandName()),
         Duration.ofNanos(event.getElapsedTime(TimeUnit.NANOSECONDS)),

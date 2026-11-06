@@ -23,7 +23,7 @@ class MongoCommandMetricsTest {
 
   private final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
   private final MongoCommandMetrics listener =
-      new MongoCommandMetrics(new ExternalCallMetrics(meterRegistry));
+      new MongoCommandMetrics(new ExternalCallRecorder(meterRegistry));
 
   @ParameterizedTest
   @CsvSource({"find, find", "findAndModify, findAndModify", "createIndexes, createIndexes",

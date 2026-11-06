@@ -14,14 +14,14 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
-class ExternalCallMetricsTest {
+class ExternalCallRecorderTest {
 
   private final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
-  private final ExternalCallMetrics metrics = new ExternalCallMetrics(meterRegistry);
+  private final ExternalCallRecorder recorder = new ExternalCallRecorder(meterRegistry);
 
   @Test
   void recordSuccess_recordsTheDurationAndAZeroFailure() {
-    metrics.recordSuccess("mongodb", "find", Duration.ofMillis(7));
+    recorder.recordSuccess("mongodb", "find", Duration.ofMillis(7));
 
     Timer duration = timer("mongodb", "find");
     assertThat(duration.count()).isEqualTo(1);
@@ -33,7 +33,7 @@ class ExternalCallMetricsTest {
 
   @Test
   void recordFailure_recordsTheDurationAndAFailureOfOne() {
-    metrics.recordFailure("mongodb", "insert", Duration.ofMillis(3), new IllegalStateException());
+    recorder.recordFailure("mongodb", "insert", Duration.ofMillis(3), new IllegalStateException());
 
     assertThat(timer("mongodb", "insert").count()).isEqualTo(1);
     DistributionSummary failure = failureSummary("mongodb", "insert");
@@ -45,8 +45,8 @@ class ExternalCallMetricsTest {
   void recordSuccess_logsOneInfoLineWithTheEventFieldsAndANanosecondDuration() {
     List<ILoggingEvent> lines =
         loggedBy(
-            ExternalCallMetrics.class,
-            () -> metrics.recordSuccess("mongodb", "find", Duration.ofMillis(2)));
+            ExternalCallRecorder.class,
+            () -> recorder.recordSuccess("mongodb", "find", Duration.ofMillis(2)));
 
     assertThat(lines).hasSize(1);
     ILoggingEvent line = lines.getFirst();
@@ -66,8 +66,8 @@ class ExternalCallMetricsTest {
 
     List<ILoggingEvent> lines =
         loggedBy(
-            ExternalCallMetrics.class,
-            () -> metrics.recordFailure("mongodb", "update", Duration.ofMillis(4), cause));
+            ExternalCallRecorder.class,
+            () -> recorder.recordFailure("mongodb", "update", Duration.ofMillis(4), cause));
 
     assertThat(lines).hasSize(1);
     ILoggingEvent line = lines.getFirst();
