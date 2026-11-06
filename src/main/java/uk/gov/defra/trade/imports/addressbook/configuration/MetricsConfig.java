@@ -10,6 +10,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import software.amazon.cloudwatchlogs.emf.config.EnvironmentConfigurationProvider;
+import software.amazon.cloudwatchlogs.emf.environment.Environments;
 import software.amazon.cloudwatchlogs.emf.logger.MetricsLogger;
 import uk.gov.defra.trade.imports.addressbook.metrics.EmfMeterRegistry;
 
@@ -23,7 +25,14 @@ public class MetricsConfig {
 
   @Bean
   @ConditionalOnProperty(name = "aws.emf.enabled", havingValue = "true")
-  EmfMeterRegistry emfMeterRegistry(@Value("${aws.emf.namespace}") String namespace) {
+  EmfMeterRegistry emfMeterRegistry(
+      @Value("${aws.emf.namespace}") String namespace,
+      @Value("${aws.emf.environment:}") String environment) {
+    if (!environment.isBlank()) {
+      EnvironmentConfigurationProvider.getConfig()
+          .setEnvironmentOverride(Environments.valueOf(environment));
+      log.info("Writing metrics to the {} EMF environment", environment);
+    }
     EmfMeterRegistry registry = new EmfMeterRegistry(namespace, Clock.SYSTEM, MetricsLogger::new);
     registry.start(new NamedThreadFactory("emf-meter-registry"));
     log.info("Publishing metrics to CloudWatch namespace {}", namespace);

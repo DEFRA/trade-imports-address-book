@@ -18,17 +18,15 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
-import software.amazon.cloudwatchlogs.emf.config.EnvironmentConfigurationProvider;
-import software.amazon.cloudwatchlogs.emf.environment.Environments;
 import uk.gov.defra.trade.imports.addressbook.metrics.EmfMeterRegistry;
 
 @TestPropertySource(
-    properties = {"aws.emf.enabled=true", "aws.emf.namespace=trade-imports-address-book"})
+    properties = {
+      "aws.emf.enabled=true",
+      "aws.emf.environment=Local",
+      "aws.emf.namespace=trade-imports-address-book"
+    })
 class EmfMeterRegistryIT extends IntegrationBase {
-
-  static {
-    EnvironmentConfigurationProvider.getConfig().setEnvironmentOverride(Environments.Local);
-  }
 
   private static final ObjectMapper JSON = new ObjectMapper();
 
