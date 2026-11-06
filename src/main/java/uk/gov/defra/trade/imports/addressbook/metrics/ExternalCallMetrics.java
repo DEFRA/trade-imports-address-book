@@ -32,7 +32,7 @@ public class ExternalCallMetrics {
    * @param elapsed how long the call took
    */
   public void recordSuccess(String dependency, String operation, Duration elapsed) {
-    record(dependency, operation, elapsed, 0);
+    recordMeters(dependency, operation, elapsed, 0);
     logCall(Level.INFO, dependency + "/" + operation, "success", elapsed, null);
   }
 
@@ -46,11 +46,11 @@ public class ExternalCallMetrics {
    */
   public void recordFailure(
       String dependency, String operation, Duration elapsed, Throwable cause) {
-    record(dependency, operation, elapsed, 1);
+    recordMeters(dependency, operation, elapsed, 1);
     logCall(Level.WARN, dependency + "/" + operation, "failure", elapsed, cause);
   }
 
-  private void record(String dependency, String operation, Duration elapsed, int failure) {
+  private void recordMeters(String dependency, String operation, Duration elapsed, int failure) {
     Timer.builder(DURATION_METRIC)
         .tag("dependency", dependency)
         .tag("operation", operation)

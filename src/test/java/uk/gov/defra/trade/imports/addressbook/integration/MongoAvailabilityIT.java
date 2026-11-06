@@ -30,7 +30,7 @@ class MongoAvailabilityIT extends IntegrationBase {
     MongoAvailability availability = new MongoAvailability();
     try (MongoDBContainer throwaway = new MongoDBContainer(DockerImageName.parse("mongo:7.0"))) {
       throwaway.start();
-      try (MongoClient client = clientOf(throwaway, availability)) {
+      try (MongoClient _ = clientOf(throwaway, availability)) {
         await()
             .atMost(Duration.ofSeconds(30))
             .until(() -> availability.state() == MongoAvailability.State.AVAILABLE);
