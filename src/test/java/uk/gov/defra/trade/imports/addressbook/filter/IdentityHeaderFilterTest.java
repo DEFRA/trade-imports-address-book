@@ -217,7 +217,7 @@ class IdentityHeaderFilterTest {
         .containsExactly(
             "Rejected /organisation request: Organisation mismatch: path orgId org-a is not the"
                 + " caller's organisation org-b (trace: null)");
-    assertThat(parseBody(response).get("detail")).isEqualTo("Address not found");
+    assertThat(parseBody(response)).containsEntry("detail", "Address not found");
   }
 
   @Test
@@ -273,7 +273,7 @@ class IdentityHeaderFilterTest {
   }
 
   @Test
-  void addsOnlyOrganisationIdToTheLoggingContext_noPiiFieldValues() throws Exception {
+  void addsOnlyOrganisationIdToTheLoggingContext_noPiiFieldValues() {
     // Given
     MockHttpServletRequest request = new MockHttpServletRequest("GET", "/organisation/org-1/addresses");
     request.setServletPath("/organisation/org-1/addresses");
@@ -295,10 +295,9 @@ class IdentityHeaderFilterTest {
     assertThat(events).isNotEmpty();
     assertThat(events)
         .allSatisfy(
-            event -> {
-              assertThat(event.getFormattedMessage()).doesNotContain("Highland Livestock Ltd");
-              assertThat(event.getFormattedMessage()).doesNotContain("secret@example.com");
-            });
+            event ->
+                assertThat(event.getFormattedMessage())
+                    .doesNotContain("Highland Livestock Ltd", "secret@example.com"));
   }
 
   private Map<String, Object> parseBody(MockHttpServletResponse response) throws Exception {

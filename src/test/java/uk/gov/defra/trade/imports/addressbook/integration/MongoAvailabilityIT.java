@@ -29,7 +29,7 @@ class MongoAvailabilityIT extends IntegrationBase {
     MongoAvailability availability = new MongoAvailability();
     try (MongoDBContainer throwaway = newMongoContainer()) {
       throwaway.start();
-      try (MongoClient _ = clientOf(throwaway, availability)) {
+      try (var _ = clientOf(throwaway, availability)) {
         await()
             .atMost(Duration.ofSeconds(30))
             .until(() -> availability.state() == MongoAvailability.State.AVAILABLE);
