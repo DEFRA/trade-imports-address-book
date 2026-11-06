@@ -165,7 +165,7 @@ public class TransporterService {
         repository
             .findByIdAndOrganisationId(id, organisationId)
             .filter(transporter -> transporter.getStatus() != TransporterStatus.DELETED)
-            .orElseThrow(() -> new NotFoundException(TRANSPORTER_NOT_FOUND));
+            .orElseThrow(() -> NotFoundException.transporterNotFound(id, organisationId));
 
     transporterMapper.updateEntity(request, existing);
 
@@ -187,7 +187,7 @@ public class TransporterService {
     Transporter existing =
         repository
             .findByIdAndOrganisationId(id, organisationId)
-            .orElseThrow(() -> new NotFoundException(TRANSPORTER_NOT_FOUND));
+            .orElseThrow(() -> NotFoundException.transporterNotFound(id, organisationId));
 
     if (existing.getStatus() == TransporterStatus.DELETED) {
       return;

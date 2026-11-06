@@ -18,7 +18,7 @@ class AddressTimingIT extends IntegrationBase {
   @Test
   void eachOperationAddsOneCallToOnlyItsOwnControllerAndServiceTimers() throws Exception {
     Map<String, Long> beforeCreate = timerCounts();
-    String addressId = createdAddressId(postAddress(addressBody()));
+    String addressId = createdResourceId(postAddress(addressBody()));
     assertOnlyTimersOfOperationMovedByOne("create", beforeCreate);
 
     Map<String, Long> beforeList = timerCounts();

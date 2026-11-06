@@ -116,7 +116,7 @@ public class AddressService {
 
     Address saved = repository.save(address);
     addressMetrics.countChange(AddressMetrics.Change.CREATE);
-    log.info("Created address {}", saved.getId());
+    log.info("Created address {} in organisation {}", saved.getId(), organisationId);
     return saved;
   }
 
@@ -159,13 +159,13 @@ public class AddressService {
         repository
             .findByIdAndOrganisationId(id, organisationId)
             .filter(address -> address.getStatus() != AddressStatus.DELETED)
-            .orElseThrow(() -> new NotFoundException(ADDRESS_NOT_FOUND));
+            .orElseThrow(() -> NotFoundException.addressNotFound(id, organisationId));
 
     addressMapper.updateEntity(request, existing);
 
     Address saved = repository.save(existing);
     addressMetrics.countChange(AddressMetrics.Change.UPDATE);
-    log.info("Updated address {}", saved.getId());
+    log.info("Updated address {} in organisation {}", saved.getId(), organisationId);
     return saved;
   }
 
@@ -182,15 +182,16 @@ public class AddressService {
     Address existing =
         repository
             .findByIdAndOrganisationId(id, organisationId)
-            .orElseThrow(() -> new NotFoundException(ADDRESS_NOT_FOUND));
+            .orElseThrow(() -> NotFoundException.addressNotFound(id, organisationId));
 
     if (existing.getStatus() == AddressStatus.DELETED) {
+      log.info("Address {} in organisation {} already deleted, left unchanged", id, organisationId);
       return;
     }
 
     existing.setStatus(AddressStatus.DELETED);
     repository.save(existing);
     addressMetrics.countChange(AddressMetrics.Change.DELETE);
-    log.info("Soft-deleted address {}", existing.getId());
+    log.info("Soft-deleted address {} in organisation {}", existing.getId(), organisationId);
   }
 }

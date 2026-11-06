@@ -41,7 +41,7 @@ class EmfMeterRegistryIT extends IntegrationBase {
   @Test
   void theMetersAnAddressCreateRecordsAndTheDependencyGaugeAreLetThroughTheAllowlist()
       throws Exception {
-    createdAddressId(postAddress(addressBody()));
+    createdResourceId(postAddress(addressBody()));
 
     for (String name :
         List.of(
@@ -59,7 +59,7 @@ class EmfMeterRegistryIT extends IntegrationBase {
   void theRegistryPublishesARecordedCallOnItsOwnSchedule() throws Exception {
     CapturedConsole console = captureSystemOut();
     try (console) {
-      createdAddressId(postAddress(addressBody()));
+      createdResourceId(postAddress(addressBody()));
 
       await()
           .atMost(Duration.ofSeconds(10))

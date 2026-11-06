@@ -296,7 +296,7 @@ public class TransporterController {
     Transporter transporter =
         transporterService
             .get(transporterId, organisationId)
-            .orElseThrow(() -> new NotFoundException(TransporterService.TRANSPORTER_NOT_FOUND));
+            .orElseThrow(() -> NotFoundException.transporterNotFound(transporterId, organisationId));
     return transporterMapper.toResponse(transporter);
   }
 

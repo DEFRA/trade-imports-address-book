@@ -29,7 +29,7 @@ class ExternalCallRecorderIT extends IntegrationBase {
   void aCreateRecordsAMongodbInsert() throws Exception {
     long before = durationCount(meterRegistry, "mongodb", "insert");
 
-    createdAddressId(postAddress(addressBody()));
+    createdResourceId(postAddress(addressBody()));
 
     assertThat(durationCount(meterRegistry, "mongodb", "insert")).isEqualTo(before + 1);
   }

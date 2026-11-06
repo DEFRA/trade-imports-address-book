@@ -17,7 +17,9 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static uk.gov.defra.trade.imports.addressbook.testsupport.CapturedLogs.loggedBy;
 
+import ch.qos.logback.classic.spi.ILoggingEvent;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
@@ -93,6 +95,25 @@ class AddressServiceTest {
     assertThat(created.getStatus()).isEqualTo(AddressStatus.ACTIVE);
     assertThat(created.getName()).isEqualTo("Highland Livestock Ltd");
     assertThat(created.getCountryCode()).isEqualTo("GB");
+  }
+
+  @Test
+  void create_logsTheNewAddressIdAndOrganisationId() {
+    when(repository.save(any(Address.class)))
+        .thenAnswer(
+            invocation -> {
+              Address saved = invocation.getArgument(0);
+              saved.setId(STORED_ADDRESS_ID);
+              return saved;
+            });
+    AddressRequest request = validRequest().build();
+
+    List<ILoggingEvent> events =
+        loggedBy(AddressService.class, () -> service.create(request, ORG));
+
+    assertThat(events)
+        .extracting(ILoggingEvent::getFormattedMessage)
+        .containsExactly("Created address " + STORED_ADDRESS_ID + " in organisation " + ORG);
   }
 
   @Test
@@ -280,7 +301,8 @@ class AddressServiceTest {
     AddressRequest request = replacementRequest().build();
 
     assertThatExceptionOfType(NotFoundException.class)
-        .isThrownBy(() -> service.update(STORED_ADDRESS_ID, request, ORG));
+        .isThrownBy(() -> service.update(STORED_ADDRESS_ID, request, ORG))
+        .withMessage("Address " + STORED_ADDRESS_ID + " not found in organisation " + ORG);
   }
 
   @Test
@@ -290,7 +312,55 @@ class AddressServiceTest {
     AddressRequest request = replacementRequest().build();
 
     assertThatExceptionOfType(NotFoundException.class)
-        .isThrownBy(() -> service.update(STORED_ADDRESS_ID, request, "org-other"));
+        .isThrownBy(() -> service.update(STORED_ADDRESS_ID, request, "org-other"))
+        .withMessage("Address " + STORED_ADDRESS_ID + " not found in organisation org-other");
+  }
+
+  @Test
+  void update_logsTheAddressIdAndOrganisationId() {
+    when(repository.findByIdAndOrganisationId(STORED_ADDRESS_ID, ORG))
+        .thenReturn(Optional.of(storedAddress(ORG, AddressStatus.ACTIVE).build()));
+    when(repository.save(any(Address.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    AddressRequest request = replacementRequest().build();
+
+    List<ILoggingEvent> events =
+        loggedBy(AddressService.class, () -> service.update(STORED_ADDRESS_ID, request, ORG));
+
+    assertThat(events)
+        .extracting(ILoggingEvent::getFormattedMessage)
+        .containsExactly("Updated address " + STORED_ADDRESS_ID + " in organisation " + ORG);
+  }
+
+  @Test
+  void delete_ofAnActiveAddressLogsTheAddressIdAndOrganisationId() {
+    when(repository.findByIdAndOrganisationId(STORED_ADDRESS_ID, ORG))
+        .thenReturn(Optional.of(storedAddress(ORG, AddressStatus.ACTIVE).build()));
+    when(repository.save(any(Address.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+    List<ILoggingEvent> events =
+        loggedBy(AddressService.class, () -> service.delete(STORED_ADDRESS_ID, ORG));
+
+    assertThat(events)
+        .extracting(ILoggingEvent::getFormattedMessage)
+        .containsExactly("Soft-deleted address " + STORED_ADDRESS_ID + " in organisation " + ORG);
+  }
+
+  @Test
+  void delete_ofAnAlreadyDeletedAddressLogsThatItWasLeftUnchanged() {
+    when(repository.findByIdAndOrganisationId(STORED_ADDRESS_ID, ORG))
+        .thenReturn(Optional.of(storedAddress(ORG, AddressStatus.DELETED).build()));
+
+    List<ILoggingEvent> events =
+        loggedBy(AddressService.class, () -> service.delete(STORED_ADDRESS_ID, ORG));
+
+    assertThat(events)
+        .extracting(ILoggingEvent::getFormattedMessage)
+        .containsExactly(
+            "Address "
+                + STORED_ADDRESS_ID
+                + " in organisation "
+                + ORG
+                + " already deleted, left unchanged");
   }
 
   @Test
@@ -348,7 +418,8 @@ class AddressServiceTest {
         .thenReturn(Optional.empty());
 
     assertThatExceptionOfType(NotFoundException.class)
-        .isThrownBy(() -> service.delete(STORED_ADDRESS_ID, "org-other"));
+        .isThrownBy(() -> service.delete(STORED_ADDRESS_ID, "org-other"))
+        .withMessage("Address " + STORED_ADDRESS_ID + " not found in organisation org-other");
   }
 
   private List<Address> activeAddresses(int count) {

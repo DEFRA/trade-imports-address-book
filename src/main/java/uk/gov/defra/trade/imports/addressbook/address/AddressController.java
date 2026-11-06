@@ -292,7 +292,7 @@ public class AddressController {
     Address address =
         addressService
             .get(addressId, organisationId)
-            .orElseThrow(() -> new NotFoundException(AddressService.ADDRESS_NOT_FOUND));
+            .orElseThrow(() -> NotFoundException.addressNotFound(addressId, organisationId));
     return addressMapper.toResponse(address);
   }
 
