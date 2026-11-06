@@ -91,11 +91,16 @@ abstract class IntegrationBase {
       TransporterTestSupport.NORTHERN_IRELAND_COUNTRY_CODE;
   protected static final String APPROVAL_NUMBER = TransporterTestSupport.SAMPLE_APPROVAL_NUMBER;
 
-  static MongoDBContainer MONGO_CONTAINER = new MongoDBContainer(
-      DockerImageName.parse("mongo:7.0")).withExposedPorts(27017).withReplicaSet();
+  static MongoDBContainer MONGO_CONTAINER = newMongoContainer();
 
   static {
     Startables.deepStart(MONGO_CONTAINER).join();
+  }
+
+  protected static MongoDBContainer newMongoContainer() {
+    return new MongoDBContainer(DockerImageName.parse("mongo:7.0"))
+        .withExposedPorts(27017)
+        .withReplicaSet();
   }
 
   @LocalServerPort
