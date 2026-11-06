@@ -11,7 +11,6 @@ import software.amazon.cloudwatchlogs.emf.logger.MetricsLogger;
 import software.amazon.cloudwatchlogs.emf.model.MetricsContext;
 import software.amazon.cloudwatchlogs.emf.sinks.ISink;
 
-/** An EMF environment that keeps every document written instead of sending it. */
 public class CapturingEmfEnvironment implements Environment {
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
