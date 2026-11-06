@@ -109,48 +109,48 @@ public class EmfMeterRegistry extends StepMeterRegistry {
   protected void publish() {
     for (Meter meter : getMeters()) {
       try {
-        publishMeter(meter);
+        publishReadings(meter, readingsOf(meter));
       } catch (RuntimeException e) {
         log.warn("Could not publish meter {}", meter.getId().getName(), e);
       }
     }
   }
 
-  private void publishMeter(Meter meter) {
-    switch (meter) {
+  private record Readings(List<Double> values, Unit unit) {
+    static final Readings NONE = new Readings(List.of(), Unit.NONE);
+  }
+
+  private static Readings readingsOf(Meter meter) {
+    return switch (meter) {
       case ValueRecordingTimer timer ->
-          publishValues(meter, millisOf(timer.recordedNanos().takeAll()), Unit.MILLISECONDS);
+          new Readings(millisOf(timer.recordedNanos().takeAll()), Unit.MILLISECONDS);
       case ValueRecordingDistributionSummary summary ->
-          publishValues(meter, summary.recordedAmounts().takeAll(), Unit.NONE);
-      case Counter counter -> publishValues(meter, List.of(counter.count()), Unit.COUNT);
-      case TimeGauge _ -> {
-        // Not published.
-      }
-      case Gauge gauge -> {
-        double value = gauge.value();
-        if (Double.isFinite(value)) {
-          publishValues(meter, List.of(value), Unit.NONE);
-        }
-      }
-      default -> {
-        // Not published.
-      }
-    }
+          new Readings(summary.recordedAmounts().takeAll(), Unit.NONE);
+      case Counter counter -> new Readings(List.of(counter.count()), Unit.COUNT);
+      case TimeGauge _ -> Readings.NONE;
+      case Gauge gauge -> new Readings(finiteValueOf(gauge), Unit.NONE);
+      default -> Readings.NONE;
+    };
   }
 
   private static List<Double> millisOf(List<Double> nanos) {
     return nanos.stream().map(each -> each / TimeUnit.MILLISECONDS.toNanos(1)).toList();
   }
 
-  private void publishValues(Meter meter, List<Double> values, Unit unit) {
-    if (values.isEmpty()) {
+  private static List<Double> finiteValueOf(Gauge gauge) {
+    double value = gauge.value();
+    return Double.isFinite(value) ? List.of(value) : List.of();
+  }
+
+  private void publishReadings(Meter meter, Readings readings) {
+    if (readings.values().isEmpty()) {
       return;
     }
     MetricsLogger metricsLogger = metricsLoggers.get();
     metricsLogger.setNamespace(namespace);
     metricsLogger.setDimensions(false, dimensionsOf(meter.getId()));
     String name = meter.getId().getName();
-    values.forEach(value -> metricsLogger.putMetric(name, value, unit));
+    readings.values().forEach(value -> metricsLogger.putMetric(name, value, readings.unit()));
     metricsLogger.flush();
   }
 
