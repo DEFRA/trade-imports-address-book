@@ -35,7 +35,8 @@ public class MongoAvailability implements ClusterListener {
     State reported = stateOf(servers);
     if (reported == state) {
       return;
-    }    state = reported;
+    }
+    state = reported;
     switch (reported) {
       case AVAILABLE -> log.info("MongoDB is available, servers {}", addressesOf(servers));
       case UNAVAILABLE -> logUnavailable(servers);

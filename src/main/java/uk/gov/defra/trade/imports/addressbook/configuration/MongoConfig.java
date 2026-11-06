@@ -50,19 +50,19 @@ public class MongoConfig {
       MongoCommandMetrics mongoCommandMetrics,
       MongoAvailability mongoAvailability) {
 
-      MongoClientSettings.Builder builder = MongoClientSettings.builder()
-          .applyConnectionString(new ConnectionString(mongoUri))
-          .applyToConnectionPoolSettings(bdr -> bdr.applySettings(connectionPoolSettings))
-          .applyToClusterSettings(bdr -> bdr.addClusterListener(mongoAvailability))
-          .addCommandListener(mongoCommandMetrics)
-          .readPreference(readPreference)
-          .writeConcern(writeConcern);
-      
-      if (sslEnabled) {
-          SSLContext sslContext = trustStoreConfiguration.customSslContext();
-          builder.applyToSslSettings(bdr -> bdr.context(sslContext));
-          log.info("MongoDB TLS configured from the TRUSTSTORE_* certificates");
-      }
+    MongoClientSettings.Builder builder = MongoClientSettings.builder()
+        .applyConnectionString(new ConnectionString(mongoUri))
+        .applyToConnectionPoolSettings(bdr -> bdr.applySettings(connectionPoolSettings))
+        .applyToClusterSettings(bdr -> bdr.addClusterListener(mongoAvailability))
+        .addCommandListener(mongoCommandMetrics)
+        .readPreference(readPreference)
+        .writeConcern(writeConcern);
+
+    if (sslEnabled) {
+      SSLContext sslContext = trustStoreConfiguration.customSslContext();
+      builder.applyToSslSettings(bdr -> bdr.context(sslContext));
+      log.info("MongoDB TLS configured from the TRUSTSTORE_* certificates");
+    }
 
     return builder.build();
   }
