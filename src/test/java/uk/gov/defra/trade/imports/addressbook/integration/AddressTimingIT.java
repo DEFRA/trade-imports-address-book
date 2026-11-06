@@ -13,8 +13,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 class AddressTimingIT extends IntegrationBase {
 
-  private static final List<String> OPERATIONS = List.of("list", "create", "get", "update", "delete");
-
   @Autowired private MeterRegistry meterRegistry;
 
   @Test
@@ -52,7 +50,7 @@ class AddressTimingIT extends IntegrationBase {
 
   private Map<String, Long> timerCounts() {
     Map<String, Long> counts = new TreeMap<>();
-    for (String operation : OPERATIONS) {
+    for (String operation : List.of("list", "create", "get", "update", "delete")) {
       for (String layer : List.of("controller", "service")) {
         String name = layer + "." + operation + ".time";
         counts.put(name, meterRegistry.find(name).timers().stream().mapToLong(Timer::count).sum());
