@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 class EmfMeterRegistryTest {
@@ -31,11 +30,6 @@ class EmfMeterRegistryTest {
   private final CapturingEmfEnvironment emf = new CapturingEmfEnvironment();
   private final EmfMeterRegistry registry =
       new EmfMeterRegistry(NAMESPACE, clock, emf::metricsLogger);
-
-  @AfterEach
-  void closeRegistry() {
-    registry.stop();
-  }
 
   @Test
   void publish_writesEveryTimerValueInMillisecondsWithItsTagsAsTheOnlyDimensions() {
