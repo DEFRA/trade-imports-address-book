@@ -148,7 +148,7 @@ class EmfMeterRegistryTest {
 
   @Test
   void publish_skipsLongTaskTimersAndFunctionCounters() {
-    LongTaskTimer.builder("http.server.requests.active").register(registry).start();
+    LongTaskTimer.builder("long.task.timer").register(registry).start();
     FunctionCounter.builder("function.counter", new AtomicInteger(5), AtomicInteger::get)
         .register(registry);
     clock.add(EmfMeterRegistry.STEP);
