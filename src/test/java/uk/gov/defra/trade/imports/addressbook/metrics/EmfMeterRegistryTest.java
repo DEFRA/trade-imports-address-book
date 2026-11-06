@@ -9,10 +9,12 @@ import io.micrometer.core.instrument.FunctionCounter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.LongTaskTimer;
 import io.micrometer.core.instrument.MockClock;
+import io.micrometer.core.instrument.TimeGauge;
 import io.micrometer.core.instrument.Timer;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.AfterEach;
@@ -147,10 +149,11 @@ class EmfMeterRegistryTest {
   }
 
   @Test
-  void publish_skipsLongTaskTimersAndFunctionCounters() {
+  void publish_skipsLongTaskTimersFunctionCountersAndTimeGauges() {
     LongTaskTimer.builder("long.task.timer").register(registry).start();
     FunctionCounter.builder("function.counter", new AtomicInteger(5), AtomicInteger::get)
         .register(registry);
+    TimeGauge.builder("process.uptime", () -> 5, TimeUnit.SECONDS).register(registry);
     clock.add(EmfMeterRegistry.STEP);
 
     registry.publish();
