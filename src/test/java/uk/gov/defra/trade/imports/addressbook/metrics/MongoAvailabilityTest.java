@@ -98,25 +98,26 @@ class MongoAvailabilityTest {
   }
 
   @Test
-  void clusterDescriptionChanged_logsOnceAtWarnWithTheFailure_whenTheDatabaseBecomesUnavailable() {
-    report(primary(FIRST));
+  void clusterDescriptionChanged_logsOnceAtWarnNamingTheServersWithTheFailure_whenUnavailable() {
+    report(primary(FIRST), primary(SECOND));
 
     List<ILoggingEvent> lines =
         loggedBy(
             MongoAvailability.class,
             () -> {
-              report(failing(FIRST));
-              report(failing(FIRST));
+              report(failing(FIRST), failing(SECOND));
+              report(failing(FIRST), failing(SECOND));
             });
 
     assertThat(lines).hasSize(1);
     assertThat(lines.getFirst().getLevel()).isEqualTo(Level.WARN);
-    assertThat(lines.getFirst().getFormattedMessage()).isEqualTo("MongoDB is unavailable");
+    assertThat(lines.getFirst().getFormattedMessage())
+        .isEqualTo("MongoDB is unavailable, servers [mongo-1:27017, mongo-2:27017]");
     assertThat(lines.getFirst().getThrowableProxy().getMessage()).isEqualTo("refused");
   }
 
   @Test
-  void clusterDescriptionChanged_logsOnceAtWarnNamingNoWritableServer_whenThePrimaryIsLost() {
+  void clusterDescriptionChanged_logsOnceAtWarnNamingTheServersNoneWritable_whenThePrimaryIsLost() {
     report(primary(FIRST), secondary(SECOND));
 
     List<ILoggingEvent> lines =
@@ -130,22 +131,25 @@ class MongoAvailabilityTest {
     assertThat(lines).hasSize(1);
     assertThat(lines.getFirst().getLevel()).isEqualTo(Level.WARN);
     assertThat(lines.getFirst().getFormattedMessage())
-        .isEqualTo("MongoDB is unavailable: servers are connected but none accepts writes");
+        .isEqualTo(
+            "MongoDB is unavailable: servers [mongo-1:27017, mongo-2:27017] are connected but"
+                + " none accepts writes");
   }
 
   @Test
-  void clusterDescriptionChanged_logsOnceAtInfo_whenTheDatabaseBecomesAvailable() {
+  void clusterDescriptionChanged_logsOnceAtInfoNamingTheServers_whenTheDatabaseBecomesAvailable() {
     List<ILoggingEvent> lines =
         loggedBy(
             MongoAvailability.class,
             () -> {
-              report(primary(FIRST));
+              report(primary(FIRST), unchecked(SECOND));
               report(primary(FIRST), primary(SECOND));
             });
 
     assertThat(lines).hasSize(1);
     assertThat(lines.getFirst().getLevel()).isEqualTo(Level.INFO);
-    assertThat(lines.getFirst().getFormattedMessage()).isEqualTo("MongoDB is available");
+    assertThat(lines.getFirst().getFormattedMessage())
+        .isEqualTo("MongoDB is available, servers [mongo-1:27017, mongo-2:27017]");
   }
 
   @Test
