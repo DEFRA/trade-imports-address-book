@@ -18,18 +18,36 @@ class AddressTimingIT extends IntegrationBase {
   @Autowired private MeterRegistry meterRegistry;
 
   @Test
-  void eachEndpointAndServiceMethodAddsOneCallToItsOwnTimer() throws Exception {
-    Map<String, Long> before = timerCounts();
-
+  void eachOperationAddsOneCallToOnlyItsOwnControllerAndServiceTimers() throws Exception {
+    Map<String, Long> beforeCreate = timerCounts();
     String addressId = createdAddressId(postAddress(addressBody()));
-    listAddresses().andExpect(status().isOk());
-    getAddress(addressId).andExpect(status().isOk());
-    putAddress(addressId, addressBody().with("name", "Renamed Ltd")).andExpect(status().isOk());
-    deleteAddress(addressId).andExpect(status().isNoContent());
+    assertOnlyTimersOfOperationMovedByOne("create", beforeCreate);
 
-    Map<String, Long> after = timerCounts();
-    after.forEach(
-        (name, count) -> assertThat(count - before.get(name)).as(name).isEqualTo(1));
+    Map<String, Long> beforeList = timerCounts();
+    listAddresses().andExpect(status().isOk());
+    assertOnlyTimersOfOperationMovedByOne("list", beforeList);
+
+    Map<String, Long> beforeGet = timerCounts();
+    getAddress(addressId).andExpect(status().isOk());
+    assertOnlyTimersOfOperationMovedByOne("get", beforeGet);
+
+    Map<String, Long> beforeUpdate = timerCounts();
+    putAddress(addressId, addressBody().with("name", "Renamed Ltd")).andExpect(status().isOk());
+    assertOnlyTimersOfOperationMovedByOne("update", beforeUpdate);
+
+    Map<String, Long> beforeDelete = timerCounts();
+    deleteAddress(addressId).andExpect(status().isNoContent());
+    assertOnlyTimersOfOperationMovedByOne("delete", beforeDelete);
+  }
+
+  private void assertOnlyTimersOfOperationMovedByOne(String operation, Map<String, Long> before) {
+    Map<String, Long> moved = new TreeMap<>();
+    timerCounts().forEach((name, count) -> moved.put(name, count - before.get(name)));
+    Map<String, Long> expected = new TreeMap<>();
+    before.keySet().forEach(name -> expected.put(name, 0L));
+    expected.put("controller." + operation + ".time", 1L);
+    expected.put("service." + operation + ".time", 1L);
+    assertThat(moved).as(operation).isEqualTo(expected);
   }
 
   private Map<String, Long> timerCounts() {
