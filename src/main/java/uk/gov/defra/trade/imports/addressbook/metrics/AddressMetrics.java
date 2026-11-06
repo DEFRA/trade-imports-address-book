@@ -11,8 +11,6 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class AddressMetrics {
 
-  static final String CHANGE_METRIC = "address.change";
-
   /** A change made to an address. */
   public enum Change {
     CREATE,
@@ -28,7 +26,7 @@ public class AddressMetrics {
    * @param change the change made
    */
   public void countChange(Change change) {
-    Counter.builder(CHANGE_METRIC)
+    Counter.builder("address.change")
         .tag("change", change.name().toLowerCase(Locale.ROOT))
         .register(meterRegistry)
         .increment();

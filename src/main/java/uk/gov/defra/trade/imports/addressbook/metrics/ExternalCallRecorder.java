@@ -2,6 +2,7 @@ package uk.gov.defra.trade.imports.addressbook.metrics;
 
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
 import java.time.Duration;
 import lombok.RequiredArgsConstructor;
@@ -21,8 +22,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class ExternalCallRecorder {
 
-  static final String DURATION_METRIC = "external.call.duration";
-  static final String FAILURE_METRIC = "external.call.failure";
+  static final String DEPENDENCY_TAG = "dependency";
 
   private final MeterRegistry meterRegistry;
 
@@ -53,14 +53,10 @@ public class ExternalCallRecorder {
   }
 
   private void recordMeters(String dependency, String operation, Duration elapsed, int failure) {
-    Timer.builder(DURATION_METRIC)
-        .tag("dependency", dependency)
-        .tag("operation", operation)
-        .register(meterRegistry)
-        .record(elapsed);
-    DistributionSummary.builder(FAILURE_METRIC)
-        .tag("dependency", dependency)
-        .tag("operation", operation)
+    Tags tags = Tags.of(DEPENDENCY_TAG, dependency, "operation", operation);
+    Timer.builder("external.call.duration").tags(tags).register(meterRegistry).record(elapsed);
+    DistributionSummary.builder("external.call.failure")
+        .tags(tags)
         .register(meterRegistry)
         .record(failure);
   }
