@@ -3,10 +3,11 @@ package uk.gov.defra.trade.imports.addressbook.integration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static uk.gov.defra.trade.imports.addressbook.testsupport.CapturedConsole.captureSystemOut;
+import static uk.gov.defra.trade.imports.addressbook.testsupport.ExternalCallMeters.durationCount;
+import static uk.gov.defra.trade.imports.addressbook.testsupport.ExternalCallMeters.failureTotal;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.bson.Document;
 import org.bson.types.ObjectId;
@@ -26,16 +27,16 @@ class ExternalCallRecorderIT extends IntegrationBase {
 
   @Test
   void aCreateRecordsAMongodbInsert() throws Exception {
-    long before = durationCount("insert");
+    long before = durationCount(meterRegistry, "mongodb", "insert");
 
     createdAddressId(postAddress(addressBody()));
 
-    assertThat(durationCount("insert")).isEqualTo(before + 1);
+    assertThat(durationCount(meterRegistry, "mongodb", "insert")).isEqualTo(before + 1);
   }
 
   @Test
   void aFailedCommandIsRecordedAsAFailureOfItsOperation() {
-    double before = failureTotal("find");
+    double before = failureTotal(meterRegistry, "mongodb", "find");
 
     assertThatExceptionOfType(DataAccessException.class)
         .isThrownBy(
@@ -43,19 +44,19 @@ class ExternalCallRecorderIT extends IntegrationBase {
                 mongoTemplate.executeCommand(
                     "{find: 'address', filter: {$notAnOperator: 1}}"));
 
-    assertThat(failureTotal("find")).isEqualTo(before + 1);
+    assertThat(failureTotal(meterRegistry, "mongodb", "find")).isEqualTo(before + 1);
   }
 
   @Test
   void aDuplicateKeyInsertIsRecordedAsAFailureOfInsert() {
     Document address = new Document("_id", new ObjectId());
     mongoTemplate.insert(address, "address");
-    double before = failureTotal("insert");
+    double before = failureTotal(meterRegistry, "mongodb", "insert");
 
     assertThatExceptionOfType(DuplicateKeyException.class)
         .isThrownBy(() -> mongoTemplate.insert(address, "address"));
 
-    assertThat(failureTotal("insert")).isEqualTo(before + 1);
+    assertThat(failureTotal(meterRegistry, "mongodb", "insert")).isEqualTo(before + 1);
   }
 
   @Test
@@ -107,23 +108,5 @@ class ExternalCallRecorderIT extends IntegrationBase {
       }
     }
     throw new AssertionError("No console line has event.action " + action);
-  }
-
-  private long durationCount(String operation) {
-    var timer =
-        meterRegistry
-            .find("external.call.duration")
-            .tags("dependency", "mongodb", "operation", operation)
-            .timer();
-    return timer == null ? 0 : timer.count();
-  }
-
-  private double failureTotal(String operation) {
-    DistributionSummary summary =
-        meterRegistry
-            .find("external.call.failure")
-            .tags("dependency", "mongodb", "operation", operation)
-            .summary();
-    return summary == null ? 0 : summary.totalAmount();
   }
 }

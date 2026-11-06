@@ -3,15 +3,16 @@ package uk.gov.defra.trade.imports.addressbook.metrics;
 import static org.assertj.core.api.Assertions.assertThat;
 import static uk.gov.defra.trade.imports.addressbook.testsupport.CapturedLogs.keyValues;
 import static uk.gov.defra.trade.imports.addressbook.testsupport.CapturedLogs.loggedBy;
+import static uk.gov.defra.trade.imports.addressbook.testsupport.ExternalCallMeters.durationCount;
+import static uk.gov.defra.trade.imports.addressbook.testsupport.ExternalCallMeters.durationMillis;
+import static uk.gov.defra.trade.imports.addressbook.testsupport.ExternalCallMeters.failureCount;
+import static uk.gov.defra.trade.imports.addressbook.testsupport.ExternalCallMeters.failureTotal;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.spi.ILoggingEvent;
-import io.micrometer.core.instrument.DistributionSummary;
-import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
 class ExternalCallRecorderTest {
@@ -23,24 +24,20 @@ class ExternalCallRecorderTest {
   void recordSuccess_recordsTheDurationAndAZeroFailure() {
     recorder.recordSuccess("mongodb", "find", Duration.ofMillis(7));
 
-    Timer duration = timer("mongodb", "find");
-    assertThat(duration.count()).isEqualTo(1);
-    assertThat(duration.totalTime(TimeUnit.MILLISECONDS)).isEqualTo(7);
-    DistributionSummary failure = failureSummary("mongodb", "find");
-    assertThat(failure.count()).isEqualTo(1);
-    assertThat(failure.totalAmount()).isZero();
+    assertThat(durationCount(meterRegistry, "mongodb", "find")).isEqualTo(1);
+    assertThat(durationMillis(meterRegistry, "mongodb", "find")).isEqualTo(7);
+    assertThat(failureCount(meterRegistry, "mongodb", "find")).isEqualTo(1);
+    assertThat(failureTotal(meterRegistry, "mongodb", "find")).isZero();
   }
 
   @Test
   void recordFailure_recordsTheDurationAndAFailureOfOne() {
     recorder.recordFailure("mongodb", "insert", Duration.ofMillis(3), new IllegalStateException());
 
-    Timer duration = timer("mongodb", "insert");
-    assertThat(duration.count()).isEqualTo(1);
-    assertThat(duration.totalTime(TimeUnit.MILLISECONDS)).isEqualTo(3);
-    DistributionSummary failure = failureSummary("mongodb", "insert");
-    assertThat(failure.count()).isEqualTo(1);
-    assertThat(failure.totalAmount()).isEqualTo(1);
+    assertThat(durationCount(meterRegistry, "mongodb", "insert")).isEqualTo(1);
+    assertThat(durationMillis(meterRegistry, "mongodb", "insert")).isEqualTo(3);
+    assertThat(failureCount(meterRegistry, "mongodb", "insert")).isEqualTo(1);
+    assertThat(failureTotal(meterRegistry, "mongodb", "insert")).isEqualTo(1);
   }
 
   @Test
@@ -80,19 +77,5 @@ class ExternalCallRecorderTest {
         .containsEntry("error.type", "java.lang.IllegalStateException")
         .containsEntry("error.message", "not primary");
     assertThat(line.getThrowableProxy()).isNull();
-  }
-
-  private Timer timer(String dependency, String operation) {
-    return meterRegistry
-        .get("external.call.duration")
-        .tags("dependency", dependency, "operation", operation)
-        .timer();
-  }
-
-  private DistributionSummary failureSummary(String dependency, String operation) {
-    return meterRegistry
-        .get("external.call.failure")
-        .tags("dependency", dependency, "operation", operation)
-        .summary();
   }
 }

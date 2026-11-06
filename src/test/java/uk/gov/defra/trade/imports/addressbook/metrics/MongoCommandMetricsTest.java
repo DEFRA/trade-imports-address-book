@@ -3,6 +3,9 @@ package uk.gov.defra.trade.imports.addressbook.metrics;
 import static org.assertj.core.api.Assertions.assertThat;
 import static uk.gov.defra.trade.imports.addressbook.testsupport.CapturedLogs.keyValues;
 import static uk.gov.defra.trade.imports.addressbook.testsupport.CapturedLogs.loggedBy;
+import static uk.gov.defra.trade.imports.addressbook.testsupport.ExternalCallMeters.durationCount;
+import static uk.gov.defra.trade.imports.addressbook.testsupport.ExternalCallMeters.durationMillis;
+import static uk.gov.defra.trade.imports.addressbook.testsupport.ExternalCallMeters.failureTotal;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import com.mongodb.MongoSocketReadException;
@@ -34,8 +37,8 @@ class MongoCommandMetricsTest {
   void commandSucceeded_recordsAKnownCommandUnderItsOwnName(String commandName) {
     listener.commandSucceeded(succeeded(commandName, 5));
 
-    assertThat(durationCount(commandName)).isEqualTo(1);
-    assertThat(failureTotal(commandName)).isZero();
+    assertThat(durationCount(meterRegistry, "mongodb", commandName)).isEqualTo(1);
+    assertThat(failureTotal(meterRegistry, "mongodb", commandName)).isZero();
   }
 
   @ParameterizedTest
@@ -43,21 +46,15 @@ class MongoCommandMetricsTest {
   void commandSucceeded_recordsAnUnknownCommandAsOther(String commandName) {
     listener.commandSucceeded(succeeded(commandName, 5));
 
-    assertThat(durationCount("other")).isEqualTo(1);
-    assertThat(failureTotal("other")).isZero();
+    assertThat(durationCount(meterRegistry, "mongodb", "other")).isEqualTo(1);
+    assertThat(failureTotal(meterRegistry, "mongodb", "other")).isZero();
   }
 
   @Test
   void commandSucceeded_recordsTheElapsedTime() {
     listener.commandSucceeded(succeeded("find", 12));
 
-    assertThat(
-            meterRegistry
-                .get("external.call.duration")
-                .tags("dependency", "mongodb", "operation", "find")
-                .timer()
-                .totalTime(TimeUnit.MILLISECONDS))
-        .isEqualTo(12);
+    assertThat(durationMillis(meterRegistry, "mongodb", "find")).isEqualTo(12);
   }
 
   @Test
@@ -77,14 +74,8 @@ class MongoCommandMetricsTest {
                         TimeUnit.MILLISECONDS.toNanos(3),
                         new MongoSocketReadException("closed", new ServerAddress()))));
 
-    assertThat(
-            meterRegistry
-                .get("external.call.duration")
-                .tags("dependency", "mongodb", "operation", "insert")
-                .timer()
-                .totalTime(TimeUnit.MILLISECONDS))
-        .isEqualTo(3);
-    assertThat(failureTotal("insert")).isEqualTo(1);
+    assertThat(durationMillis(meterRegistry, "mongodb", "insert")).isEqualTo(3);
+    assertThat(failureTotal(meterRegistry, "mongodb", "insert")).isEqualTo(1);
     assertThat(lines).hasSize(1);
     assertThat(keyValues(lines.getFirst()))
         .containsEntry("event.action", "mongodb/insert")
@@ -106,8 +97,8 @@ class MongoCommandMetricsTest {
             ExternalCallRecorder.class,
             () -> listener.commandSucceeded(succeeded("insert", 4, reply)));
 
-    assertThat(durationCount("insert")).isEqualTo(1);
-    assertThat(failureTotal("insert")).isEqualTo(1);
+    assertThat(durationCount(meterRegistry, "mongodb", "insert")).isEqualTo(1);
+    assertThat(failureTotal(meterRegistry, "mongodb", "insert")).isEqualTo(1);
     assertThat(lines).hasSize(1);
     assertThat(keyValues(lines.getFirst()))
         .containsEntry("event.outcome", "failure")
@@ -129,8 +120,8 @@ class MongoCommandMetricsTest {
             ExternalCallRecorder.class,
             () -> listener.commandSucceeded(succeeded("update", 4, reply)));
 
-    assertThat(durationCount("update")).isEqualTo(1);
-    assertThat(failureTotal("update")).isEqualTo(1);
+    assertThat(durationCount(meterRegistry, "mongodb", "update")).isEqualTo(1);
+    assertThat(failureTotal(meterRegistry, "mongodb", "update")).isEqualTo(1);
     assertThat(lines).hasSize(1);
     assertThat(keyValues(lines.getFirst()))
         .containsEntry("event.outcome", "failure")
@@ -153,21 +144,5 @@ class MongoCommandMetricsTest {
         commandName,
         reply,
         TimeUnit.MILLISECONDS.toNanos(elapsedMillis));
-  }
-
-  private long durationCount(String operation) {
-    return meterRegistry
-        .get("external.call.duration")
-        .tags("dependency", "mongodb", "operation", operation)
-        .timer()
-        .count();
-  }
-
-  private double failureTotal(String operation) {
-    return meterRegistry
-        .get("external.call.failure")
-        .tags("dependency", "mongodb", "operation", operation)
-        .summary()
-        .totalAmount();
   }
 }
