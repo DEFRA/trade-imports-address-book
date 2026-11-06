@@ -23,19 +23,18 @@ import software.amazon.cloudwatchlogs.emf.model.DimensionSet;
 import software.amazon.cloudwatchlogs.emf.model.Unit;
 
 /**
- * Publishes every meter to CloudWatch as Embedded Metric Format, once a minute, in one namespace.
- * A meter's tags are its only dimensions.
+ * Publishes every meter to CloudWatch as Embedded Metric Format, once a step, in one namespace. A
+ * meter's tags are its only dimensions.
  *
  * <p>Timers and distribution summaries publish every value recorded since the last publish, timers
- * in milliseconds. Counters publish the last minute's count. Gauges publish their value when it is
+ * in milliseconds. Counters publish the last step's count. Gauges publish their value when it is
  * finite. Long task timers, function counters, function timers and time gauges are not published.
  * A meter that fails to publish is logged and the rest are still published.
  */
 @Slf4j
 public class EmfMeterRegistry extends StepMeterRegistry {
 
-  static final Duration STEP = Duration.ofMinutes(1);
-
+  private final Duration step;
   private final String namespace;
   private final Supplier<MetricsLogger> metricsLoggers;
 
@@ -43,16 +42,19 @@ public class EmfMeterRegistry extends StepMeterRegistry {
    * Creates the registry. It publishes nothing until {@link #start} is called.
    *
    * @param namespace the CloudWatch namespace
+   * @param step how often the registry publishes
    * @param clock the clock the meters step by
    * @param metricsLoggers supplies a fresh logger for each meter published
    */
-  public EmfMeterRegistry(String namespace, Clock clock, Supplier<MetricsLogger> metricsLoggers) {
-    super(oneMinuteSteps(), clock);
+  public EmfMeterRegistry(
+      String namespace, Duration step, Clock clock, Supplier<MetricsLogger> metricsLoggers) {
+    super(stepsOf(step), clock);
+    this.step = step;
     this.namespace = namespace;
     this.metricsLoggers = metricsLoggers;
   }
 
-  private static StepRegistryConfig oneMinuteSteps() {
+  private static StepRegistryConfig stepsOf(Duration step) {
     return new StepRegistryConfig() {
       @Override
       public String prefix() {
@@ -66,7 +68,7 @@ public class EmfMeterRegistry extends StepMeterRegistry {
 
       @Override
       public Duration step() {
-        return STEP;
+        return step;
       }
     };
   }
@@ -88,7 +90,7 @@ public class EmfMeterRegistry extends StepMeterRegistry {
             distributionStatisticConfig,
             pauseDetector,
             getBaseTimeUnit(),
-            STEP.toMillis());
+            step.toMillis());
     HistogramGauges.registerWithCommonFormat(timer, this);
     return timer;
   }
@@ -98,7 +100,7 @@ public class EmfMeterRegistry extends StepMeterRegistry {
       Meter.Id id, DistributionStatisticConfig distributionStatisticConfig, double scale) {
     DistributionSummary summary =
         new ValueRecordingDistributionSummary(
-            id, clock, distributionStatisticConfig, scale, STEP.toMillis());
+            id, clock, distributionStatisticConfig, scale, step.toMillis());
     HistogramGauges.registerWithCommonFormat(summary, this);
     return summary;
   }

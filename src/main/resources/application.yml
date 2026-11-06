@@ -49,6 +49,7 @@ aws:
     enabled: ${AWS_EMF_ENABLED:true}
     environment: ${AWS_EMF_ENVIRONMENT:}
     namespace: ${AWS_EMF_NAMESPACE:trade-imports-address-book}
+    step: ${AWS_EMF_STEP:1m}
     service:
       name: ${AWS_EMF_SERVICE_NAME:trade-imports-address-book}
       type: ${AWS_EMF_SERVICE_TYPE:SpringBootApp}
