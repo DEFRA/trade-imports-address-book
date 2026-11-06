@@ -10,9 +10,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * Whether MongoDB is available, from the servers the driver monitors: available while any is
- * connected, unavailable once every one has failed its check, and unknown while there are none or
- * one has not been checked yet. Logs each change to available or unavailable.
+ * Whether MongoDB is available, from the servers the driver monitors: available while a connected
+ * server accepts writes (a primary, standalone, mongos or load balancer), unavailable once every
+ * server has been checked and none accepts writes, and unknown while there are none or one has not
+ * been checked yet. Logs each change to available or unavailable.
  */
 @Slf4j
 @Component
@@ -38,18 +39,34 @@ public class MongoAvailability implements ClusterListener {
     if (reported == State.AVAILABLE) {
       log.info("MongoDB is available");
     } else if (reported == State.UNAVAILABLE) {
-      log.warn("MongoDB is unavailable", firstFailure(servers));
+      logUnavailable(servers);
     }
   }
 
   private static State stateOf(List<ServerDescription> servers) {
-    if (servers.stream().anyMatch(MongoAvailability::isConnected)) {
+    if (servers.stream().anyMatch(MongoAvailability::acceptsWrites)) {
       return State.AVAILABLE;
     }
-    if (!servers.isEmpty() && servers.stream().allMatch(server -> server.getException() != null)) {
+    if (!servers.isEmpty() && servers.stream().allMatch(MongoAvailability::isChecked)) {
       return State.UNAVAILABLE;
     }
     return State.UNKNOWN;
+  }
+
+  private static void logUnavailable(List<ServerDescription> servers) {
+    if (servers.stream().anyMatch(MongoAvailability::isConnected)) {
+      log.warn("MongoDB is unavailable: servers are connected but none accepts writes");
+    } else {
+      log.warn("MongoDB is unavailable", firstFailure(servers));
+    }
+  }
+
+  private static boolean acceptsWrites(ServerDescription server) {
+    return isConnected(server) && server.isPrimary();
+  }
+
+  private static boolean isChecked(ServerDescription server) {
+    return isConnected(server) || server.getException() != null;
   }
 
   private static boolean isConnected(ServerDescription server) {

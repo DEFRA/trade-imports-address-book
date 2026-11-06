@@ -45,8 +45,8 @@ class MongoAvailabilityTest {
   }
 
   @Test
-  void state_isAvailableWhileAnyServerIsConnected() {
-    report(failing(FIRST), connected(SECOND));
+  void state_isAvailableWhileAConnectedServerAcceptsWrites() {
+    report(failing(FIRST), primary(SECOND));
 
     assertThat(availability.state()).isEqualTo(MongoAvailability.State.AVAILABLE);
   }
@@ -66,8 +66,22 @@ class MongoAvailabilityTest {
   }
 
   @Test
-  void state_isUnavailableOnceTheOnlyConnectedServerIsRemoved() {
-    report(failing(FIRST), connected(SECOND));
+  void state_isUnavailableWhenTheConnectedServersAreSecondariesAndTheRestHaveFailed() {
+    report(failing(FIRST), secondary(SECOND));
+
+    assertThat(availability.state()).isEqualTo(MongoAvailability.State.UNAVAILABLE);
+  }
+
+  @Test
+  void state_isUnknownWhileASecondaryIsConnectedAndAnotherServerIsNotYetChecked() {
+    report(secondary(FIRST), unchecked(SECOND));
+
+    assertThat(availability.state()).isEqualTo(MongoAvailability.State.UNKNOWN);
+  }
+
+  @Test
+  void state_isUnavailableOnceThePrimaryIsRemoved() {
+    report(failing(FIRST), primary(SECOND));
 
     report(failing(FIRST));
 
@@ -78,14 +92,14 @@ class MongoAvailabilityTest {
   void state_isAvailableAgainOnceAServerRecovers() {
     report(failing(FIRST));
 
-    report(connected(FIRST));
+    report(primary(FIRST));
 
     assertThat(availability.state()).isEqualTo(MongoAvailability.State.AVAILABLE);
   }
 
   @Test
   void clusterDescriptionChanged_logsOnceAtWarnWithTheFailure_whenTheDatabaseBecomesUnavailable() {
-    report(connected(FIRST));
+    report(primary(FIRST));
 
     List<ILoggingEvent> lines =
         loggedBy(
@@ -102,13 +116,31 @@ class MongoAvailabilityTest {
   }
 
   @Test
+  void clusterDescriptionChanged_logsOnceAtWarnNamingNoWritableServer_whenThePrimaryIsLost() {
+    report(primary(FIRST), secondary(SECOND));
+
+    List<ILoggingEvent> lines =
+        loggedBy(
+            MongoAvailability.class,
+            () -> {
+              report(failing(FIRST), secondary(SECOND));
+              report(failing(FIRST), secondary(SECOND));
+            });
+
+    assertThat(lines).hasSize(1);
+    assertThat(lines.getFirst().getLevel()).isEqualTo(Level.WARN);
+    assertThat(lines.getFirst().getFormattedMessage())
+        .isEqualTo("MongoDB is unavailable: servers are connected but none accepts writes");
+  }
+
+  @Test
   void clusterDescriptionChanged_logsOnceAtInfo_whenTheDatabaseBecomesAvailable() {
     List<ILoggingEvent> lines =
         loggedBy(
             MongoAvailability.class,
             () -> {
-              report(connected(FIRST));
-              report(connected(FIRST), connected(SECOND));
+              report(primary(FIRST));
+              report(primary(FIRST), primary(SECOND));
             });
 
     assertThat(lines).hasSize(1);
@@ -117,11 +149,11 @@ class MongoAvailabilityTest {
   }
 
   @Test
-  void clusterDescriptionChanged_logsNothing_whileAnotherServerIsStillConnected() {
-    report(connected(FIRST), connected(SECOND));
+  void clusterDescriptionChanged_logsNothing_whileAnotherServerStillAcceptsWrites() {
+    report(primary(FIRST), primary(SECOND));
 
     List<ILoggingEvent> lines =
-        loggedBy(MongoAvailability.class, () -> report(failing(FIRST), connected(SECOND)));
+        loggedBy(MongoAvailability.class, () -> report(failing(FIRST), primary(SECOND)));
 
     assertThat(lines).isEmpty();
   }
@@ -136,12 +168,21 @@ class MongoAvailabilityTest {
         new ClusterDescriptionChangedEvent(new ClusterId(), description, previous));
   }
 
-  private static ServerDescription connected(ServerAddress address) {
+  private static ServerDescription primary(ServerAddress address) {
     return ServerDescription.builder()
         .address(address)
         .state(ServerConnectionState.CONNECTED)
         .ok(true)
         .type(ServerType.REPLICA_SET_PRIMARY)
+        .build();
+  }
+
+  private static ServerDescription secondary(ServerAddress address) {
+    return ServerDescription.builder()
+        .address(address)
+        .state(ServerConnectionState.CONNECTED)
+        .ok(true)
+        .type(ServerType.REPLICA_SET_SECONDARY)
         .build();
   }
 
