@@ -1,0 +1,162 @@
+package uk.gov.defra.trade.imports.addressbook.metrics;
+
+import io.micrometer.core.instrument.Clock;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.DistributionSummary;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.Meter;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.TimeGauge;
+import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
+import io.micrometer.core.instrument.distribution.HistogramGauges;
+import io.micrometer.core.instrument.distribution.pause.PauseDetector;
+import io.micrometer.core.instrument.step.StepMeterRegistry;
+import io.micrometer.core.instrument.step.StepRegistryConfig;
+import java.time.Duration;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
+import lombok.extern.slf4j.Slf4j;
+import software.amazon.cloudwatchlogs.emf.logger.MetricsLogger;
+import software.amazon.cloudwatchlogs.emf.model.DimensionSet;
+import software.amazon.cloudwatchlogs.emf.model.Unit;
+
+/**
+ * Publishes every meter to CloudWatch as Embedded Metric Format, once a minute, in one namespace.
+ * A meter's tags are its only dimensions.
+ *
+ * <p>Timers and distribution summaries publish every value recorded since the last publish, timers
+ * in milliseconds. Counters publish the last minute's count. Gauges publish their value when it is
+ * finite. Long task timers, function counters, function timers and time gauges are not published.
+ * A meter that fails to publish is logged and the rest are still published.
+ */
+@Slf4j
+public class EmfMeterRegistry extends StepMeterRegistry {
+
+  static final Duration STEP = Duration.ofMinutes(1);
+
+  private final String namespace;
+  private final Supplier<MetricsLogger> metricsLoggers;
+
+  /**
+   * Creates the registry. It publishes nothing until {@link #start} is called.
+   *
+   * @param namespace the CloudWatch namespace
+   * @param clock the clock the meters step by
+   * @param metricsLoggers supplies a fresh logger for each meter published
+   */
+  public EmfMeterRegistry(String namespace, Clock clock, Supplier<MetricsLogger> metricsLoggers) {
+    super(oneMinuteSteps(), clock);
+    this.namespace = namespace;
+    this.metricsLoggers = metricsLoggers;
+  }
+
+  private static StepRegistryConfig oneMinuteSteps() {
+    return new StepRegistryConfig() {
+      @Override
+      public String prefix() {
+        return "emf";
+      }
+
+      @Override
+      public String get(String key) {
+        return null;
+      }
+
+      @Override
+      public Duration step() {
+        return STEP;
+      }
+    };
+  }
+
+  @Override
+  protected TimeUnit getBaseTimeUnit() {
+    return TimeUnit.MILLISECONDS;
+  }
+
+  @Override
+  protected Timer newTimer(
+      Meter.Id id,
+      DistributionStatisticConfig distributionStatisticConfig,
+      PauseDetector pauseDetector) {
+    Timer timer =
+        new ValueRecordingTimer(
+            id,
+            clock,
+            distributionStatisticConfig,
+            pauseDetector,
+            getBaseTimeUnit(),
+            STEP.toMillis());
+    HistogramGauges.registerWithCommonFormat(timer, this);
+    return timer;
+  }
+
+  @Override
+  protected DistributionSummary newDistributionSummary(
+      Meter.Id id, DistributionStatisticConfig distributionStatisticConfig, double scale) {
+    DistributionSummary summary =
+        new ValueRecordingDistributionSummary(
+            id, clock, distributionStatisticConfig, scale, STEP.toMillis());
+    HistogramGauges.registerWithCommonFormat(summary, this);
+    return summary;
+  }
+
+  @Override
+  protected void publish() {
+    for (Meter meter : getMeters()) {
+      try {
+        publishMeter(meter);
+      } catch (RuntimeException e) {
+        log.warn("Could not publish meter {}", meter.getId().getName(), e);
+      }
+    }
+  }
+
+  private void publishMeter(Meter meter) {
+    switch (meter) {
+      case ValueRecordingTimer timer ->
+          publishValues(meter, millisOf(timer.recordedNanos().takeAll()), Unit.MILLISECONDS);
+      case ValueRecordingDistributionSummary summary ->
+          publishValues(meter, summary.recordedAmounts().takeAll(), Unit.NONE);
+      case Counter counter -> publishValues(meter, List.of(counter.count()), Unit.COUNT);
+      case TimeGauge _ -> {
+        // Not published.
+      }
+      case Gauge gauge -> {
+        double value = gauge.value();
+        if (Double.isFinite(value)) {
+          publishValues(meter, List.of(value), Unit.NONE);
+        }
+      }
+      default -> {
+        // Not published.
+      }
+    }
+  }
+
+  private static List<Double> millisOf(List<Double> nanos) {
+    return nanos.stream().map(each -> each / TimeUnit.MILLISECONDS.toNanos(1)).toList();
+  }
+
+  private void publishValues(Meter meter, List<Double> values, Unit unit) {
+    if (values.isEmpty()) {
+      return;
+    }
+    MetricsLogger metricsLogger = metricsLoggers.get();
+    metricsLogger.setNamespace(namespace);
+    metricsLogger.setDimensions(false, dimensionsOf(meter.getId()));
+    String name = meter.getId().getName();
+    values.forEach(value -> metricsLogger.putMetric(name, value, unit));
+    metricsLogger.flush();
+  }
+
+  private static DimensionSet dimensionsOf(Meter.Id id) {
+    DimensionSet dimensions = new DimensionSet();
+    for (Tag tag : id.getTagsAsIterable()) {
+      dimensions.addDimension(tag.getKey(), tag.getValue());
+    }
+    return dimensions;
+  }
+}

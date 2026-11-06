@@ -107,7 +107,7 @@ public class AddressController {
           @Content(
               mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
               schema = @Schema(implementation = Problem.class)))
-  @Timed("controller.listOperators.time")
+  @Timed("controller.list.time")
   public AddressPageResponse list(
       @PathVariable String orgId,
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
@@ -230,7 +230,7 @@ public class AddressController {
           @Content(
               mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
               schema = @Schema(implementation = Problem.class)))
-  @Timed("controller.createOperator.time")
+  @Timed("controller.create.time")
   public ResponseEntity<AddressResponse> create(
       @PathVariable String orgId,
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
@@ -281,7 +281,7 @@ public class AddressController {
           @Content(
               mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
               schema = @Schema(implementation = Problem.class)))
-  @Timed("controller.getOperator.time")
+  @Timed("controller.get.time")
   public AddressResponse get(
       @PathVariable String orgId,
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
@@ -347,7 +347,7 @@ public class AddressController {
           @Content(
               mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
               schema = @Schema(implementation = Problem.class)))
-  @Timed("controller.updateOperator.time")
+  @Timed("controller.update.time")
   public AddressResponse update(
       @PathVariable String orgId,
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
@@ -394,7 +394,7 @@ public class AddressController {
           @Content(
               mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
               schema = @Schema(implementation = Problem.class)))
-  @Timed("controller.deleteOperator.time")
+  @Timed("controller.delete.time")
   public ResponseEntity<Void> delete(
       @PathVariable String orgId,
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,

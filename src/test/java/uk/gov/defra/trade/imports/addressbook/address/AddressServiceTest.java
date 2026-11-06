@@ -41,6 +41,7 @@ import org.springframework.data.domain.Sort;
 import uk.gov.defra.trade.imports.addressbook.configuration.AddressTtlConfig;
 import uk.gov.defra.trade.imports.addressbook.exceptions.BadRequestException;
 import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
+import uk.gov.defra.trade.imports.addressbook.metrics.AddressMetrics;
 
 @ExtendWith(MockitoExtension.class)
 class AddressServiceTest {
@@ -50,6 +51,7 @@ class AddressServiceTest {
   @Mock private AddressRepository repository;
 
   private final MeterRegistry meterRegistry = new SimpleMeterRegistry();
+  private final AddressMetrics addressMetrics = new AddressMetrics(meterRegistry);
   private final AddressMapper addressMapper = Mappers.getMapper(AddressMapper.class);
 
   private AddressService service;
@@ -57,15 +59,20 @@ class AddressServiceTest {
   @BeforeEach
   void setUp() {
     service =
-        new AddressService(repository, addressMapper, meterRegistry, NO_TTL);
+        new AddressService(repository, addressMapper, addressMetrics, NO_TTL);
   }
 
   private AddressService serviceWithTtl(Integer days, String environment) {
     return new AddressService(
         repository,
         addressMapper,
-        meterRegistry,
+        addressMetrics,
         new AddressTtlConfig(days, environment));
+  }
+
+  private double changesCounted(String action) {
+    var counter = meterRegistry.find("address.change").tag("action", action).counter();
+    return counter == null ? 0 : counter.count();
   }
 
   @Test
@@ -86,6 +93,15 @@ class AddressServiceTest {
     assertThat(created.getStatus()).isEqualTo(AddressStatus.ACTIVE);
     assertThat(created.getName()).isEqualTo("Highland Livestock Ltd");
     assertThat(created.getCountryCode()).isEqualTo("GB");
+  }
+
+  @Test
+  void create_countsOneCreate() {
+    when(repository.save(any(Address.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+    service.create(validRequest().build(), ORG);
+
+    assertThat(changesCounted("create")).isEqualTo(1);
   }
 
   @Test
@@ -206,6 +222,28 @@ class AddressServiceTest {
   }
 
   @Test
+  void update_countsOneUpdate() {
+    when(repository.findByIdAndOrganisationId(STORED_ADDRESS_ID, ORG))
+        .thenReturn(Optional.of(storedAddress(ORG, AddressStatus.ACTIVE).build()));
+    when(repository.save(any(Address.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+    service.update(STORED_ADDRESS_ID, replacementRequest().build(), ORG);
+
+    assertThat(changesCounted("update")).isEqualTo(1);
+  }
+
+  @Test
+  void update_ofADeletedAddressCountsNoUpdate() {
+    when(repository.findByIdAndOrganisationId(STORED_ADDRESS_ID, ORG))
+        .thenReturn(Optional.of(storedAddress(ORG, AddressStatus.DELETED).build()));
+    AddressRequest request = replacementRequest().build();
+
+    assertThatExceptionOfType(NotFoundException.class)
+        .isThrownBy(() -> service.update(STORED_ADDRESS_ID, request, ORG));
+    assertThat(changesCounted("update")).isZero();
+  }
+
+  @Test
   void update_keepsTheExpireAtSetWhenTheAddressWasCreated() {
     AddressService withTtl = serviceWithTtl(7, "dev");
     Address existing = storedAddress(ORG, AddressStatus.ACTIVE).build();
@@ -281,6 +319,27 @@ class AddressServiceTest {
     verify(repository, never()).save(any());
     assertThat(tombstone.getStatus()).isEqualTo(AddressStatus.DELETED);
     assertThat(tombstone.getModifiedAt()).isEqualTo(STORED_MODIFIED_AT);
+  }
+
+  @Test
+  void delete_ofAnActiveAddressCountsOneDelete() {
+    when(repository.findByIdAndOrganisationId(STORED_ADDRESS_ID, ORG))
+        .thenReturn(Optional.of(storedAddress(ORG, AddressStatus.ACTIVE).build()));
+    when(repository.save(any(Address.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+    service.delete(STORED_ADDRESS_ID, ORG);
+
+    assertThat(changesCounted("delete")).isEqualTo(1);
+  }
+
+  @Test
+  void delete_ofAnAlreadyDeletedAddressCountsNoDelete() {
+    when(repository.findByIdAndOrganisationId(STORED_ADDRESS_ID, ORG))
+        .thenReturn(Optional.of(storedAddress(ORG, AddressStatus.DELETED).build()));
+
+    service.delete(STORED_ADDRESS_ID, ORG);
+
+    assertThat(changesCounted("delete")).isZero();
   }
 
   @Test
