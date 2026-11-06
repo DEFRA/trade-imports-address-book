@@ -23,17 +23,7 @@ class EcsLoggingIT extends IntegrationBase {
           .andExpect(status().isNotFound());
     }
 
-    JsonNode logJson = null;
-    for (String line : console.text().split("\n")) {
-      if (line.trim().startsWith("{")) {
-        logJson = objectMapper.readTree(line);
-        if (logJson.has("url.full")) {
-          break;
-        }
-      }
-    }
-
-    assertThat(logJson).isNotNull();
+    JsonNode logJson = requestLogLine(console);
 
     assertThat(logJson.has("@timestamp")).isTrue();
     assertThat(logJson.has("log.level")).isTrue();
@@ -64,21 +54,28 @@ class EcsLoggingIT extends IntegrationBase {
   }
 
   @Test
-  void missingTraceIdHeader_shouldLeaveTraceIdEmpty() throws Exception {
+  void missingTraceIdHeader_shouldLogTheRequestWithoutTraceId() throws Exception {
     CapturedConsole console = captureSystemOut();
     try (console) {
       mockMvc.perform(get("/actuator/info"))
           .andExpect(status().isNotFound());
     }
 
+    JsonNode logJson = requestLogLine(console);
+
+    assertThat(logJson.get("url.full").asText()).contains("/actuator/info");
+    assertThat(logJson.has("trace.id")).isFalse();
+  }
+
+  private JsonNode requestLogLine(CapturedConsole console) throws Exception {
     for (String line : console.text().split("\n")) {
       if (line.trim().startsWith("{")) {
         JsonNode logJson = objectMapper.readTree(line);
         if (logJson.has("url.full")) {
-          assertThat(logJson.has("trace.id")).isFalse();
-          break;
+          return logJson;
         }
       }
     }
+    throw new AssertionError("No log line has url.full in:\n" + console.text());
   }
 }
