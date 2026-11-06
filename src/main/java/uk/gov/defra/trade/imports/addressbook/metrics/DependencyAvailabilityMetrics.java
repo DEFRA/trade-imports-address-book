@@ -11,14 +11,12 @@ import org.springframework.stereotype.Component;
 @Component
 public class DependencyAvailabilityMetrics {
 
-  static final String AVAILABLE_METRIC = "external.dependency.available";
-
   DependencyAvailabilityMetrics(MeterRegistry meterRegistry, MongoAvailability mongoAvailability) {
     Gauge.builder(
-            AVAILABLE_METRIC,
+            "external.dependency.available",
             mongoAvailability,
             availability -> gaugeValueOf(availability.state()))
-        .tag("dependency", MongoCommandMetrics.DEPENDENCY)
+        .tag(ExternalCallRecorder.DEPENDENCY_TAG, MongoCommandMetrics.DEPENDENCY)
         .register(meterRegistry);
   }
 
