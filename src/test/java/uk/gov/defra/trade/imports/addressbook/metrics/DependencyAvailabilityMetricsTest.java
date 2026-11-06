@@ -1,20 +1,13 @@
 package uk.gov.defra.trade.imports.addressbook.metrics;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static uk.gov.defra.trade.imports.addressbook.testsupport.MongoClusterEvents.failing;
+import static uk.gov.defra.trade.imports.addressbook.testsupport.MongoClusterEvents.primary;
+import static uk.gov.defra.trade.imports.addressbook.testsupport.MongoClusterEvents.report;
 
-import com.mongodb.MongoSocketOpenException;
 import com.mongodb.ServerAddress;
-import com.mongodb.connection.ClusterConnectionMode;
-import com.mongodb.connection.ClusterDescription;
-import com.mongodb.connection.ClusterId;
-import com.mongodb.connection.ClusterType;
-import com.mongodb.connection.ServerConnectionState;
-import com.mongodb.connection.ServerDescription;
-import com.mongodb.connection.ServerType;
-import com.mongodb.event.ClusterDescriptionChangedEvent;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -37,40 +30,19 @@ class DependencyAvailabilityMetricsTest {
 
   @Test
   void gauge_isOneWhileMongoIsAvailable() {
-    report(
-        ServerDescription.builder()
-            .address(ADDRESS)
-            .state(ServerConnectionState.CONNECTED)
-            .ok(true)
-            .type(ServerType.STANDALONE)
-            .build());
+    report(availability, primary(ADDRESS));
 
     assertThat(gauge().value()).isEqualTo(1);
   }
 
   @Test
   void gauge_isZeroWhileMongoIsUnavailable() {
-    report(
-        ServerDescription.builder()
-            .address(ADDRESS)
-            .state(ServerConnectionState.CONNECTING)
-            .exception(new MongoSocketOpenException("refused", ADDRESS))
-            .build());
+    report(availability, failing(ADDRESS));
 
     assertThat(gauge().value()).isZero();
   }
 
   private Gauge gauge() {
     return meterRegistry.get("external.dependency.available").tag("dependency", "mongodb").gauge();
-  }
-
-  private void report(ServerDescription server) {
-    availability.clusterDescriptionChanged(
-        new ClusterDescriptionChangedEvent(
-            new ClusterId(),
-            new ClusterDescription(
-                ClusterConnectionMode.SINGLE, ClusterType.STANDALONE, List.of(server)),
-            new ClusterDescription(
-                ClusterConnectionMode.SINGLE, ClusterType.UNKNOWN, List.of())));
   }
 }
