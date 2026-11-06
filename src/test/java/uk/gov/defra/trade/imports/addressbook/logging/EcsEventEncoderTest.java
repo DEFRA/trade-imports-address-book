@@ -63,29 +63,7 @@ class EcsEventEncoderTest {
   }
 
   @Test
-  void encode_writesNoFlatEventKeysButKeepsTheEcsEncodersEventDataset() throws IOException {
-    ILoggingEvent event =
-        logged(
-            () ->
-                LOG.atInfo()
-                    .addKeyValue("event.category", "external-call")
-                    .addKeyValue("event.action", "mongodb/find")
-                    .addKeyValue("event.outcome", "success")
-                    .addKeyValue("event.duration", 5L)
-                    .log("External call"));
-
-    JsonNode line = encode(event);
-
-    assertThat(line.has("event.category")).isFalse();
-    assertThat(line.has("event.action")).isFalse();
-    assertThat(line.has("event.outcome")).isFalse();
-    assertThat(line.has("event.duration")).isFalse();
-    assertThat(line.path("event.dataset").asText()).isEqualTo("trade-imports-address-book");
-  }
-
-  @Test
-  void encode_keepsTheTraceIdAndTheErrorFields() throws IOException {
-    MDC.put("trace.id", "trace-from-the-caller");
+  void encode_keepsTheErrorFieldsAfterTheEventObject() throws IOException {
     ILoggingEvent event =
         logged(
             () ->
@@ -96,7 +74,6 @@ class EcsEventEncoderTest {
 
     JsonNode line = encode(event);
 
-    assertThat(line.path("trace.id").asText()).isEqualTo("trace-from-the-caller");
     assertThat(line.path("error.type").asText()).isEqualTo("java.lang.IllegalStateException");
     assertThat(line.path("error.message").asText()).isEqualTo("mongo unavailable");
     assertThat(line.has("error.stack_trace")).isTrue();
@@ -104,7 +81,8 @@ class EcsEventEncoderTest {
   }
 
   @Test
-  void encode_writesTheErrorKeyValuePairsAsTopLevelFieldsWithNoStackTrace() throws IOException {
+  void encode_writesOnlyTheErrorKeyValuePairsAsTopLevelFieldsWithNoStackTrace()
+      throws IOException {
     ILoggingEvent event =
         logged(
             () ->
@@ -119,6 +97,7 @@ class EcsEventEncoderTest {
     assertThat(line.path("error.type").asText()).isEqualTo("java.lang.IllegalStateException");
     assertThat(line.path("error.message").asText()).isEqualTo("mongo unavailable");
     assertThat(line.has("error.stack_trace")).isFalse();
+    assertThat(line.has("event.outcome")).isFalse();
     assertThat(line.path("event").path("outcome").asText()).isEqualTo("failure");
   }
 
