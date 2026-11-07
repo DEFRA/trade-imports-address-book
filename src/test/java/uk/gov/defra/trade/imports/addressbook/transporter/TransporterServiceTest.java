@@ -102,23 +102,20 @@ class TransporterServiceTest {
     Transporter tombstone = storedTransporter(ORG, TransporterStatus.DELETED).build();
     when(repository.findByIdAndOrganisationId(STORED_TRANSPORTER_ID, ORG))
         .thenReturn(Optional.of(tombstone));
+    TransporterRequest request = validCommercialRequest().build();
 
     assertThatExceptionOfType(NotFoundException.class)
-        .isThrownBy(
-            () ->
-                service.update(STORED_TRANSPORTER_ID, validCommercialRequest().build(), ORG));
+        .isThrownBy(() -> service.update(STORED_TRANSPORTER_ID, request, ORG));
   }
 
   @Test
   void update_ofAnotherOrganisationsIdThrowsNotFound() {
     when(repository.findByIdAndOrganisationId(STORED_TRANSPORTER_ID, "org-other"))
         .thenReturn(Optional.empty());
+    TransporterRequest request = validCommercialRequest().build();
 
     assertThatExceptionOfType(NotFoundException.class)
-        .isThrownBy(
-            () ->
-                service.update(
-                    STORED_TRANSPORTER_ID, validCommercialRequest().build(), "org-other"));
+        .isThrownBy(() -> service.update(STORED_TRANSPORTER_ID, request, "org-other"));
   }
 
   @Test

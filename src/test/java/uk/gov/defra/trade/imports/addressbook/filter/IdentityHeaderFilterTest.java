@@ -188,9 +188,9 @@ class IdentityHeaderFilterTest {
     // Then
     assertThat(chain.wasCalled()).isFalse();
     assertThat(response.getStatus()).isEqualTo(HttpStatus.NOT_FOUND.value());
-    assertThat(parseBody(response).get("type"))
-        .isEqualTo("https://api.cdp.defra.cloud/problems/not-found");
-    assertThat(parseBody(response).get("detail")).isEqualTo("Resource not found");
+    assertThat(parseBody(response))
+        .containsEntry("type", "https://api.cdp.defra.cloud/problems/not-found")
+        .containsEntry("detail", "Resource not found");
   }
 
   @Test

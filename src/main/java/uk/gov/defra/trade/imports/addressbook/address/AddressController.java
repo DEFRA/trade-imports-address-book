@@ -49,6 +49,13 @@ import uk.gov.defra.trade.imports.addressbook.filter.IdentityHeaderFilter;
 @RequiredArgsConstructor
 public class AddressController {
 
+  /**
+   * What a caller is told when an address is not theirs, as well as when it does not exist: a
+   * cross-organisation request and an unknown id are deliberately indistinguishable, so the address
+   * book never confirms that another organisation holds a given id.
+   */
+  private static final String ADDRESS_NOT_FOUND = "Address not found";
+
   private final AddressService addressService;
   private final AddressMapper addressMapper;
 
@@ -159,7 +166,7 @@ public class AddressController {
               array = @ArraySchema(schema = @Schema(implementation = AddressRole.class)))
           @RequestParam(name = "searchRole", required = false)
           List<AddressRole> searchRoles) {
-    OrganisationScope.authorise(orgId, organisationId, "Address not found");
+    OrganisationScope.authorise(orgId, organisationId, ADDRESS_NOT_FOUND);
     log.info(
         "GET addresses - page {}, pageSize {}, q present {}, countryCodes {}, roles {},"
             + " searchRoles {}",
@@ -231,7 +238,7 @@ public class AddressController {
       @PathVariable String orgId,
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
       @Valid @RequestBody AddressRequest request) {
-    OrganisationScope.authorise(orgId, organisationId, "Address not found");
+    OrganisationScope.authorise(orgId, organisationId, ADDRESS_NOT_FOUND);
     log.info("POST addresses - creating address");
     Address created = addressService.create(request, organisationId);
     URI location =
@@ -282,12 +289,12 @@ public class AddressController {
       @PathVariable String orgId,
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
       @PathVariable("address-id") String addressId) {
-    OrganisationScope.authorise(orgId, organisationId, "Address not found");
+    OrganisationScope.authorise(orgId, organisationId, ADDRESS_NOT_FOUND);
     log.info("GET addresses/{}", addressId);
     Address address =
         addressService
             .get(addressId, organisationId)
-            .orElseThrow(() -> new NotFoundException("Address not found"));
+            .orElseThrow(() -> new NotFoundException(ADDRESS_NOT_FOUND));
     return addressMapper.toResponse(address);
   }
 
@@ -349,7 +356,7 @@ public class AddressController {
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
       @PathVariable("address-id") String addressId,
       @Valid @RequestBody AddressRequest request) {
-    OrganisationScope.authorise(orgId, organisationId, "Address not found");
+    OrganisationScope.authorise(orgId, organisationId, ADDRESS_NOT_FOUND);
     log.info("PUT addresses/{}", addressId);
     Address updated = addressService.update(addressId, request, organisationId);
     return addressMapper.toResponse(updated);
@@ -395,7 +402,7 @@ public class AddressController {
       @PathVariable String orgId,
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
       @PathVariable("address-id") String addressId) {
-    OrganisationScope.authorise(orgId, organisationId, "Address not found");
+    OrganisationScope.authorise(orgId, organisationId, ADDRESS_NOT_FOUND);
     log.info("DELETE addresses/{}", addressId);
     addressService.delete(addressId, organisationId);
     return ResponseEntity.noContent().build();
