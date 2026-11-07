@@ -1,8 +1,7 @@
 package uk.gov.defra.trade.imports.addressbook.address;
 
 import java.util.List;
-import java.util.Objects;
-import java.util.stream.Stream;
+import uk.gov.defra.trade.imports.addressbook.ListPaging;
 
 /**
  * The filters of a list request. A filter the request did not supply is empty, never null.
@@ -21,12 +20,11 @@ public record RequestedListFilters(
   public RequestedListFilters {
     searchTerm = searchTerm == null ? "" : searchTerm.trim();
     countryCodes =
-        presentElements(countryCodes).map(String::trim).filter(code -> !code.isEmpty()).toList();
-    roles = presentElements(roles).distinct().toList();
-    searchRoles = presentElements(searchRoles).distinct().toList();
-  }
-
-  private static <T> Stream<T> presentElements(List<T> values) {
-    return values == null ? Stream.empty() : values.stream().filter(Objects::nonNull);
+        ListPaging.presentElements(countryCodes)
+            .map(String::trim)
+            .filter(code -> !code.isEmpty())
+            .toList();
+    roles = ListPaging.presentElements(roles).distinct().toList();
+    searchRoles = ListPaging.presentElements(searchRoles).distinct().toList();
   }
 }

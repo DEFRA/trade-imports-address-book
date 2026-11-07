@@ -8,7 +8,159 @@ security:
 tags:
 - name: addresses
   description: Address book, scoped to the caller's organisation
+- name: transporters
+  description: An organisation's transporters, scoped to its address book
 paths:
+  /organisation/{orgId}/transporters/{transporter-id}:
+    get:
+      tags:
+      - transporters
+      summary: Fetch one transporter, including tombstones
+      operationId: get-transporter
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Trade-Imports-Organisation-Id
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: transporter-id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: The transporter (deleted false or true)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporterResponse'
+        '404':
+          description: Unknown id, or an id outside the caller's organisation scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: Unexpected server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      security:
+      - Trade-Imports-Organisation-Id: []
+    put:
+      tags:
+      - transporters
+      summary: Replace a transporter's mutable fields
+      operationId: update-transporter
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Trade-Imports-Organisation-Id
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: transporter-id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporterRequest'
+        required: true
+      responses:
+        '200':
+          description: Updated transporter with bumped modifiedAt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporterResponse'
+        '400':
+          description: Validation error, or a missing org header
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                anyOf:
+                - $ref: '#/components/schemas/ValidationProblem'
+                - $ref: '#/components/schemas/Problem'
+        '404':
+          description: Unknown id, an id outside the caller's organisation scope, or a tombstone
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: Concurrent update conflict
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: Unexpected server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      security:
+      - Trade-Imports-Organisation-Id: []
+    delete:
+      tags:
+      - transporters
+      summary: Soft-delete a transporter (tombstone)
+      operationId: delete-transporter
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Trade-Imports-Organisation-Id
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: transporter-id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Soft-deleted (or already deleted — idempotent)
+        '400':
+          description: Missing org header
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: Unknown id, or an id outside the caller's organisation scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: Unexpected server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      security:
+      - Trade-Imports-Organisation-Id: []
   /organisation/{orgId}/addresses/{address-id}:
     get:
       tags:
@@ -147,6 +299,157 @@ paths:
                 $ref: '#/components/schemas/Problem'
         '404':
           description: Unknown id, or an id outside the caller's organisation scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: Unexpected server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      security:
+      - Trade-Imports-Organisation-Id: []
+  /organisation/{orgId}/transporters:
+    get:
+      tags:
+      - transporters
+      summary: List the caller's live transporters (paginated, searchable)
+      operationId: list-transporters
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Trade-Imports-Organisation-Id
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: page
+        in: query
+        description: 1-based page number
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 1
+          minimum: 1
+      - name: pageSize
+        in: query
+        description: Transporters a page, from 1 to 100 (default 25)
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 25
+          maximum: 100
+          minimum: 1
+      - name: q
+        in: query
+        description: Case-insensitive partial-word search over name, address line 1, address line 2, town or city, county, postcode and approval number. A transporter matching q, a countryCode or a searchType is returned.
+        required: false
+        schema:
+          type: string
+      - name: countryCode
+        in: query
+        description: ISO alpha-2 or alpha-2-plus-subdivision country codes. Repeatable. A transporter in any of them matches the search, as one matching q or a searchType does.
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+      - name: type
+        in: query
+        description: Keeps only transporters of any of these types. Repeatable. Narrows the search (q, countryCode and searchType). An unknown value is refused with 400.
+        required: false
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporterType'
+      - name: searchType
+        in: query
+        description: 'Types that make a transporter match the search: a transporter of any of them matches, as one matching q or countryCode does. Repeatable. An unknown value is refused with 400.'
+        required: false
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporterType'
+      responses:
+        '200':
+          description: One page of the caller's live transporters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporterPageResponse'
+        '400':
+          description: An out-of-range or non-numeric page or page size, an unknown type or search type, or a missing org header
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: Path orgId does not match the caller's organisation header
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: Unexpected server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      security:
+      - Trade-Imports-Organisation-Id: []
+    post:
+      tags:
+      - transporters
+      summary: Create a transporter in the caller's address book
+      operationId: create-transporter
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Trade-Imports-Organisation-Id
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporterRequest'
+        required: true
+      responses:
+        '201':
+          description: Created
+          headers:
+            Location:
+              description: Absolute URI of the created transporter
+              style: simple
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporterResponse'
+        '400':
+          description: Validation error, or a missing identity header
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                anyOf:
+                - $ref: '#/components/schemas/ValidationProblem'
+                - $ref: '#/components/schemas/Problem'
+        '404':
+          description: Path orgId does not match the caller's organisation header
           content:
             application/problem+json:
               schema:
@@ -312,6 +615,194 @@ paths:
       - Trade-Imports-Organisation-Id: []
 components:
   schemas:
+    TransporterRequest:
+      description: Create or replace a transporter in the caller's address book
+      properties:
+        name:
+          type: string
+          description: Display name for the transporter
+          example: Highland Haulage Ltd
+          maxLength: 255
+          minLength: 0
+        addressLine1:
+          type: string
+          description: First line of the postal address
+          example: 14 Drover's Way
+          maxLength: 255
+          minLength: 0
+        addressLine2:
+          type: string
+          description: Second line of the postal address
+          maxLength: 255
+          minLength: 0
+        townOrCity:
+          type: string
+          description: Town or city
+          example: Inverness
+          maxLength: 100
+          minLength: 0
+        county:
+          type: string
+          description: County or region
+          maxLength: 100
+          minLength: 0
+        postcode:
+          type: string
+          description: Postal or ZIP code
+          example: IV2 3JH
+          maxLength: 12
+          minLength: 0
+        countryCode:
+          type: string
+          description: Country code (stored as given). Fixed to GB-NIR when type is COMMERCIAL
+          example: GB-NIR
+          minLength: 1
+        phone:
+          type: string
+          description: Contact telephone number
+          example: +44 1463 234567
+          maxLength: 20
+          minLength: 0
+        email:
+          type: string
+          description: Contact email address
+          example: haulage@highland.example.com
+          maxLength: 254
+          minLength: 0
+        type:
+          $ref: '#/components/schemas/TransporterType'
+        approvalNumber:
+          type: string
+          description: A commercial transporter's approval number; absent for a private one
+          example: UK/BELF/T2/00104115
+          maxLength: 50
+          minLength: 0
+      required:
+      - addressLine1
+      - countryCode
+      - email
+      - name
+      - phone
+      - postcode
+      - townOrCity
+      - type
+    TransporterType:
+      type: string
+      description: Whether a transporter is privately operated or a commercial haulier
+      enum:
+      - PRIVATE
+      - COMMERCIAL
+    TransporterResponse:
+      description: A transporter in the caller's organisation-scoped address book
+      properties:
+        id:
+          type: string
+          description: Opaque transporter identifier
+          example: 665f1c2ab3e4d51a2c9d0e77
+        name:
+          type: string
+          description: Display name
+        addressLine1:
+          type: string
+          description: First line of the postal address
+        addressLine2:
+          type: string
+          description: Second line of the postal address
+        townOrCity:
+          type: string
+          description: Town or city
+        county:
+          type: string
+          description: County or region
+        postcode:
+          type: string
+          description: Postal or ZIP code
+        countryCode:
+          type: string
+          description: Country code. GB-NIR for a commercial transporter
+          example: GB-NIR
+        phone:
+          type: string
+          description: Contact telephone number
+        email:
+          type: string
+          description: Contact email address
+        type:
+          $ref: '#/components/schemas/TransporterType'
+        approvalNumber:
+          type: string
+          description: A commercial transporter's approval number; absent for a private one
+        organisationId:
+          type: string
+          description: Organisation that owns this transporter
+        deleted:
+          type: boolean
+          description: True when the transporter has been soft-deleted
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp (UTC)
+        modifiedAt:
+          type: string
+          format: date-time
+          description: Last modification timestamp (UTC)
+      required:
+      - addressLine1
+      - countryCode
+      - createdAt
+      - deleted
+      - email
+      - id
+      - modifiedAt
+      - name
+      - organisationId
+      - phone
+      - postcode
+      - townOrCity
+      - type
+    ValidationProblem:
+      description: RFC 9457 validation problem with field errors
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string
+        traceId:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+      required:
+      - errors
+      - status
+      - title
+      - type
+    Problem:
+      description: RFC 9457 problem details
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string
+        traceId:
+          type: string
+      required:
+      - status
+      - title
+      - type
     AddressRequest:
       description: Create or replace an address in the caller's address book
       properties:
@@ -458,49 +949,40 @@ components:
       - phone
       - postcode
       - townOrCity
-    ValidationProblem:
-      description: RFC 9457 validation problem with field errors
+    TransporterPageResponse:
+      description: Paginated list of live transporters (never a bare array)
       properties:
-        type:
-          type: string
-        title:
-          type: string
-        status:
+        items:
+          type: array
+          description: Transporters on this page
+          items:
+            $ref: '#/components/schemas/TransporterResponse'
+        page:
           type: integer
           format: int32
-        detail:
-          type: string
-        traceId:
-          type: string
-        errors:
-          type: object
-          additionalProperties:
-            type: array
-            items:
-              type: string
-      required:
-      - errors
-      - status
-      - title
-      - type
-    Problem:
-      description: RFC 9457 problem details
-      properties:
-        type:
-          type: string
-        title:
-          type: string
-        status:
+          description: Current 1-based page number
+          minimum: 1
+        pageSize:
           type: integer
           format: int32
-        detail:
-          type: string
-        traceId:
-          type: string
+          description: 'Page size served: the requested one, else the default'
+          minimum: 1
+        totalItems:
+          type: integer
+          format: int32
+          description: Total number of matching transporters
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          description: Total number of pages
+          minimum: 0
       required:
-      - status
-      - title
-      - type
+      - items
+      - page
+      - pageSize
+      - totalItems
+      - totalPages
     AddressPageResponse:
       description: Paginated list of live addresses (never a bare array)
       properties:

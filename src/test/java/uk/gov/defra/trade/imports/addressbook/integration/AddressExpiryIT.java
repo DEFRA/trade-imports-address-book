@@ -18,8 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.test.context.TestPropertySource;
+import uk.gov.defra.trade.imports.addressbook.ExpiryIndexes;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
-import uk.gov.defra.trade.imports.addressbook.address.AddressExpiryIndex;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
 
 @TestPropertySource(
@@ -30,11 +30,11 @@ class AddressExpiryIT extends IntegrationBase {
 
   @Autowired private MongoTemplate mongoTemplate;
   @Autowired private MongoClient mongoClient;
-  @Autowired private AddressExpiryIndex addressExpiryIndex;
+  @Autowired private ExpiryIndexes expiryIndexes;
 
   @BeforeEach
   void ensureTtlIndex() {
-    addressExpiryIndex.createIndex();
+    expiryIndexes.createIndexes();
   }
 
   @AfterEach

@@ -44,6 +44,10 @@ import uk.gov.defra.trade.imports.addressbook.address.AddressRole;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
 import uk.gov.defra.trade.imports.addressbook.address.AddressRepository;
 import uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport;
+import uk.gov.defra.trade.imports.addressbook.transporter.Transporter;
+import uk.gov.defra.trade.imports.addressbook.transporter.TransporterListCriteria;
+import uk.gov.defra.trade.imports.addressbook.transporter.TransporterRepository;
+import uk.gov.defra.trade.imports.addressbook.transporter.TransporterTestSupport;
 
 @SpringBootTest(
     classes = Application.class,
@@ -61,9 +65,14 @@ abstract class IntegrationBase {
 
   private static final String ADDRESSES_PATH = "/organisation/{orgId}/addresses";
   private static final String ADDRESS_PATH = ADDRESSES_PATH + "/{address-id}";
+  private static final String TRANSPORTERS_PATH = "/organisation/{orgId}/transporters";
+  private static final String TRANSPORTER_PATH = TRANSPORTERS_PATH + "/{transporter-id}";
 
   protected static final String VALIDATION_ERROR_TYPE =
       "https://api.cdp.defra.cloud/problems/validation-error";
+
+  private static final TransporterListCriteria NO_TRANSPORTER_LIST_CRITERIA =
+      new TransporterListCriteria(List.of(), List.of());
 
   protected static final String NAME = AddressTestSupport.SAMPLE_NAME;
   protected static final String ADDRESS_LINE_1 = AddressTestSupport.SAMPLE_ADDRESS_LINE_1;
@@ -72,6 +81,9 @@ abstract class IntegrationBase {
   protected static final String COUNTRY_CODE = AddressTestSupport.SAMPLE_COUNTRY_CODE;
   protected static final String PHONE = AddressTestSupport.SAMPLE_PHONE;
   protected static final String EMAIL = AddressTestSupport.SAMPLE_EMAIL;
+  protected static final String NORTHERN_IRELAND_COUNTRY_CODE =
+      TransporterTestSupport.NORTHERN_IRELAND_COUNTRY_CODE;
+  protected static final String APPROVAL_NUMBER = TransporterTestSupport.SAMPLE_APPROVAL_NUMBER;
 
   static MongoDBContainer MONGO_CONTAINER = new MongoDBContainer(
       DockerImageName.parse("mongo:7.0")).withExposedPorts(27017).withReplicaSet();
@@ -91,6 +103,9 @@ abstract class IntegrationBase {
 
   @Autowired
   protected AddressRepository addressRepository;
+
+  @Autowired
+  protected TransporterRepository transporterRepository;
 
   @DynamicPropertySource
   static void setProperties(DynamicPropertyRegistry registry) {
@@ -125,16 +140,25 @@ abstract class IntegrationBase {
     return addressBuilder(organisationId, AddressStatus.ACTIVE).roles(List.of(roles));
   }
 
-  protected static AddressBody addressBody() {
-    return new AddressBody();
+  protected static RequestBody addressBody() {
+    Map<String, Object> fields = new LinkedHashMap<>();
+    fields.put("name", NAME);
+    fields.put("addressLine1", ADDRESS_LINE_1);
+    fields.put("townOrCity", TOWN_OR_CITY);
+    fields.put("postcode", POSTCODE);
+    fields.put("countryCode", COUNTRY_CODE);
+    fields.put("phone", PHONE);
+    fields.put("email", EMAIL);
+    fields.put("roles", List.of("PLACE_OF_ORIGIN"));
+    return new RequestBody(fields);
   }
 
   protected Address saveAddress(Address.AddressBuilder address) {
     return addressRepository.save(address.build());
   }
 
-  protected long storedAddressCount() {
-    return mongoTemplate.count(new Query(), Address.class);
+  protected long storedCount(Class<?> documentType) {
+    return mongoTemplate.count(new Query(), documentType);
   }
 
   protected List<Address> activeAddressesFor(String organisationId) {
@@ -143,12 +167,98 @@ abstract class IntegrationBase {
         .getContent();
   }
 
+  protected static RequestBody transporterBody() {
+    Map<String, Object> fields = new LinkedHashMap<>();
+    fields.put("name", NAME);
+    fields.put("addressLine1", ADDRESS_LINE_1);
+    fields.put("townOrCity", TOWN_OR_CITY);
+    fields.put("postcode", POSTCODE);
+    fields.put("countryCode", COUNTRY_CODE);
+    fields.put("phone", PHONE);
+    fields.put("email", EMAIL);
+    fields.put("type", "PRIVATE");
+    return new RequestBody(fields);
+  }
+
+  protected static RequestBody commercialTransporterBody() {
+    return transporterBody()
+        .with("type", "COMMERCIAL")
+        .with("countryCode", NORTHERN_IRELAND_COUNTRY_CODE)
+        .with("approvalNumber", APPROVAL_NUMBER);
+  }
+
+  protected List<Transporter> activeTransportersFor(String organisationId) {
+    return transporterRepository
+        .listLiveTransporters(organisationId, NO_TRANSPORTER_LIST_CRITERIA, PageRequest.of(0, 100))
+        .getContent();
+  }
+
+  protected ResultActions postTransporterAs(
+      String orgId, String callerOrganisationId, RequestBody body) throws Exception {
+    return mockMvc.perform(
+        withJson(
+            addressesRequest(HttpMethod.POST, callerOrganisationId, TRANSPORTERS_PATH, orgId),
+            body.json()));
+  }
+
+  protected ResultActions postTransporter(RequestBody body) throws Exception {
+    return postTransporterAs(ORGANISATION_ID, ORGANISATION_ID, body);
+  }
+
+  protected ResultActions getTransporterAs(
+      String orgId, String callerOrganisationId, String transporterId) throws Exception {
+    return mockMvc.perform(
+        addressesRequest(
+            HttpMethod.GET, callerOrganisationId, TRANSPORTER_PATH, orgId, transporterId));
+  }
+
+  protected ResultActions getTransporter(String transporterId) throws Exception {
+    return getTransporterAs(ORGANISATION_ID, ORGANISATION_ID, transporterId);
+  }
+
+  protected ResultActions putTransporterAs(
+      String orgId, String callerOrganisationId, String transporterId, RequestBody body)
+      throws Exception {
+    return mockMvc.perform(
+        withJson(
+            addressesRequest(
+                HttpMethod.PUT, callerOrganisationId, TRANSPORTER_PATH, orgId, transporterId),
+            body.json()));
+  }
+
+  protected ResultActions deleteTransporterAs(
+      String orgId, String callerOrganisationId, String transporterId) throws Exception {
+    return mockMvc.perform(
+        addressesRequest(
+            HttpMethod.DELETE, callerOrganisationId, TRANSPORTER_PATH, orgId, transporterId));
+  }
+
+  protected ResultActions deleteTransporter(String transporterId) throws Exception {
+    return deleteTransporterAs(ORGANISATION_ID, ORGANISATION_ID, transporterId);
+  }
+
+  protected ResultActions listTransportersAs(String orgId, String callerOrganisationId)
+      throws Exception {
+    return mockMvc.perform(
+        addressesRequest(HttpMethod.GET, callerOrganisationId, TRANSPORTERS_PATH, orgId));
+  }
+
+  protected ResultActions listTransporters(String... queryParameterNamesAndValues)
+      throws Exception {
+    MockHttpServletRequestBuilder request =
+        addressesRequest(HttpMethod.GET, ORGANISATION_ID, TRANSPORTERS_PATH, ORGANISATION_ID);
+    for (int i = 0; i < queryParameterNamesAndValues.length; i += 2) {
+      request = request.param(queryParameterNamesAndValues[i], queryParameterNamesAndValues[i + 1]);
+    }
+    return mockMvc.perform(request);
+  }
+
   protected static MockHttpServletRequestBuilder postAddressRequest(String json) {
     return withJson(
         addressesRequest(HttpMethod.POST, ORGANISATION_ID, ADDRESSES_PATH, ORGANISATION_ID), json);
   }
 
-  protected ResultActions postAddress(AddressBody body) throws Exception {
+  protected ResultActions postAddress(RequestBody body) throws Exception {
     return postAddress(body.json());
   }
 
@@ -156,7 +266,7 @@ abstract class IntegrationBase {
     return mockMvc.perform(postAddressRequest(json));
   }
 
-  protected ResultActions postAddressAs(String orgId, String callerOrganisationId, AddressBody body)
+  protected ResultActions postAddressAs(String orgId, String callerOrganisationId, RequestBody body)
       throws Exception {
     return mockMvc.perform(
         withJson(
@@ -164,7 +274,7 @@ abstract class IntegrationBase {
             body.json()));
   }
 
-  protected ResultActions putAddress(String addressId, AddressBody body) throws Exception {
+  protected ResultActions putAddress(String addressId, RequestBody body) throws Exception {
     return putAddress(addressId, body.json());
   }
 
@@ -173,7 +283,7 @@ abstract class IntegrationBase {
   }
 
   protected ResultActions putAddressAs(
-      String orgId, String callerOrganisationId, String addressId, AddressBody body)
+      String orgId, String callerOrganisationId, String addressId, RequestBody body)
       throws Exception {
     return putAddressAs(orgId, callerOrganisationId, addressId, body.json());
   }
@@ -250,7 +360,7 @@ abstract class IntegrationBase {
     return request.contentType(MediaType.APPLICATION_JSON).content(json);
   }
 
-  protected String createdAddressId(ResultActions created) throws Exception {
+  protected String createdResourceId(ResultActions created) throws Exception {
     String location =
         created.andExpect(status().isCreated()).andReturn().getResponse().getHeader("Location");
     assertThat(location).isNotNull();
@@ -267,32 +377,25 @@ abstract class IntegrationBase {
         jsonPath("$.errors").doesNotExist());
   }
 
-  protected static final class AddressBody {
+  protected static final class RequestBody {
 
-    private final Map<String, Object> fields = new LinkedHashMap<>();
+    private final Map<String, Object> fields;
 
-    private AddressBody() {
-      fields.put("name", NAME);
-      fields.put("addressLine1", ADDRESS_LINE_1);
-      fields.put("townOrCity", TOWN_OR_CITY);
-      fields.put("postcode", POSTCODE);
-      fields.put("countryCode", COUNTRY_CODE);
-      fields.put("phone", PHONE);
-      fields.put("email", EMAIL);
-      fields.put("roles", List.of("PLACE_OF_ORIGIN"));
+    private RequestBody(Map<String, Object> seedFields) {
+      fields = new LinkedHashMap<>(seedFields);
     }
 
-    AddressBody without(String field) {
+    RequestBody without(String field) {
       fields.remove(field);
       return this;
     }
 
-    AddressBody with(String field, Object value) {
+    RequestBody with(String field, Object value) {
       fields.put(field, value);
       return this;
     }
 
-    AddressBody blank(String field) {
+    RequestBody blank(String field) {
       return with(field, "");
     }
 

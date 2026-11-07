@@ -2,7 +2,8 @@ package uk.gov.defra.trade.imports.addressbook.address;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static uk.gov.defra.trade.imports.addressbook.address.AddressService.DEFAULT_PAGE_SIZE;
+import static uk.gov.defra.trade.imports.addressbook.ListPaging.DEFAULT_PAGE_SIZE;
+import static uk.gov.defra.trade.imports.addressbook.PageTestSupport.pageOf;
 import static uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport.NO_TTL;
 import static uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport.STORED_ADDRESS_ID;
 import static uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport.STORED_CREATED_AT;
@@ -34,8 +35,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mapstruct.factory.Mappers;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import uk.gov.defra.trade.imports.addressbook.configuration.AddressTtlConfig;
@@ -299,10 +298,6 @@ class AddressServiceTest {
           storedAddress(ORG, AddressStatus.ACTIVE).id("665f1c2ab3e4d51a2c9d0e" + i).build());
     }
     return addresses;
-  }
-
-  private Page<Address> pageOf(List<Address> addresses, int pageIndex, int pageSize, long total) {
-    return new PageImpl<>(addresses, PageRequest.of(pageIndex, pageSize), total);
   }
 
   private Page<Address> emptyFirstPage() {

@@ -2,7 +2,9 @@
 
 Org-scoped address book API for EUDP Live Animals (EUDPA-58). A Java 25 / Spring Boot 3.5
 service backed by MongoDB. Each organisation owns a flat list of addresses (the Standard Address
-Block); addresses are created, listed, searched, updated, and soft-deleted via REST.
+Block) and, as its own collection and route, its transporters: created, listed, searched, updated,
+and soft-deleted via REST. A transporter carries an intrinsic private-or-commercial type and a
+commercial one's approval number; it holds no roles and is never an address.
 
 * [Prerequisites](#prerequisites)
 * [Running the local stack](#running-the-local-stack)
@@ -199,10 +201,64 @@ refusal.
 - A branch address can be in any country, because the journey's consignment contact is saved as a
   branch address and may be abroad.
 
+## Transporters
+
+All routes under `/organisation/{orgId}/transporters` require the same trusted identity header and
+the same path-against-header authorisation as `/addresses`. A transporter is its own record, scoped
+to the caller's organisation: it carries the Standard Address Block fields, an intrinsic
+private-or-commercial `type` and, for a commercial transporter, an `approvalNumber`. It holds no
+`roles` and no address `type` in the `/addresses` sense.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/organisation/{orgId}/transporters` | Paginated list of live transporters (newest first) |
+| `POST` | `/organisation/{orgId}/transporters` | Create a transporter |
+| `GET` | `/organisation/{orgId}/transporters/{transporter-id}` | Fetch one transporter (tombstones included) |
+| `PUT` | `/organisation/{orgId}/transporters/{transporter-id}` | Full replace of mutable fields |
+| `DELETE` | `/organisation/{orgId}/transporters/{transporter-id}` | Soft delete (idempotent 204) |
+
+**List query parameters**
+
+| Parameter | Description |
+| --- | --- |
+| `page`, `pageSize` | Same bounds and default as `/addresses` |
+| `q` | Case-insensitive partial search over `name`, `addressLine1`, `addressLine2`, `townOrCity`, `county`, `postcode` and `approvalNumber` |
+| `countryCode` | One or more country codes (repeat the parameter) |
+| `type` | One or more of `PRIVATE`, `COMMERCIAL` (repeat the parameter). Lists only transporters of those types, across every page. An unknown value is a `400` |
+| `searchType` | Same values as `type`. A transporter of any of them matches the search, as one matching `q` or `countryCode` does |
+
+**Rules**
+
+- `type` is required: `PRIVATE` or `COMMERCIAL`.
+- A commercial transporter requires `approvalNumber`; a private one must not carry one. Both are
+  `400` validation problems keyed by `approvalNumber`.
+- A commercial transporter's `countryCode` is fixed to Northern Ireland (`GB-NIR`); any other value
+  is a `400` keyed by `countryCode`. A private transporter's `countryCode` is presence-only.
+- A soft-deleted transporter's approval number is unaffected by the delete.
+
+**Example — create a commercial transporter**
+
+```bash
+curl -s -X POST "http://localhost:8089/organisation/{orgId}/transporters" \
+  -H "Content-Type: application/json" \
+  -H "Trade-Imports-Organisation-Id: {orgId}" \
+  -d '{
+    "name": "Lough Neagh Livestock Ltd",
+    "addressLine1": "4 Quay Road",
+    "townOrCity": "Belfast",
+    "postcode": "BT1 3LG",
+    "countryCode": "GB-NIR",
+    "phone": "+44 28 9000 0111",
+    "email": "movements@lough-neagh.example.com",
+    "type": "COMMERCIAL",
+    "approvalNumber": "UK/BELF/T2/00104115"
+  }'
+```
+
 ## MongoDB
 
 **Database:** `trade-imports-address-book` (override with `MONGO_DATABASE`)  
-**Collection:** `addresses`
+**Collections:** `addresses` and `transporters`
 
 ### Via Docker Compose or workspace stack
 
@@ -293,7 +349,8 @@ Why soft delete: a hard delete would make a deleted address look the same as an 
 organisation is reported exactly like an unknown id, so a 404 never reveals that an address exists
 in another organisation.
 
-In prod, addresses and tombstones are retained indefinitely (~1 KB each).
+In prod, addresses, transporters and their tombstones are retained indefinitely (~1 KB each).
+The soft-delete and expiry rules above hold for transporters exactly as they do for addresses.
 
 ## Address expiry (non-prod only)
 

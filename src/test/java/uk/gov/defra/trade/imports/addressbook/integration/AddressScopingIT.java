@@ -9,6 +9,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.web.servlet.MvcResult;
+import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
 
 class AddressScopingIT extends IntegrationBase {
@@ -19,7 +20,7 @@ class AddressScopingIT extends IntegrationBase {
   @Autowired private ObjectMapper objectMapper;
 
   private String createAsOrgA() throws Exception {
-    return createdAddressId(postAddressAs(ORG_A, ORG_A, addressBody()));
+    return createdResourceId(postAddressAs(ORG_A, ORG_A, addressBody()));
   }
 
   @Test
@@ -68,7 +69,7 @@ class AddressScopingIT extends IntegrationBase {
   void missingOrgHeaderOnPostIsAPlatformAuthRejection400AndPersistsNothing() throws Exception {
     postAddressAs(ORG_A, null, addressBody()).andExpect(badRequestProblemWithNoErrors());
 
-    assertThat(storedAddressCount()).isZero();
+    assertThat(storedCount(Address.class)).isZero();
   }
 
   @Test

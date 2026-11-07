@@ -45,9 +45,294 @@ servers:
 tags:
 - name: addresses
   description: Address book, scoped to the caller's organisation
+- name: transporters
+  description: An organisation's transporters, scoped to its address book
 security:
 - Trade-Imports-Organisation-Id: []
 paths:
+  /organisation/{orgId}/transporters/{transporter-id}:
+    get:
+      tags:
+      - transporters
+      summary: Fetch one transporter, including tombstones
+      operationId: get-transporter
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Trade-Imports-Organisation-Id
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: transporter-id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: The transporter (deleted false or true)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporterResponse'
+        '404':
+          description: Unknown id, or an id outside the caller's organisation scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: Unexpected server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    put:
+      tags:
+      - transporters
+      summary: Replace a transporter's mutable fields
+      operationId: update-transporter
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Trade-Imports-Organisation-Id
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: transporter-id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporterRequest'
+        required: true
+      responses:
+        '200':
+          description: Updated transporter with bumped modifiedAt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporterResponse'
+        '400':
+          description: Validation error, or a missing org header
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                anyOf:
+                - $ref: '#/components/schemas/ValidationProblem'
+                - $ref: '#/components/schemas/Problem'
+        '404':
+          description: Unknown id, an id outside the caller's organisation scope, or a tombstone
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: Concurrent update conflict
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: Unexpected server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    delete:
+      tags:
+      - transporters
+      summary: Soft-delete a transporter (tombstone)
+      operationId: delete-transporter
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Trade-Imports-Organisation-Id
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: transporter-id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Soft-deleted (or already deleted — idempotent)
+        '400':
+          description: Missing org header
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: Unknown id, or an id outside the caller's organisation scope
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: Unexpected server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /organisation/{orgId}/transporters:
+    get:
+      tags:
+      - transporters
+      summary: List the caller's live transporters (paginated, searchable)
+      operationId: list-transporters
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Trade-Imports-Organisation-Id
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 1
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 25
+          maximum: 100
+          minimum: 1
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: countryCode
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+      - name: type
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporterType'
+      - name: searchType
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporterType'
+      responses:
+        '200':
+          description: One page of the caller's live transporters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporterPageResponse'
+        '400':
+          description: An out-of-range or non-numeric page or page size, an unknown type or search type, or a missing org header
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: Path orgId does not match the caller's organisation header
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: Unexpected server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    post:
+      tags:
+      - transporters
+      summary: Create a transporter in the caller's address book
+      operationId: create-transporter
+      parameters:
+      - name: orgId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Trade-Imports-Organisation-Id
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransporterRequest'
+        required: true
+      responses:
+        '201':
+          description: Created
+          headers:
+            Location:
+              description: Absolute URI of the created transporter
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransporterResponse'
+        '400':
+          description: Validation error, or a missing identity header
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                anyOf:
+                - $ref: '#/components/schemas/ValidationProblem'
+                - $ref: '#/components/schemas/Problem'
+        '404':
+          description: Path orgId does not match the caller's organisation header
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          description: Unexpected server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
   /organisation/{orgId}/addresses/{address-id}:
     get:
       tags:
@@ -483,6 +768,116 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AddressResponse'
+        page:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalItems:
+          type: integer
+          format: int32
+        totalPages:
+          type: integer
+          format: int32
+    TransporterType:
+      type: string
+      enum:
+      - PRIVATE
+      - COMMERCIAL
+    TransporterRequest:
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          minLength: 1
+        addressLine1:
+          type: string
+          maxLength: 255
+          minLength: 1
+        addressLine2:
+          type: string
+          maxLength: 255
+          minLength: 0
+        townOrCity:
+          type: string
+          maxLength: 100
+          minLength: 1
+        county:
+          type: string
+          maxLength: 100
+          minLength: 0
+        postcode:
+          type: string
+          maxLength: 12
+          minLength: 1
+        countryCode:
+          type: string
+          minLength: 1
+        phone:
+          type: string
+          maxLength: 20
+          minLength: 1
+        email:
+          type: string
+          maxLength: 254
+          minLength: 1
+        type:
+          $ref: '#/components/schemas/TransporterType'
+        approvalNumber:
+          type: string
+          maxLength: 50
+      required:
+      - addressLine1
+      - countryCode
+      - email
+      - name
+      - phone
+      - postcode
+      - townOrCity
+      - type
+    TransporterResponse:
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        addressLine1:
+          type: string
+        addressLine2:
+          type: string
+        townOrCity:
+          type: string
+        county:
+          type: string
+        postcode:
+          type: string
+        countryCode:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        type:
+          $ref: '#/components/schemas/TransporterType'
+        approvalNumber:
+          type: string
+        organisationId:
+          type: string
+        deleted:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        modifiedAt:
+          type: string
+          format: date-time
+    TransporterPageResponse:
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransporterResponse'
         page:
           type: integer
           format: int32

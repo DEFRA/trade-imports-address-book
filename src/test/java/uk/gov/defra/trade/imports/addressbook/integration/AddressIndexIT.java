@@ -2,7 +2,7 @@ package uk.gov.defra.trade.imports.addressbook.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
-import static uk.gov.defra.trade.imports.addressbook.address.AddressService.DEFAULT_PAGE_SIZE;
+import static uk.gov.defra.trade.imports.addressbook.ListPaging.DEFAULT_PAGE_SIZE;
 
 import java.util.List;
 import org.bson.Document;

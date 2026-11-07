@@ -2,14 +2,19 @@ package uk.gov.defra.trade.imports.addressbook.address;
 
 import jakarta.validation.ConstraintValidatorContext;
 
-final class ClassLevelViolations {
+public final class ClassLevelViolations {
 
   private ClassLevelViolations() {}
 
-  static boolean reportOn(ConstraintValidatorContext context, String property) {
+  public static boolean reportOn(ConstraintValidatorContext context, String property) {
+    return reportOn(context, property, context.getDefaultConstraintMessageTemplate());
+  }
+
+  public static boolean reportOn(
+      ConstraintValidatorContext context, String property, String message) {
     context.disableDefaultConstraintViolation();
     context
-        .buildConstraintViolationWithTemplate(context.getDefaultConstraintMessageTemplate())
+        .buildConstraintViolationWithTemplate(message)
         .addPropertyNode(property)
         .addConstraintViolation();
     return false;

@@ -7,25 +7,20 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import uk.gov.defra.trade.imports.addressbook.ListPaging;
 import uk.gov.defra.trade.imports.addressbook.configuration.AddressTtlConfig;
-import uk.gov.defra.trade.imports.addressbook.exceptions.BadRequestException;
 import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
 
 /** Lists, creates, reads, updates and soft-deletes an organisation's addresses. */
 @Service
 @Slf4j
 public class AddressService {
-
-  static final int MIN_PAGE_SIZE = 1;
-  static final int MAX_PAGE_SIZE = 100;
-  public static final int DEFAULT_PAGE_SIZE = 25;
 
   private final AddressRepository repository;
   private final AddressMapper addressMapper;
@@ -48,19 +43,18 @@ public class AddressService {
    *
    * @param organisationId the owning organisation id, from the identity header
    * @param page the 1-based page number
-   * @param requestedPageSize the page size from {@link #MIN_PAGE_SIZE} to {@link #MAX_PAGE_SIZE},
-   *     or null for {@link #DEFAULT_PAGE_SIZE}
+   * @param requestedPageSize the page size from {@link ListPaging#MIN_PAGE_SIZE} to {@link
+   *     ListPaging#MAX_PAGE_SIZE}, or null for {@link ListPaging#DEFAULT_PAGE_SIZE}
    * @param filters the request's filters, each optional
    * @return one page of live addresses with pagination metadata
-   * @throws BadRequestException if {@code page} is less than 1 or {@code requestedPageSize} is
-   *     outside {@link #MIN_PAGE_SIZE} to {@link #MAX_PAGE_SIZE}
+   * @throws uk.gov.defra.trade.imports.addressbook.exceptions.BadRequestException if {@code page}
+   *     is less than 1 or {@code requestedPageSize} is outside {@link ListPaging#MIN_PAGE_SIZE} to
+   *     {@link ListPaging#MAX_PAGE_SIZE}
    */
   public AddressPageResponse list(
       String organisationId, int page, Integer requestedPageSize, RequestedListFilters filters) {
-    if (page < 1) {
-      throw new BadRequestException("page must be 1 or greater");
-    }
-    int pageSize = servedPageSize(requestedPageSize);
+    ListPaging.requirePositivePage(page);
+    int pageSize = ListPaging.servedPageSize(requestedPageSize);
 
     Pageable pageable =
         PageRequest.of(
@@ -81,17 +75,6 @@ public class AddressService {
     }
   }
 
-  private int servedPageSize(Integer requestedPageSize) {
-    if (requestedPageSize == null) {
-      return DEFAULT_PAGE_SIZE;
-    }
-    if (requestedPageSize < MIN_PAGE_SIZE || requestedPageSize > MAX_PAGE_SIZE) {
-      throw new BadRequestException(
-          "pageSize must be between " + MIN_PAGE_SIZE + " and " + MAX_PAGE_SIZE);
-    }
-    return requestedPageSize;
-  }
-
   private static ListCriteria criteriaOf(RequestedListFilters requested) {
     return new ListCriteria(requested.roles(), matchesOf(requested));
   }
@@ -99,7 +82,8 @@ public class AddressService {
   private static List<ListCriteria.Match> matchesOf(RequestedListFilters requested) {
     List<ListCriteria.Match> matches = new ArrayList<>();
     if (!requested.searchTerm().isEmpty()) {
-      matches.add(new ListCriteria.TextMatching(toPartialMatchRegex(requested.searchTerm())));
+      matches.add(
+          new ListCriteria.TextMatching(ListPaging.toPartialMatchRegex(requested.searchTerm())));
     }
     if (!requested.countryCodes().isEmpty()) {
       matches.add(new ListCriteria.InCountries(requested.countryCodes()));
@@ -108,10 +92,6 @@ public class AddressService {
       matches.add(new ListCriteria.HoldingAnyRole(requested.searchRoles()));
     }
     return matches;
-  }
-
-  private static String toPartialMatchRegex(String searchTerm) {
-    return ".*" + Pattern.quote(searchTerm) + ".*";
   }
 
   /**
