@@ -2,19 +2,21 @@ package uk.gov.defra.trade.imports.addressbook.address;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Stream;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.data.support.PageableExecutionUtils;
+import uk.gov.defra.trade.imports.addressbook.ListMatchCriteria;
+import uk.gov.defra.trade.imports.addressbook.OrganisationScopedListQuery;
 import uk.gov.defra.trade.imports.addressbook.address.ListCriteria.HoldingAnyRole;
 import uk.gov.defra.trade.imports.addressbook.address.ListCriteria.InCountries;
 import uk.gov.defra.trade.imports.addressbook.address.ListCriteria.Match;
 import uk.gov.defra.trade.imports.addressbook.address.ListCriteria.TextMatching;
 
 class AddressListQueryImpl implements AddressListQuery {
+
+  private static final List<String> SEARCHABLE_FIELDS =
+      List.of("name", "addressLine1", "addressLine2", "townOrCity", "county", "postcode");
 
   private final MongoTemplate mongoTemplate;
 
@@ -25,36 +27,33 @@ class AddressListQueryImpl implements AddressListQuery {
   @Override
   public Page<Address> listLiveAddresses(
       String organisationId, ListCriteria criteria, Pageable pageable) {
-    Query query = Query.query(liveAddressCriteria(organisationId, criteria));
-    List<Address> content = mongoTemplate.find(Query.of(query).with(pageable), Address.class);
-    return PageableExecutionUtils.getPage(
-        content, pageable, () -> mongoTemplate.exactCount(query, Address.class));
+    return OrganisationScopedListQuery.listLive(
+        mongoTemplate,
+        Address.class,
+        organisationId,
+        AddressStatus.ACTIVE,
+        extraClauses(criteria),
+        pageable);
   }
 
-  private static Criteria liveAddressCriteria(String organisationId, ListCriteria criteria) {
+  private static List<Criteria> extraClauses(ListCriteria criteria) {
     List<Criteria> clauses = new ArrayList<>();
-    clauses.add(Criteria.where("organisationId").is(organisationId));
-    clauses.add(Criteria.where("status").is(AddressStatus.ACTIVE));
     if (!criteria.roles().isEmpty()) {
       clauses.add(holdingAnyOf(criteria.roles()));
     }
     if (!criteria.matches().isEmpty()) {
       clauses.add(
           new Criteria()
-              .orOperator(
-                  criteria.matches().stream().flatMap(AddressListQueryImpl::clausesOf).toList()));
+              .orOperator(criteria.matches().stream().map(AddressListQueryImpl::clauseFor).toList()));
     }
-    return new Criteria().andOperator(clauses);
+    return clauses;
   }
 
-  private static Stream<Criteria> clausesOf(Match match) {
+  private static Criteria clauseFor(Match match) {
     return switch (match) {
-      case TextMatching(String pattern) ->
-          Stream.of("name", "addressLine1", "addressLine2", "townOrCity", "county", "postcode")
-              .map(field -> Criteria.where(field).regex(pattern, "i"));
-      case InCountries(List<String> countryCodes) ->
-          Stream.of(Criteria.where("countryCode").in(countryCodes));
-      case HoldingAnyRole(List<AddressRole> roles) -> Stream.of(holdingAnyOf(roles));
+      case TextMatching(String pattern) -> ListMatchCriteria.textMatching(SEARCHABLE_FIELDS, pattern);
+      case InCountries(List<String> countryCodes) -> ListMatchCriteria.inCountries(countryCodes);
+      case HoldingAnyRole(List<AddressRole> roles) -> holdingAnyOf(roles);
     };
   }
 

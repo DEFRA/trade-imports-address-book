@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static uk.gov.defra.trade.imports.addressbook.address.AddressService.DEFAULT_PAGE_SIZE;
+import static uk.gov.defra.trade.imports.addressbook.ListPaging.DEFAULT_PAGE_SIZE;
 import static uk.gov.defra.trade.imports.addressbook.testsupport.ApiDocs.lockedContract;
 import static uk.gov.defra.trade.imports.addressbook.testsupport.ApiDocs.nested;
 import static uk.gov.defra.trade.imports.addressbook.testsupport.ApiDocs.requiredProperties;
@@ -22,14 +22,14 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.ResultActions;
 import uk.gov.defra.trade.imports.addressbook.testsupport.ApiDocs;
 
-class AddressComplianceIT extends IntegrationBase {
+class ApiContractComplianceIT extends IntegrationBase {
 
   @Test
   void createAndReadEmitCamelCasePropertiesAndADerivedDeletedBoolean() throws Exception {
     ResultActions created = postAddress(addressBody());
 
     expectCamelCaseLiveAddress(created.andExpect(status().isCreated()));
-    expectCamelCaseLiveAddress(getAddress(createdAddressId(created)).andExpect(status().isOk()));
+    expectCamelCaseLiveAddress(getAddress(createdResourceId(created)).andExpect(status().isOk()));
   }
 
   private static void expectCamelCaseLiveAddress(ResultActions address) throws Exception {
@@ -161,30 +161,57 @@ class AddressComplianceIT extends IntegrationBase {
 
     assertAnyOfProblem(live, locked, "/organisation/{orgId}/addresses", "post");
     assertAnyOfProblem(live, locked, "/organisation/{orgId}/addresses/{address-id}", "put");
+    assertAnyOfProblem(live, locked, "/organisation/{orgId}/transporters", "post");
+    assertAnyOfProblem(live, locked, "/organisation/{orgId}/transporters/{transporter-id}", "put");
   }
 
   @Test
   void liveApiDocsHaveTheLockedAllowedValuesForRolesAndTheListFilterParameters()
       throws IOException {
-    Map<String, Object> live = ApiDocs.fetchLive(port);
-    Map<String, Object> locked = lockedContract();
+    assertListAndSchemaAllowedValuesMatchLocked(
+        ApiDocs.fetchLive(port),
+        lockedContract(),
+        "/organisation/{orgId}/addresses",
+        List.of("role", "searchRole"),
+        List.of("AddressRequest", "AddressResponse"),
+        "roles");
+  }
 
-    for (String parameter : List.of("role", "searchRole")) {
-      assertThat(listParameterAllowedValues(locked, parameter))
+  @Test
+  void liveApiDocsHaveTheLockedAllowedValuesForTheTransporterTypeAndTheListTypeParameters()
+      throws IOException {
+    assertListAndSchemaAllowedValuesMatchLocked(
+        ApiDocs.fetchLive(port),
+        lockedContract(),
+        "/organisation/{orgId}/transporters",
+        List.of("type", "searchType"),
+        List.of("TransporterRequest", "TransporterResponse"),
+        "type");
+  }
+
+  private static void assertListAndSchemaAllowedValuesMatchLocked(
+      Map<String, Object> live,
+      Map<String, Object> locked,
+      String path,
+      List<String> listParameters,
+      List<String> schemas,
+      String property) {
+    for (String parameter : listParameters) {
+      assertThat(listParameterAllowedValues(locked, path, parameter))
           .as("locked list %s parameter must list its allowed values", parameter)
           .isNotEmpty();
-      assertThat(listParameterAllowedValues(live, parameter))
+      assertThat(listParameterAllowedValues(live, path, parameter))
           .as("allowed values of the list %s parameter must match the locked contract", parameter)
-          .isEqualTo(listParameterAllowedValues(locked, parameter));
+          .isEqualTo(listParameterAllowedValues(locked, path, parameter));
     }
 
-    for (String schema : List.of("AddressRequest", "AddressResponse")) {
-      assertThat(allowedValues(locked, schema, "roles"))
-          .as("locked %s.roles must list its allowed values", schema)
+    for (String schema : schemas) {
+      assertThat(allowedValues(locked, schema, property))
+          .as("locked %s.%s must list its allowed values", schema, property)
           .isNotEmpty();
-      assertThat(allowedValues(live, schema, "roles"))
-          .as("allowed values of %s.roles must match the locked contract", schema)
-          .isEqualTo(allowedValues(locked, schema, "roles"));
+      assertThat(allowedValues(live, schema, property))
+          .as("allowed values of %s.%s must match the locked contract", schema, property)
+          .isEqualTo(allowedValues(locked, schema, property));
     }
   }
 
@@ -195,6 +222,16 @@ class AddressComplianceIT extends IntegrationBase {
     assertThat(lockedRequired).contains("roles");
     assertThat(requiredProperties(ApiDocs.fetchLive(port), "AddressRequest"))
         .as("required properties of AddressRequest must match the locked contract")
+        .containsExactlyInAnyOrderElementsOf(lockedRequired);
+  }
+
+  @Test
+  void liveTransporterRequestHasTheLockedRequiredProperties() throws IOException {
+    List<Object> lockedRequired = requiredProperties(lockedContract(), "TransporterRequest");
+
+    assertThat(lockedRequired).contains("type");
+    assertThat(requiredProperties(ApiDocs.fetchLive(port), "TransporterRequest"))
+        .as("required properties of TransporterRequest must match the locked contract")
         .containsExactlyInAnyOrderElementsOf(lockedRequired);
   }
 
@@ -214,9 +251,8 @@ class AddressComplianceIT extends IntegrationBase {
 
   @SuppressWarnings("unchecked")
   private static List<Object> listParameterAllowedValues(
-      Map<String, Object> doc, String parameterName) {
-    Map<String, Object> listOperation =
-        (Map<String, Object>) nested(doc, "paths", "/organisation/{orgId}/addresses", "get");
+      Map<String, Object> doc, String path, String parameterName) {
+    Map<String, Object> listOperation = (Map<String, Object>) nested(doc, "paths", path, "get");
     return ((List<Map<String, Object>>) listOperation.get("parameters"))
         .stream()
             .filter(parameter -> parameterName.equals(parameter.get("name")))

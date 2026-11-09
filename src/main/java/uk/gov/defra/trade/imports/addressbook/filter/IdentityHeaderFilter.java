@@ -84,7 +84,7 @@ public class IdentityHeaderFilter extends OncePerRequestFilter {
           HttpStatus.NOT_FOUND,
           NOT_FOUND_TYPE,
           "Resource Not Found",
-          "Address not found");
+          "Resource not found");
       return;
     }
 

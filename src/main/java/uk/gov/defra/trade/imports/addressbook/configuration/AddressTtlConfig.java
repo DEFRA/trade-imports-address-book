@@ -17,7 +17,7 @@ import org.springframework.validation.annotation.Validated;
  *       check confirms {@link #environment} is not {@code prod}.
  *   <li><b>Removal guard</b> — the Mongo TTL index that deletes expired documents is only created
  *       where {@code address-book.ttl.expiry.enabled=true} (non-prod); see {@link
- *       uk.gov.defra.trade.imports.addressbook.address.AddressExpiryIndex}. Prod leaves it {@code false}.
+ *       uk.gov.defra.trade.imports.addressbook.ExpiryIndexes}. Prod leaves it {@code false}.
  * </ul>
  *
  * <p>Defaults in {@code application.yml} are the prod-safe values; non-prod environments opt in via

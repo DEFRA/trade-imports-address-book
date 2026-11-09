@@ -22,6 +22,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import uk.gov.defra.trade.imports.addressbook.address.AddressRepository;
 import uk.gov.defra.trade.imports.addressbook.configuration.MongoConfig;
 import uk.gov.defra.trade.imports.addressbook.testsupport.ApiDocs;
+import uk.gov.defra.trade.imports.addressbook.transporter.TransporterRepository;
 
 @EnabledIfSystemProperty(named = "openapi.generate", matches = "true")
 @SpringBootTest(
@@ -33,6 +34,8 @@ class OpenApiArtifactGeneratorIT {
   @LocalServerPort int port;
 
   @MockitoBean AddressRepository addressRepository;
+
+  @MockitoBean TransporterRepository transporterRepository;
 
   @MockitoBean MongoTemplate mongoTemplate;
 

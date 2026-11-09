@@ -1,18 +1,15 @@
 package uk.gov.defra.trade.imports.addressbook.address;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatNullPointerException;
+import static uk.gov.defra.trade.imports.addressbook.RecordNullGuards.assertEveryRequiredComponentRejectsNull;
+import static uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport.STORED_CREATED_AT;
 
-import java.time.Instant;
-import java.util.stream.Stream;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 
 class AddressResponseTest {
-
-  private static final Instant NOW = Instant.parse("2026-07-01T09:00:00Z");
 
   private static AddressResponse.AddressResponseBuilder validResponse() {
     return AddressResponse.builder()
@@ -25,33 +22,31 @@ class AddressResponseTest {
         .phone("+441482000000")
         .email("ops@acme.example")
         .organisationId("ORG-001")
-        .createdAt(NOW)
-        .modifiedAt(NOW);
+        .createdAt(STORED_CREATED_AT)
+        .modifiedAt(STORED_CREATED_AT);
   }
 
-  static Stream<Arguments> guardedFieldsRejectNull() {
-    return Stream.of(
-        Arguments.of("id", (Runnable) () -> validResponse().id(null).build()),
-        Arguments.of("name", (Runnable) () -> validResponse().name(null).build()),
-        Arguments.of(
-            "addressLine1", (Runnable) () -> validResponse().addressLine1(null).build()),
-        Arguments.of("townOrCity", (Runnable) () -> validResponse().townOrCity(null).build()),
-        Arguments.of("postcode", (Runnable) () -> validResponse().postcode(null).build()),
-        Arguments.of("countryCode", (Runnable) () -> validResponse().countryCode(null).build()),
-        Arguments.of("phone", (Runnable) () -> validResponse().phone(null).build()),
-        Arguments.of("email", (Runnable) () -> validResponse().email(null).build()),
-        Arguments.of(
-            "organisationId", (Runnable) () -> validResponse().organisationId(null).build()),
-        Arguments.of("createdAt", (Runnable) () -> validResponse().createdAt(null).build()),
-        Arguments.of("modifiedAt", (Runnable) () -> validResponse().modifiedAt(null).build()));
-  }
-
-  @ParameterizedTest
-  @MethodSource("guardedFieldsRejectNull")
-  void compactConstructor_rejectsNullOnGuardedFields(String fieldName, Runnable buildResponse) {
-    assertThatNullPointerException()
-        .isThrownBy(buildResponse::run)
-        .withMessage(fieldName);
+  @Test
+  void compactConstructor_rejectsNullOnEveryRequiredField() {
+    assertEveryRequiredComponentRejectsNull(
+        AddressResponse.class,
+        Map.ofEntries(
+            Map.entry("id", "665f1c2ab3e4d51a2c9d0e77"),
+            Map.entry("name", "Acme Livestock"),
+            Map.entry("addressLine1", "1 Market Street"),
+            Map.entry("addressLine2", "Unit 3"),
+            Map.entry("townOrCity", "Hull"),
+            Map.entry("county", "East Riding of Yorkshire"),
+            Map.entry("postcode", "HU1 1AA"),
+            Map.entry("countryCode", "GB"),
+            Map.entry("phone", "+441482000000"),
+            Map.entry("email", "ops@acme.example"),
+            Map.entry("roles", List.of(AddressRole.CONSIGNOR)),
+            Map.entry("organisationId", "ORG-001"),
+            Map.entry("deleted", Boolean.FALSE),
+            Map.entry("createdAt", STORED_CREATED_AT),
+            Map.entry("modifiedAt", STORED_CREATED_AT)),
+        Set.of("addressLine2", "county", "roles"));
   }
 
   @Test

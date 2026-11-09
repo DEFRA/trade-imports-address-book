@@ -3,6 +3,7 @@ package uk.gov.defra.trade.imports.addressbook.address;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 import java.util.List;
+import uk.gov.defra.trade.imports.addressbook.ClassLevelViolations;
 
 public class RolesHeldTogetherValidator
     implements ConstraintValidator<RolesHeldTogether, AddressRequest> {

@@ -23,7 +23,7 @@ class AddressCrudIT extends IntegrationBase {
 
   @Test
   void post_shouldReturn201WithLocationAndStampedOrganisation() throws Exception {
-    AddressBody body = addressBody().with("addressLine2", "Unit 3").with("county", "Highland");
+    RequestBody body = addressBody().with("addressLine2", "Unit 3").with("county", "Highland");
 
     postAddress(body)
         .andExpect(status().isCreated())
@@ -57,7 +57,7 @@ class AddressCrudIT extends IntegrationBase {
 
   @Test
   void post_shouldResolveTheLocationHeaderIdToTheCreatedAddress() throws Exception {
-    String createdId = createdAddressId(postAddress(addressBody()));
+    String createdId = createdResourceId(postAddress(addressBody()));
 
     getAddress(createdId)
         .andExpect(status().isOk())
@@ -67,7 +67,7 @@ class AddressCrudIT extends IntegrationBase {
 
   @Test
   void post_shouldStoreAndReadBackTheRolesInOrderWithRepeatsCollapsed() throws Exception {
-    AddressBody body =
+    RequestBody body =
         addressBody()
             .with("roles", List.of("IMPORTER", "PLACE_OF_DESTINATION", "IMPORTER", "CONSIGNEE"));
 
@@ -78,7 +78,7 @@ class AddressCrudIT extends IntegrationBase {
                 jsonPath("$.roles", contains("IMPORTER", "PLACE_OF_DESTINATION", "CONSIGNEE")))
             .andExpect(jsonPath("$.addressType").doesNotExist());
 
-    getAddress(createdAddressId(created))
+    getAddress(createdResourceId(created))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.roles", contains("IMPORTER", "PLACE_OF_DESTINATION", "CONSIGNEE")));
     assertThat(activeAddressesFor(ORGANISATION_ID))
@@ -127,7 +127,7 @@ class AddressCrudIT extends IntegrationBase {
         "An address can only have roles from one group");
   }
 
-  private void assertCreateRefusedOnRolesAndNothingSaved(AddressBody body, String message)
+  private void assertCreateRefusedOnRolesAndNothingSaved(RequestBody body, String message)
       throws Exception {
     postAddress(body)
         .andExpect(status().isBadRequest())
@@ -166,7 +166,7 @@ class AddressCrudIT extends IntegrationBase {
 
   @Test
   void post_shouldReturn400ValidationProblemKeyedByCamelCaseFieldNames() throws Exception {
-    AddressBody body = addressBody().blank("addressLine1").with("email", "not-an-email");
+    RequestBody body = addressBody().blank("addressLine1").with("email", "not-an-email");
 
     postAddress(body)
         .andExpect(status().isBadRequest())
@@ -197,7 +197,7 @@ class AddressCrudIT extends IntegrationBase {
 
   @Test
   void post_shouldRejectStrayTypeOrRoleFieldsWithPerFieldErrors() throws Exception {
-    AddressBody body = addressBody().with("type", "IMPORTER").with("role", "consignor");
+    RequestBody body = addressBody().with("type", "IMPORTER").with("role", "consignor");
 
     postAddress(body)
         .andExpect(status().isBadRequest())
@@ -211,7 +211,7 @@ class AddressCrudIT extends IntegrationBase {
 
   @Test
   void post_shouldIgnoreEchoedReadOnlyAndUnknownFields() throws Exception {
-    AddressBody body =
+    RequestBody body =
         addressBody()
             .with("id", "echoed-read-only-id")
             .with("createdAt", "2020-01-01T00:00:00Z")
@@ -235,7 +235,7 @@ class AddressCrudIT extends IntegrationBase {
 
   @Test
   void post_shouldAcceptCountryCodeAsGivenAndFreeStringPhone() throws Exception {
-    AddressBody body =
+    RequestBody body =
         addressBody()
             .with("name", "Ferme des Deux Rivieres")
             .with("addressLine1", "12 Rue du Marche")
@@ -268,7 +268,7 @@ class AddressCrudIT extends IntegrationBase {
   @Test
   void post_shouldReturn400WithTheFieldMessages_whenNamePostcodeCountryAndPhoneAreBlank()
       throws Exception {
-    AddressBody body =
+    RequestBody body =
         addressBody().blank("name").blank("postcode").blank("countryCode").blank("phone");
 
     postAddress(body)

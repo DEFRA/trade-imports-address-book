@@ -28,6 +28,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import uk.gov.defra.trade.imports.addressbook.ListPaging;
+import uk.gov.defra.trade.imports.addressbook.OrganisationScope;
 import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
 import uk.gov.defra.trade.imports.addressbook.exceptions.Problem;
 import uk.gov.defra.trade.imports.addressbook.exceptions.ValidationProblem;
@@ -47,19 +49,15 @@ import uk.gov.defra.trade.imports.addressbook.filter.IdentityHeaderFilter;
 @RequiredArgsConstructor
 public class AddressController {
 
+  private static final String RESOURCE = "address";
+
   private final AddressService addressService;
   private final AddressMapper addressMapper;
 
-  private static void authoriseOrg(String orgId, String organisationId) {
-    if (!organisationId.equals(orgId)) {
-      throw new NotFoundException("Address not found");
-    }
-  }
-
   /**
    * Lists the caller's live addresses, newest first, one page at a time. {@code page} is 1-based
-   * (default 1) and {@code pageSize} runs from {@link AddressService#MIN_PAGE_SIZE} to {@link
-   * AddressService#MAX_PAGE_SIZE} (default {@link AddressService#DEFAULT_PAGE_SIZE}); an
+   * (default 1) and {@code pageSize} runs from {@link ListPaging#MIN_PAGE_SIZE} to {@link
+   * ListPaging#MAX_PAGE_SIZE} (default {@link ListPaging#DEFAULT_PAGE_SIZE}); an
    * out-of-range or non-numeric value for either is a 400 bad-request problem with no {@code errors} map. The
    * response is a top-level object ({@code items} + pagination metadata), never a bare array.
    *
@@ -107,7 +105,7 @@ public class AddressController {
           @Content(
               mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
               schema = @Schema(implementation = Problem.class)))
-  @Timed("controller.listOperators.time")
+  @Timed("controller.listAddresses.time")
   public AddressPageResponse list(
       @PathVariable String orgId,
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
@@ -119,19 +117,19 @@ public class AddressController {
       @Parameter(
               description =
                   "Addresses a page, from "
-                      + AddressService.MIN_PAGE_SIZE
+                      + ListPaging.MIN_PAGE_SIZE
                       + " to "
-                      + AddressService.MAX_PAGE_SIZE
+                      + ListPaging.MAX_PAGE_SIZE
                       + " (default "
-                      + AddressService.DEFAULT_PAGE_SIZE
+                      + ListPaging.DEFAULT_PAGE_SIZE
                       + ")",
               schema =
                   @Schema(
                       type = "integer",
                       format = "int32",
-                      minimum = "" + AddressService.MIN_PAGE_SIZE,
-                      maximum = "" + AddressService.MAX_PAGE_SIZE,
-                      defaultValue = "" + AddressService.DEFAULT_PAGE_SIZE))
+                      minimum = "" + ListPaging.MIN_PAGE_SIZE,
+                      maximum = "" + ListPaging.MAX_PAGE_SIZE,
+                      defaultValue = "" + ListPaging.DEFAULT_PAGE_SIZE))
           @RequestParam(required = false)
           Integer pageSize,
       @Parameter(
@@ -163,7 +161,8 @@ public class AddressController {
               array = @ArraySchema(schema = @Schema(implementation = AddressRole.class)))
           @RequestParam(name = "searchRole", required = false)
           List<AddressRole> searchRoles) {
-    authoriseOrg(orgId, organisationId);
+    OrganisationScope.authorise(
+        RESOURCE, null, orgId, organisationId, AddressService.ADDRESS_NOT_FOUND);
     log.info(
         "GET addresses - page {}, pageSize {}, q present {}, countryCodes {}, roles {},"
             + " searchRoles {}",
@@ -230,12 +229,13 @@ public class AddressController {
           @Content(
               mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
               schema = @Schema(implementation = Problem.class)))
-  @Timed("controller.createOperator.time")
+  @Timed("controller.createAddress.time")
   public ResponseEntity<AddressResponse> create(
       @PathVariable String orgId,
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
       @Valid @RequestBody AddressRequest request) {
-    authoriseOrg(orgId, organisationId);
+    OrganisationScope.authorise(
+        RESOURCE, null, orgId, organisationId, AddressService.ADDRESS_NOT_FOUND);
     log.info("POST addresses - creating address");
     Address created = addressService.create(request, organisationId);
     URI location =
@@ -281,17 +281,18 @@ public class AddressController {
           @Content(
               mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
               schema = @Schema(implementation = Problem.class)))
-  @Timed("controller.getOperator.time")
+  @Timed("controller.getAddress.time")
   public AddressResponse get(
       @PathVariable String orgId,
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
       @PathVariable("address-id") String addressId) {
-    authoriseOrg(orgId, organisationId);
+    OrganisationScope.authorise(
+        RESOURCE, addressId, orgId, organisationId, AddressService.ADDRESS_NOT_FOUND);
     log.info("GET addresses/{}", addressId);
     Address address =
         addressService
             .get(addressId, organisationId)
-            .orElseThrow(() -> new NotFoundException("Address not found"));
+            .orElseThrow(() -> new NotFoundException(AddressService.ADDRESS_NOT_FOUND));
     return addressMapper.toResponse(address);
   }
 
@@ -347,13 +348,14 @@ public class AddressController {
           @Content(
               mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
               schema = @Schema(implementation = Problem.class)))
-  @Timed("controller.updateOperator.time")
+  @Timed("controller.updateAddress.time")
   public AddressResponse update(
       @PathVariable String orgId,
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
       @PathVariable("address-id") String addressId,
       @Valid @RequestBody AddressRequest request) {
-    authoriseOrg(orgId, organisationId);
+    OrganisationScope.authorise(
+        RESOURCE, addressId, orgId, organisationId, AddressService.ADDRESS_NOT_FOUND);
     log.info("PUT addresses/{}", addressId);
     Address updated = addressService.update(addressId, request, organisationId);
     return addressMapper.toResponse(updated);
@@ -394,12 +396,13 @@ public class AddressController {
           @Content(
               mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
               schema = @Schema(implementation = Problem.class)))
-  @Timed("controller.deleteOperator.time")
+  @Timed("controller.deleteAddress.time")
   public ResponseEntity<Void> delete(
       @PathVariable String orgId,
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
       @PathVariable("address-id") String addressId) {
-    authoriseOrg(orgId, organisationId);
+    OrganisationScope.authorise(
+        RESOURCE, addressId, orgId, organisationId, AddressService.ADDRESS_NOT_FOUND);
     log.info("DELETE addresses/{}", addressId);
     addressService.delete(addressId, organisationId);
     return ResponseEntity.noContent().build();

@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.addressbook.address;
+package uk.gov.defra.trade.imports.addressbook;
 
 import java.time.Duration;
 import lombok.RequiredArgsConstructor;
@@ -10,17 +10,19 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.index.Index;
 import org.springframework.stereotype.Component;
+import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.configuration.AddressTtlConfig;
+import uk.gov.defra.trade.imports.addressbook.transporter.Transporter;
 
 /**
- * Creates the Mongo TTL index that removes addresses once their {@code expireAt} has passed — the
- * removal half of {@link AddressTtlConfig}'s prod safeguards.
+ * Creates the Mongo TTL indexes that remove addresses and transporters once their {@code
+ * expireAt} has passed — the removal half of {@link AddressTtlConfig}'s prod safeguards.
  *
  * <p>Created here rather than with {@code @Indexed(expireAfter)} on the field because
  * {@code auto-index-creation} would then build it in every environment, prod included. The bean
  * exists only when {@code address-book.ttl.expiry.enabled=true} is set explicitly (no
- * {@code matchIfMissing}). Mongo's TTL monitor skips documents with no date in {@code expireAt}, so
- * addresses created before expiry was switched on are never removed by it.
+ * {@code matchIfMissing}). Mongo's TTL monitor skips documents with no date in {@code expireAt},
+ * so addresses and transporters created before expiry was switched on are never removed by it.
  *
  * <p>Switching the flag back off does not drop an index that already exists.
  */
@@ -28,23 +30,29 @@ import uk.gov.defra.trade.imports.addressbook.configuration.AddressTtlConfig;
 @Slf4j
 @RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "address-book.ttl.expiry", name = "enabled", havingValue = "true")
-public class AddressExpiryIndex {
+public class ExpiryIndexes {
 
-  static final String INDEX_NAME = "address_expire_at_ttl";
+  static final String ADDRESS_INDEX_NAME = "address_expire_at_ttl";
+  static final String TRANSPORTER_INDEX_NAME = "transporter_expire_at_ttl";
 
   private final MongoTemplate mongoTemplate;
   private final AddressTtlConfig ttlConfig;
 
   @EventListener(ApplicationReadyEvent.class)
-  public void createIndex() {
+  public void createIndexes() {
     if (ttlConfig.isProd()) {
-      log.warn("Address expiry is enabled in prod; refusing to create the TTL index");
+      log.warn("Expiry is enabled in prod; refusing to create the address and transporter TTL indexes");
       return;
     }
+    createExpiryIndex(Address.class, ADDRESS_INDEX_NAME);
+    createExpiryIndex(Transporter.class, TRANSPORTER_INDEX_NAME);
+  }
+
+  private void createExpiryIndex(Class<?> documentType, String indexName) {
     mongoTemplate
-        .indexOps(Address.class)
+        .indexOps(documentType)
         .createIndex(
-            new Index().on("expireAt", Sort.Direction.ASC).expire(Duration.ZERO).named(INDEX_NAME));
-    log.info("Address expiry TTL index {} is in place", INDEX_NAME);
+            new Index().on("expireAt", Sort.Direction.ASC).expire(Duration.ZERO).named(indexName));
+    log.info("Expiry TTL index {} is in place on {}", indexName, documentType.getSimpleName());
   }
 }

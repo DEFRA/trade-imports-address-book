@@ -18,28 +18,31 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.test.context.TestPropertySource;
+import uk.gov.defra.trade.imports.addressbook.ExpiryIndexes;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
-import uk.gov.defra.trade.imports.addressbook.address.AddressExpiryIndex;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
+import uk.gov.defra.trade.imports.addressbook.transporter.Transporter;
 
 @TestPropertySource(
     properties = {"address-book.ttl.days=7", "address-book.ttl.expiry.enabled=true"})
 class AddressExpiryIT extends IntegrationBase {
 
   private static final String TTL_INDEX = "address_expire_at_ttl";
+  private static final String TRANSPORTER_TTL_INDEX = "transporter_expire_at_ttl";
 
   @Autowired private MongoTemplate mongoTemplate;
   @Autowired private MongoClient mongoClient;
-  @Autowired private AddressExpiryIndex addressExpiryIndex;
+  @Autowired private ExpiryIndexes expiryIndexes;
 
   @BeforeEach
-  void ensureTtlIndex() {
-    addressExpiryIndex.createIndex();
+  void ensureTtlIndexes() {
+    expiryIndexes.createIndexes();
   }
 
   @AfterEach
   void restoreSharedMongo() {
     mongoTemplate.indexOps(Address.class).dropIndex(TTL_INDEX);
+    mongoTemplate.indexOps(Transporter.class).dropIndex(TRANSPORTER_TTL_INDEX);
     setTtlMonitorSleepSecs(60);
   }
 

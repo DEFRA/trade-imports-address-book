@@ -45,7 +45,7 @@ class AddressUpdateIT extends IntegrationBase {
   @Test
   void put_shouldReplaceAllFieldsAndClearOmittedOptionals_whenBodyIsValid() throws Exception {
     Address saved = saveActiveAddressWithRolesAndOptionals();
-    AddressBody body =
+    RequestBody body =
         addressBody()
             .with("name", "Lowland Cattle Co")
             .with("addressLine1", "2 Market Street")
@@ -101,7 +101,7 @@ class AddressUpdateIT extends IntegrationBase {
   @Test
   void put_shouldReturn400KeyedByRolesAndKeepStoredValues_whenARoleIsUnknown() throws Exception {
     Address saved = saveActiveAddressWithRolesAndOptionals();
-    AddressBody body = addressBody().with("roles", List.of("IMPORTER", "TRANSPORTER"));
+    RequestBody body = addressBody().with("roles", List.of("IMPORTER", "TRANSPORTER"));
 
     putAddress(saved.getId(), body)
         .andExpect(status().isBadRequest())
@@ -115,7 +115,7 @@ class AddressUpdateIT extends IntegrationBase {
   void put_shouldReturn400KeyedByCountryCodeAndKeepStoredValues_whenAReceivingRoleIsOutsideTheUk()
       throws Exception {
     Address saved = saveActiveAddressWithRolesAndOptionals();
-    AddressBody body = addressBody().with("countryCode", "IE").with("roles", List.of("IMPORTER"));
+    RequestBody body = addressBody().with("countryCode", "IE").with("roles", List.of("IMPORTER"));
 
     putAddress(saved.getId(), body)
         .andExpect(status().isBadRequest())
@@ -132,7 +132,7 @@ class AddressUpdateIT extends IntegrationBase {
   @Test
   void put_shouldReturn400PerFieldErrorsAndLeaveRowUntouched_whenBodyIsInvalid() throws Exception {
     Address saved = saveActiveAddressWithRolesAndOptionals();
-    AddressBody body = addressBody().blank("addressLine1").with("email", "not-an-email");
+    RequestBody body = addressBody().blank("addressLine1").with("email", "not-an-email");
 
     putAddress(saved.getId(), body)
         .andExpect(status().isBadRequest())
