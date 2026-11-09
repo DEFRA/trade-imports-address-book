@@ -1,7 +1,7 @@
 package uk.gov.defra.trade.imports.addressbook.transporter;
 
 import java.util.List;
-import uk.gov.defra.trade.imports.addressbook.ListPaging;
+import uk.gov.defra.trade.imports.addressbook.RequestedListFilterSupport;
 
 /**
  * The filters of a transporter list request. A filter the request did not supply is empty, never
@@ -21,11 +21,11 @@ public record RequestedTransporterListFilters(
   public RequestedTransporterListFilters {
     searchTerm = searchTerm == null ? "" : searchTerm.trim();
     countryCodes =
-        ListPaging.presentElements(countryCodes)
+        RequestedListFilterSupport.presentElements(countryCodes)
             .map(String::trim)
             .filter(code -> !code.isEmpty())
             .toList();
-    types = ListPaging.presentElements(types).distinct().toList();
-    searchTypes = ListPaging.presentElements(searchTypes).distinct().toList();
+    types = RequestedListFilterSupport.presentElements(types).distinct().toList();
+    searchTypes = RequestedListFilterSupport.presentElements(searchTypes).distinct().toList();
   }
 }

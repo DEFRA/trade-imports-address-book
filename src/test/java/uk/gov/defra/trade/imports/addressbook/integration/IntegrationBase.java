@@ -1,6 +1,7 @@
 package uk.gov.defra.trade.imports.addressbook.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -10,6 +11,7 @@ import static uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport.
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mongodb.client.MongoDatabase;
 import java.io.UncheckedIOException;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -23,7 +25,10 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.index.IndexField;
+import org.springframework.data.mongodb.core.index.IndexInfo;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -38,6 +43,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.mongodb.MongoDBContainer;
 import org.testcontainers.utility.DockerImageName;
+import uk.gov.defra.trade.imports.addressbook.ListPaging;
 import uk.gov.defra.trade.imports.addressbook.Application;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressRole;
@@ -197,7 +203,7 @@ abstract class IntegrationBase {
       String orgId, String callerOrganisationId, RequestBody body) throws Exception {
     return mockMvc.perform(
         withJson(
-            addressesRequest(HttpMethod.POST, callerOrganisationId, TRANSPORTERS_PATH, orgId),
+            organisationScopedRequest(HttpMethod.POST, callerOrganisationId, TRANSPORTERS_PATH, orgId),
             body.json()));
   }
 
@@ -208,7 +214,7 @@ abstract class IntegrationBase {
   protected ResultActions getTransporterAs(
       String orgId, String callerOrganisationId, String transporterId) throws Exception {
     return mockMvc.perform(
-        addressesRequest(
+        organisationScopedRequest(
             HttpMethod.GET, callerOrganisationId, TRANSPORTER_PATH, orgId, transporterId));
   }
 
@@ -221,7 +227,7 @@ abstract class IntegrationBase {
       throws Exception {
     return mockMvc.perform(
         withJson(
-            addressesRequest(
+            organisationScopedRequest(
                 HttpMethod.PUT, callerOrganisationId, TRANSPORTER_PATH, orgId, transporterId),
             body.json()));
   }
@@ -229,7 +235,7 @@ abstract class IntegrationBase {
   protected ResultActions deleteTransporterAs(
       String orgId, String callerOrganisationId, String transporterId) throws Exception {
     return mockMvc.perform(
-        addressesRequest(
+        organisationScopedRequest(
             HttpMethod.DELETE, callerOrganisationId, TRANSPORTER_PATH, orgId, transporterId));
   }
 
@@ -240,13 +246,13 @@ abstract class IntegrationBase {
   protected ResultActions listTransportersAs(String orgId, String callerOrganisationId)
       throws Exception {
     return mockMvc.perform(
-        addressesRequest(HttpMethod.GET, callerOrganisationId, TRANSPORTERS_PATH, orgId));
+        organisationScopedRequest(HttpMethod.GET, callerOrganisationId, TRANSPORTERS_PATH, orgId));
   }
 
   protected ResultActions listTransporters(String... queryParameterNamesAndValues)
       throws Exception {
     MockHttpServletRequestBuilder request =
-        addressesRequest(HttpMethod.GET, ORGANISATION_ID, TRANSPORTERS_PATH, ORGANISATION_ID);
+        organisationScopedRequest(HttpMethod.GET, ORGANISATION_ID, TRANSPORTERS_PATH, ORGANISATION_ID);
     for (int i = 0; i < queryParameterNamesAndValues.length; i += 2) {
       request = request.param(queryParameterNamesAndValues[i], queryParameterNamesAndValues[i + 1]);
     }
@@ -255,7 +261,7 @@ abstract class IntegrationBase {
 
   protected static MockHttpServletRequestBuilder postAddressRequest(String json) {
     return withJson(
-        addressesRequest(HttpMethod.POST, ORGANISATION_ID, ADDRESSES_PATH, ORGANISATION_ID), json);
+        organisationScopedRequest(HttpMethod.POST, ORGANISATION_ID, ADDRESSES_PATH, ORGANISATION_ID), json);
   }
 
   protected ResultActions postAddress(RequestBody body) throws Exception {
@@ -270,7 +276,7 @@ abstract class IntegrationBase {
       throws Exception {
     return mockMvc.perform(
         withJson(
-            addressesRequest(HttpMethod.POST, callerOrganisationId, ADDRESSES_PATH, orgId),
+            organisationScopedRequest(HttpMethod.POST, callerOrganisationId, ADDRESSES_PATH, orgId),
             body.json()));
   }
 
@@ -292,13 +298,13 @@ abstract class IntegrationBase {
       String orgId, String callerOrganisationId, String addressId, String json) throws Exception {
     return mockMvc.perform(
         withJson(
-            addressesRequest(HttpMethod.PUT, callerOrganisationId, ADDRESS_PATH, orgId, addressId),
+            organisationScopedRequest(HttpMethod.PUT, callerOrganisationId, ADDRESS_PATH, orgId, addressId),
             json));
   }
 
   protected ResultActions listAddresses(String... queryParameterNamesAndValues) throws Exception {
     MockHttpServletRequestBuilder request =
-        addressesRequest(HttpMethod.GET, ORGANISATION_ID, ADDRESSES_PATH, ORGANISATION_ID);
+        organisationScopedRequest(HttpMethod.GET, ORGANISATION_ID, ADDRESSES_PATH, ORGANISATION_ID);
     for (int i = 0; i < queryParameterNamesAndValues.length; i += 2) {
       request = request.param(queryParameterNamesAndValues[i], queryParameterNamesAndValues[i + 1]);
     }
@@ -308,7 +314,7 @@ abstract class IntegrationBase {
   protected ResultActions listAddressesAs(String orgId, String callerOrganisationId)
       throws Exception {
     return mockMvc.perform(
-        addressesRequest(HttpMethod.GET, callerOrganisationId, ADDRESSES_PATH, orgId));
+        organisationScopedRequest(HttpMethod.GET, callerOrganisationId, ADDRESSES_PATH, orgId));
   }
 
   protected static Set<String> readIds(String body) throws Exception {
@@ -319,7 +325,7 @@ abstract class IntegrationBase {
   }
 
   protected static MockHttpServletRequestBuilder getAddressRequest(String addressId) {
-    return addressesRequest(
+    return organisationScopedRequest(
         HttpMethod.GET, ORGANISATION_ID, ADDRESS_PATH, ORGANISATION_ID, addressId);
   }
 
@@ -330,7 +336,7 @@ abstract class IntegrationBase {
   protected ResultActions getAddressAs(String orgId, String callerOrganisationId, String addressId)
       throws Exception {
     return mockMvc.perform(
-        addressesRequest(HttpMethod.GET, callerOrganisationId, ADDRESS_PATH, orgId, addressId));
+        organisationScopedRequest(HttpMethod.GET, callerOrganisationId, ADDRESS_PATH, orgId, addressId));
   }
 
   protected ResultActions deleteAddress(String addressId) throws Exception {
@@ -340,11 +346,11 @@ abstract class IntegrationBase {
   protected ResultActions deleteAddressAs(
       String orgId, String callerOrganisationId, String addressId) throws Exception {
     return mockMvc.perform(
-        addressesRequest(
+        organisationScopedRequest(
             HttpMethod.DELETE, callerOrganisationId, ADDRESS_PATH, orgId, addressId));
   }
 
-  private static MockHttpServletRequestBuilder addressesRequest(
+  private static MockHttpServletRequestBuilder organisationScopedRequest(
       HttpMethod method,
       @Nullable String callerOrganisationId,
       String path,
@@ -375,6 +381,44 @@ abstract class IntegrationBase {
         jsonPath("$.title").value("Bad Request"),
         jsonPath("$.status").value(400),
         jsonPath("$.errors").doesNotExist());
+  }
+
+  protected void assertDeclaresOnlyOrgStatusCreatedIndex(Class<?> documentClass) {
+    List<IndexInfo> indexes = mongoTemplate.indexOps(documentClass).getIndexInfo();
+
+    assertThat(indexes.stream().map(IndexInfo::getName).toList())
+        .containsExactlyInAnyOrder("_id_", "org_status_created");
+    IndexInfo orgIndex =
+        indexes.stream()
+            .filter(index -> index.getName().equals("org_status_created"))
+            .findFirst()
+            .orElseThrow();
+    assertThat(orgIndex.getIndexFields())
+        .extracting(IndexField::getKey, IndexField::getDirection)
+        .containsExactly(
+            tuple("organisationId", Sort.Direction.ASC),
+            tuple("status", Sort.Direction.ASC),
+            tuple("createdAt", Sort.Direction.DESC));
+  }
+
+  protected void assertListQueryUsesOrgStatusCreatedIndex(String collectionName, String activeStatusValue) {
+    Document explainCommand =
+        new Document(
+            "explain",
+            new Document("find", collectionName)
+                .append(
+                    "filter",
+                    new Document("organisationId", ORGANISATION_ID).append("status", activeStatusValue))
+                .append("sort", new Document("createdAt", -1))
+                .append("limit", ListPaging.DEFAULT_PAGE_SIZE));
+
+    Document explainResult =
+        mongoTemplate.execute((MongoDatabase db) -> db.runCommand(explainCommand));
+
+    Document winningPlan =
+        explainResult.get("queryPlanner", Document.class).get("winningPlan", Document.class);
+    assertThat(winningPlan.toJson()).contains("org_status_created");
+    assertThat(winningPlan.toJson()).doesNotContain("COLLSCAN");
   }
 
   protected static final class RequestBody {

@@ -1,4 +1,4 @@
-package uk.gov.defra.trade.imports.addressbook.address;
+package uk.gov.defra.trade.imports.addressbook;
 
 import jakarta.validation.ConstraintValidatorContext;
 

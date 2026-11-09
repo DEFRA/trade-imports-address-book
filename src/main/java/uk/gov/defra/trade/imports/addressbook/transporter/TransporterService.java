@@ -14,6 +14,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import uk.gov.defra.trade.imports.addressbook.ListPaging;
+import uk.gov.defra.trade.imports.addressbook.SearchTerms;
 import uk.gov.defra.trade.imports.addressbook.configuration.AddressTtlConfig;
 import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
 
@@ -21,6 +22,13 @@ import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
 @Service
 @Slf4j
 public class TransporterService {
+
+  /**
+   * What a caller is told when a transporter is not theirs, as well as when it does not exist: a
+   * cross-organisation request and an unknown id are deliberately indistinguishable, so the address
+   * book never confirms that another organisation holds a given id.
+   */
+  static final String TRANSPORTER_NOT_FOUND = "Transporter not found";
 
   private final TransporterRepository repository;
   private final TransporterMapper transporterMapper;
@@ -88,7 +96,7 @@ public class TransporterService {
     if (!requested.searchTerm().isEmpty()) {
       matches.add(
           new TransporterListCriteria.TextMatching(
-              ListPaging.toPartialMatchRegex(requested.searchTerm())));
+              SearchTerms.toPartialMatchRegex(requested.searchTerm())));
     }
     if (!requested.countryCodes().isEmpty()) {
       matches.add(new TransporterListCriteria.InCountries(requested.countryCodes()));
@@ -157,7 +165,7 @@ public class TransporterService {
         repository
             .findByIdAndOrganisationId(id, organisationId)
             .filter(transporter -> transporter.getStatus() != TransporterStatus.DELETED)
-            .orElseThrow(() -> new NotFoundException("Transporter not found"));
+            .orElseThrow(() -> new NotFoundException(TRANSPORTER_NOT_FOUND));
 
     transporterMapper.updateEntity(request, existing);
 
@@ -179,7 +187,7 @@ public class TransporterService {
     Transporter existing =
         repository
             .findByIdAndOrganisationId(id, organisationId)
-            .orElseThrow(() -> new NotFoundException("Transporter not found"));
+            .orElseThrow(() -> new NotFoundException(TRANSPORTER_NOT_FOUND));
 
     if (existing.getStatus() == TransporterStatus.DELETED) {
       return;

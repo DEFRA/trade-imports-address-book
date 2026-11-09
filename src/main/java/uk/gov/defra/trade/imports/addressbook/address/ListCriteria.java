@@ -2,6 +2,7 @@ package uk.gov.defra.trade.imports.addressbook.address;
 
 import java.util.List;
 import java.util.Objects;
+import uk.gov.defra.trade.imports.addressbook.ListMatchCriteria;
 
 /**
  * What a list query keeps and searches for. A filter or match the caller did not ask for is absent.
@@ -37,7 +38,7 @@ public record ListCriteria(List<AddressRole> roles, List<Match> matches) {
    */
   public record InCountries(List<String> countryCodes) implements Match {
     public InCountries {
-      countryCodes = nonEmptyCopyOf(countryCodes);
+      countryCodes = ListMatchCriteria.nonEmptyCopyOf(countryCodes);
     }
   }
 
@@ -48,15 +49,7 @@ public record ListCriteria(List<AddressRole> roles, List<Match> matches) {
    */
   public record HoldingAnyRole(List<AddressRole> roles) implements Match {
     public HoldingAnyRole {
-      roles = nonEmptyCopyOf(roles);
+      roles = ListMatchCriteria.nonEmptyCopyOf(roles);
     }
-  }
-
-  private static <T> List<T> nonEmptyCopyOf(List<T> values) {
-    List<T> copy = List.copyOf(values);
-    if (copy.isEmpty()) {
-      throw new IllegalArgumentException("A match needs at least one value");
-    }
-    return copy;
   }
 }

@@ -2,6 +2,7 @@ package uk.gov.defra.trade.imports.addressbook.transporter;
 
 import java.util.List;
 import java.util.Objects;
+import uk.gov.defra.trade.imports.addressbook.ListMatchCriteria;
 
 /**
  * What a transporter list query keeps and searches for. A filter or match the caller did not ask
@@ -39,7 +40,7 @@ public record TransporterListCriteria(List<TransporterType> types, List<Match> m
    */
   public record InCountries(List<String> countryCodes) implements Match {
     public InCountries {
-      countryCodes = nonEmptyCopyOf(countryCodes);
+      countryCodes = ListMatchCriteria.nonEmptyCopyOf(countryCodes);
     }
   }
 
@@ -50,15 +51,7 @@ public record TransporterListCriteria(List<TransporterType> types, List<Match> m
    */
   public record OfType(List<TransporterType> types) implements Match {
     public OfType {
-      types = nonEmptyCopyOf(types);
+      types = ListMatchCriteria.nonEmptyCopyOf(types);
     }
-  }
-
-  private static <T> List<T> nonEmptyCopyOf(List<T> values) {
-    List<T> copy = List.copyOf(values);
-    if (copy.isEmpty()) {
-      throw new IllegalArgumentException("A match needs at least one value");
-    }
-    return copy;
   }
 }

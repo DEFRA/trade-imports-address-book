@@ -14,17 +14,12 @@ import org.mapstruct.ReportingPolicy;
     collectionMappingStrategy = CollectionMappingStrategy.TARGET_IMMUTABLE)
 public interface TransporterMapper {
 
-  /**
-   * Maps a persisted {@link Transporter} onto its wire response, deriving {@code deleted} from
-   * status.
-   */
   @BeanMapping(ignoreUnmappedSourceProperties = {"status", "version", "expireAt"})
   @Mapping(
       target = "deleted",
       expression = "java(transporter.getStatus() == TransporterStatus.DELETED)")
   TransporterResponse toResponse(Transporter transporter);
 
-  /** Maps the client-supplied fields of a request onto a new entity. */
   @BeanMapping(ignoreUnmappedSourceProperties = {"roles", "role"})
   @Mapping(target = "id", ignore = true)
   @Mapping(target = "organisationId", ignore = true)
@@ -35,7 +30,6 @@ public interface TransporterMapper {
   @Mapping(target = "expireAt", ignore = true)
   Transporter toEntity(TransporterRequest request);
 
-  /** Replaces every client-supplied field of an existing entity with the request's value. */
   @InheritConfiguration(name = "toEntity")
   void updateEntity(TransporterRequest request, @MappingTarget Transporter transporter);
 }

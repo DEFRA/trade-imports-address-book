@@ -28,7 +28,7 @@ class TransporterRequestValidationTest {
     assertThat(validator().validate(validCommercialRequest().build())).isEmpty();
   }
 
-  static Stream<Arguments> invalidStandardAddressBlockFields() {
+  static Stream<Arguments> invalidFields() {
     return Stream.of(
         Arguments.of(
             "blank name", validPrivateRequest().name("").build(), "name", "Enter a name or organisation"),
@@ -109,7 +109,7 @@ class TransporterRequestValidationTest {
   }
 
   @ParameterizedTest(name = "{0} -> only violation on {2}: {3}")
-  @MethodSource("invalidStandardAddressBlockFields")
+  @MethodSource("invalidFields")
   void validate_producesOnlyTheDeclaredMessageOnAnInvalidField(
       String description,
       TransporterRequest request,

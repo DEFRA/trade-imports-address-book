@@ -2,6 +2,7 @@ package uk.gov.defra.trade.imports.addressbook.address;
 
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
+import uk.gov.defra.trade.imports.addressbook.ClassLevelViolations;
 
 public class ReceivingRolesInTheUnitedKingdomValidator
     implements ConstraintValidator<ReceivingRolesInTheUnitedKingdom, AddressRequest> {

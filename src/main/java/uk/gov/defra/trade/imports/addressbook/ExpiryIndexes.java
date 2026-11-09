@@ -32,7 +32,7 @@ import uk.gov.defra.trade.imports.addressbook.transporter.Transporter;
 @ConditionalOnProperty(prefix = "address-book.ttl.expiry", name = "enabled", havingValue = "true")
 public class ExpiryIndexes {
 
-  static final String INDEX_NAME = "address_expire_at_ttl";
+  static final String ADDRESS_INDEX_NAME = "address_expire_at_ttl";
   static final String TRANSPORTER_INDEX_NAME = "transporter_expire_at_ttl";
 
   private final MongoTemplate mongoTemplate;
@@ -44,7 +44,7 @@ public class ExpiryIndexes {
       log.warn("Expiry is enabled in prod; refusing to create the address and transporter TTL indexes");
       return;
     }
-    createExpiryIndex(Address.class, INDEX_NAME);
+    createExpiryIndex(Address.class, ADDRESS_INDEX_NAME);
     createExpiryIndex(Transporter.class, TRANSPORTER_INDEX_NAME);
   }
 

@@ -14,6 +14,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import uk.gov.defra.trade.imports.addressbook.ListPaging;
+import uk.gov.defra.trade.imports.addressbook.SearchTerms;
 import uk.gov.defra.trade.imports.addressbook.configuration.AddressTtlConfig;
 import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
 
@@ -21,6 +22,13 @@ import uk.gov.defra.trade.imports.addressbook.exceptions.NotFoundException;
 @Service
 @Slf4j
 public class AddressService {
+
+  /**
+   * What a caller is told when an address is not theirs, as well as when it does not exist: a
+   * cross-organisation request and an unknown id are deliberately indistinguishable, so the address
+   * book never confirms that another organisation holds a given id.
+   */
+  static final String ADDRESS_NOT_FOUND = "Address not found";
 
   private final AddressRepository repository;
   private final AddressMapper addressMapper;
@@ -71,7 +79,7 @@ public class AddressService {
       return new AddressPageResponse(
           items, page, pageSize, (int) result.getTotalElements(), result.getTotalPages());
     } finally {
-      sample.stop(meterRegistry.timer("controller.listOperators.query.time"));
+      sample.stop(meterRegistry.timer("controller.listAddresses.query.time"));
     }
   }
 
@@ -83,7 +91,7 @@ public class AddressService {
     List<ListCriteria.Match> matches = new ArrayList<>();
     if (!requested.searchTerm().isEmpty()) {
       matches.add(
-          new ListCriteria.TextMatching(ListPaging.toPartialMatchRegex(requested.searchTerm())));
+          new ListCriteria.TextMatching(SearchTerms.toPartialMatchRegex(requested.searchTerm())));
     }
     if (!requested.countryCodes().isEmpty()) {
       matches.add(new ListCriteria.InCountries(requested.countryCodes()));
@@ -151,7 +159,7 @@ public class AddressService {
         repository
             .findByIdAndOrganisationId(id, organisationId)
             .filter(address -> address.getStatus() != AddressStatus.DELETED)
-            .orElseThrow(() -> new NotFoundException("Address not found"));
+            .orElseThrow(() -> new NotFoundException(ADDRESS_NOT_FOUND));
 
     addressMapper.updateEntity(request, existing);
 
@@ -172,7 +180,7 @@ public class AddressService {
     Address existing =
         repository
             .findByIdAndOrganisationId(id, organisationId)
-            .orElseThrow(() -> new NotFoundException("Address not found"));
+            .orElseThrow(() -> new NotFoundException(ADDRESS_NOT_FOUND));
 
     if (existing.getStatus() == AddressStatus.DELETED) {
       return;

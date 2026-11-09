@@ -22,7 +22,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.ResultActions;
 import uk.gov.defra.trade.imports.addressbook.testsupport.ApiDocs;
 
-class AddressComplianceIT extends IntegrationBase {
+class ApiContractComplianceIT extends IntegrationBase {
 
   @Test
   void createAndReadEmitCamelCasePropertiesAndADerivedDeletedBoolean() throws Exception {

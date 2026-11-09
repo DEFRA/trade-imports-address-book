@@ -2,7 +2,7 @@ package uk.gov.defra.trade.imports.addressbook.transporter;
 
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
-import uk.gov.defra.trade.imports.addressbook.address.ClassLevelViolations;
+import uk.gov.defra.trade.imports.addressbook.ClassLevelViolations;
 
 public class CommercialTransporterCountryValidator
     implements ConstraintValidator<CommercialTransporterCountry, TransporterRequest> {

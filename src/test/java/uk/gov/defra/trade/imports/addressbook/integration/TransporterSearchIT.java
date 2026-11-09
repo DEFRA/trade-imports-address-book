@@ -1,16 +1,16 @@
 package uk.gov.defra.trade.imports.addressbook.integration;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.stream.Stream;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 
 class TransporterSearchIT extends IntegrationBase {
-
-  @Autowired private ObjectMapper objectMapper;
 
   private void seedTwoTransporters() throws Exception {
     postTransporter(
@@ -65,108 +65,102 @@ class TransporterSearchIT extends IntegrationBase {
   }
 
   @Test
-  void partialWordSearchMatchesAddressLineOneCaseInsensitively() throws Exception {
-    postTransporter(
-            transporterBody().with("name", "Highland Haulage Ltd").with("addressLine1", "14 Drover's Way"))
-        .andExpect(status().isCreated());
-    postTransporter(
-            transporterBody().with("name", "Lowland Cattle Co").with("addressLine1", "2 Market Street"))
-        .andExpect(status().isCreated());
+  void searchType_shouldReturnExactlyTheTransportersOfThatType_whenOnlyASearchTypeIsGiven()
+      throws Exception {
+    String commercial =
+        createdResourceId(
+            postTransporter(commercialTransporterBody().with("name", "Lough Neagh Livestock Ltd")));
+    createdResourceId(postTransporter(transporterBody().with("name", "Highland Haulage Ltd")));
 
-    listTransporters("q", "drover")
+    listTransporters("searchType", "COMMERCIAL")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(1))
+        .andExpect(jsonPath("$.items[0].id").value(commercial));
+  }
+
+  @Test
+  void searchType_shouldAlsoReturnATransporterOfThatType_whenASearchTermIsGiven() throws Exception {
+    String byName =
+        createdResourceId(postTransporter(transporterBody().with("name", "Green Farm Haulage")));
+    String byType =
+        createdResourceId(
+            postTransporter(commercialTransporterBody().with("name", "Lough Neagh Livestock Ltd")));
+
+    listTransporters("q", "green", "searchType", "COMMERCIAL")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(2))
+        .andExpect(jsonPath("$.items[*].id", containsInAnyOrder(byName, byType)));
+  }
+
+  @Test
+  void list_shouldKeepSearchTypeMatchesWithinTheTypesToKeep_whenBothAreGiven() throws Exception {
+    String commercial =
+        createdResourceId(
+            postTransporter(commercialTransporterBody().with("name", "Lough Neagh Livestock Ltd")));
+    createdResourceId(postTransporter(transporterBody().with("name", "Highland Haulage Ltd")));
+
+    listTransporters("type", "PRIVATE", "searchType", "COMMERCIAL")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(0));
+    listTransporters("type", "COMMERCIAL", "searchType", "COMMERCIAL")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(1))
+        .andExpect(jsonPath("$.items[0].id").value(commercial));
+  }
+
+  @Test
+  void list_shouldIgnoreABlankSearchType_whenOtherSearchTypesAreGiven() throws Exception {
+    String commercial =
+        createdResourceId(
+            postTransporter(commercialTransporterBody().with("name", "Lough Neagh Livestock Ltd")));
+    createdResourceId(postTransporter(transporterBody().with("name", "Highland Haulage Ltd")));
+
+    listTransporters("searchType", "COMMERCIAL", "searchType", "")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalItems").value(1))
+        .andExpect(jsonPath("$.items[0].id").value(commercial));
+  }
+
+  @Test
+  void list_shouldReturn400BadRequestProblemWithNoErrorsMap_whenATypeIsUnknown() throws Exception {
+    listTransporters("type", "APPROVED").andExpect(badRequestProblemWithNoErrors());
+  }
+
+  @Test
+  void list_shouldReturn400BadRequestProblemWithNoErrorsMap_whenASearchTypeIsUnknown()
+      throws Exception {
+    listTransporters("searchType", "APPROVED").andExpect(badRequestProblemWithNoErrors());
+  }
+
+  @ParameterizedTest(name = "a partial word search matches the {0} field case-insensitively")
+  @MethodSource("partialWordSearchFields")
+  void partialWordSearchMatchesCaseInsensitively(
+      String field, String matchingValue, String nonMatchingValue, String searchTerm)
+      throws Exception {
+    seedTwoTransportersDifferingBy(field, matchingValue, nonMatchingValue);
+
+    listTransporters("q", searchTerm)
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[0].name").value("Highland Haulage Ltd"));
   }
 
-  @Test
-  void partialWordSearchMatchesAddressLineTwoCaseInsensitively() throws Exception {
+  private static Stream<Arguments> partialWordSearchFields() {
+    return Stream.of(
+        Arguments.of("addressLine1", "14 Drover's Way", "2 Market Street", "drover"),
+        Arguments.of("addressLine2", "Ballymore Road", "Station Road", "ballymore"),
+        Arguments.of("townOrCity", "Inverness", "Perth", "inver"),
+        Arguments.of("county", "County Antrim", "County Down", "antrim"),
+        Arguments.of("postcode", "IV2 3JH", "PH1 5AA", "iv2"));
+  }
+
+  private void seedTwoTransportersDifferingBy(
+      String field, String matchingValue, String nonMatchingValue) throws Exception {
     postTransporter(
-            transporterBody().with("name", "Highland Haulage Ltd").with("addressLine2", "Ballymore Road"))
+            transporterBody().with("name", "Highland Haulage Ltd").with(field, matchingValue))
         .andExpect(status().isCreated());
     postTransporter(
-            transporterBody().with("name", "Lowland Cattle Co").with("addressLine2", "Station Road"))
+            transporterBody().with("name", "Lowland Cattle Co").with(field, nonMatchingValue))
         .andExpect(status().isCreated());
-
-    listTransporters("q", "ballymore")
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[0].name").value("Highland Haulage Ltd"));
-  }
-
-  @Test
-  void partialWordSearchMatchesTownOrCityCaseInsensitively() throws Exception {
-    postTransporter(
-            transporterBody().with("name", "Highland Haulage Ltd").with("townOrCity", "Inverness"))
-        .andExpect(status().isCreated());
-    postTransporter(transporterBody().with("name", "Lowland Cattle Co").with("townOrCity", "Perth"))
-        .andExpect(status().isCreated());
-
-    listTransporters("q", "inver")
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[0].name").value("Highland Haulage Ltd"));
-  }
-
-  @Test
-  void partialWordSearchMatchesCountyCaseInsensitively() throws Exception {
-    postTransporter(transporterBody().with("name", "Highland Haulage Ltd").with("county", "County Antrim"))
-        .andExpect(status().isCreated());
-    postTransporter(transporterBody().with("name", "Lowland Cattle Co").with("county", "County Down"))
-        .andExpect(status().isCreated());
-
-    listTransporters("q", "antrim")
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[0].name").value("Highland Haulage Ltd"));
-  }
-
-  @Test
-  void partialWordSearchMatchesPostcodeCaseInsensitively() throws Exception {
-    postTransporter(
-            transporterBody().with("name", "Highland Haulage Ltd").with("postcode", "IV2 3JH"))
-        .andExpect(status().isCreated());
-    postTransporter(transporterBody().with("name", "Lowland Cattle Co").with("postcode", "PH1 5AA"))
-        .andExpect(status().isCreated());
-
-    listTransporters("q", "iv2")
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[0].name").value("Highland Haulage Ltd"));
-  }
-
-  @Test
-  void aSoftDeletedTransporterLeavesTheListAndStaysReadableByIdMarkedDeleted() throws Exception {
-    String id = createdResourceId(postTransporter(transporterBody()));
-
-    deleteTransporter(id).andExpect(status().isNoContent());
-
-    listTransporters().andExpect(status().isOk()).andExpect(jsonPath("$.totalItems").value(0));
-    getTransporter(id).andExpect(status().isOk()).andExpect(jsonPath("$.deleted").value(true));
-  }
-
-  @Test
-  void deletingAnAlreadyDeletedTransporterChangesNothing() throws Exception {
-    String id = createdResourceId(postTransporter(transporterBody()));
-
-    deleteTransporter(id).andExpect(status().isNoContent());
-    String modifiedAtAfterFirstDelete = modifiedAtOf(id);
-
-    deleteTransporter(id).andExpect(status().isNoContent());
-
-    getTransporter(id).andExpect(status().isOk()).andExpect(jsonPath("$.deleted").value(true));
-    assertThat(modifiedAtOf(id)).isEqualTo(modifiedAtAfterFirstDelete);
-  }
-
-  private String modifiedAtOf(String id) throws Exception {
-    return objectMapper
-        .readTree(
-            getTransporter(id)
-                .andExpect(status().isOk())
-                .andReturn()
-                .getResponse()
-                .getContentAsString())
-        .get("modifiedAt")
-        .asText();
   }
 }

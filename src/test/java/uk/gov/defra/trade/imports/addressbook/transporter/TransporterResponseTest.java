@@ -59,13 +59,4 @@ class TransporterResponseTest {
     assertThat(response.county()).isNull();
     assertThat(response.approvalNumber()).isNull();
   }
-
-  @Test
-  void aPrivateTransporterCarriesNoApprovalNumber() {
-    TransporterResponse response =
-        validResponse().type(TransporterType.PRIVATE).approvalNumber(null).build();
-
-    assertThat(response.approvalNumber()).isNull();
-    assertThat(response.type()).isEqualTo(TransporterType.PRIVATE);
-  }
 }

@@ -301,22 +301,25 @@ mvn clean verify
 ```
 
 Integration tests cover CRUD, org scoping, soft delete, search, pagination, RFC 9457 error
-shapes, and OpenAPI contract compliance (`AddressComplianceIT`).
+shapes, and OpenAPI contract compliance (`ApiContractComplianceIT`).
 
 ## OpenAPI contract
 
-The API surface is locked and tested on every `mvn verify`:
+The API surface is locked and tested on every `mvn verify`. `addresses.yml` is the whole
+service's spec, addresses and transporters both:
 
 | File | Role |
 | --- | --- |
-| [`docs/openapi/api-contract.locked.yaml`](docs/openapi/api-contract.locked.yaml) | Human-authored source of truth (paths, operationIds, 400 `anyOf` shapes, allowed values of enum properties, the `AddressRequest` required list, the minimum number of `AddressRequest.roles`) |
-| [`docs/openapi/addresses.yml`](docs/openapi/addresses.yml) | springdoc-generated spec, committed for downstream consumers |
+| [`docs/openapi/api-contract.locked.yaml`](docs/openapi/api-contract.locked.yaml) | Human-authored source of truth (paths, operationIds, 400 `anyOf` shapes, allowed values of enum properties, the `AddressRequest` and `TransporterRequest` required lists, the minimum number of `AddressRequest.roles`) |
+| [`docs/openapi/addresses.yml`](docs/openapi/addresses.yml) | springdoc-generated spec for the whole service, addresses and transporters, committed for downstream consumers |
 
-`AddressComplianceIT` fails the build if `addresses.yml` is stale against live `/v3/api-docs`, or
-if paths, HTTP methods, operationIds, operation parameter names, component schema property
-names, the allowed values of `roles` and the list's `role` and `searchRole` parameters, the 400
-`anyOf` shapes of create and update, the required list of `AddressRequest` or the minimum number
-of `AddressRequest.roles` diverge from the locked contract.
+`ApiContractComplianceIT` fails the build if `addresses.yml` is stale against live `/v3/api-docs`,
+or if paths, HTTP methods, operationIds, operation parameter names, component schema property
+names, the allowed values of `roles` and the list's `role` and `searchRole` parameters, the
+allowed values of `type` on `TransporterRequest`/`TransporterResponse` and of the list's `type`
+and `searchType` parameters, the 400 `anyOf` shapes of create and update for both addresses and
+transporters, the required list of `AddressRequest` or `TransporterRequest`, or the minimum
+number of `AddressRequest.roles` diverge from the locked contract.
 
 Regenerate the committed artifact after an intentional API change (no Testcontainers required):
 
@@ -324,7 +327,7 @@ Regenerate the committed artifact after an intentional API change (no Testcontai
 mvn verify -Dopenapi.generate=true -Dit.test=OpenApiArtifactGeneratorIT
 ```
 
-`AddressComplianceIT` still byte-checks the artifact on every full `mvn verify`.
+`ApiContractComplianceIT` still byte-checks the artifact on every full `mvn verify`.
 The generator IT lives in the `openapi` package rather than `integration` so a nested
 `@SpringBootApplication` does not shadow `Application`.
 

@@ -49,12 +49,7 @@ import uk.gov.defra.trade.imports.addressbook.filter.IdentityHeaderFilter;
 @RequiredArgsConstructor
 public class TransporterController {
 
-  /**
-   * What a caller is told when a transporter is not theirs, as well as when it does not exist: a
-   * cross-organisation request and an unknown id are deliberately indistinguishable, so the address
-   * book never confirms that another organisation holds a given id.
-   */
-  private static final String TRANSPORTER_NOT_FOUND = "Transporter not found";
+  private static final String RESOURCE = "transporter";
 
   private final TransporterService transporterService;
   private final TransporterMapper transporterMapper;
@@ -166,7 +161,8 @@ public class TransporterController {
               array = @ArraySchema(schema = @Schema(implementation = TransporterType.class)))
           @RequestParam(name = "searchType", required = false)
           List<TransporterType> searchTypes) {
-    OrganisationScope.authorise(orgId, organisationId, TRANSPORTER_NOT_FOUND);
+    OrganisationScope.authorise(
+        RESOURCE, null, orgId, organisationId, TransporterService.TRANSPORTER_NOT_FOUND);
     log.info(
         "GET transporters - page {}, pageSize {}, q present {}, countryCodes {}, types {},"
             + " searchTypes {}",
@@ -238,7 +234,8 @@ public class TransporterController {
       @PathVariable String orgId,
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
       @Valid @RequestBody TransporterRequest request) {
-    OrganisationScope.authorise(orgId, organisationId, TRANSPORTER_NOT_FOUND);
+    OrganisationScope.authorise(
+        RESOURCE, null, orgId, organisationId, TransporterService.TRANSPORTER_NOT_FOUND);
     log.info("POST transporters - creating transporter");
     Transporter created = transporterService.create(request, organisationId);
     URI location =
@@ -289,12 +286,17 @@ public class TransporterController {
       @PathVariable String orgId,
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
       @PathVariable("transporter-id") String transporterId) {
-    OrganisationScope.authorise(orgId, organisationId, TRANSPORTER_NOT_FOUND);
+    OrganisationScope.authorise(
+        RESOURCE,
+        transporterId,
+        orgId,
+        organisationId,
+        TransporterService.TRANSPORTER_NOT_FOUND);
     log.info("GET transporters/{}", transporterId);
     Transporter transporter =
         transporterService
             .get(transporterId, organisationId)
-            .orElseThrow(() -> new NotFoundException(TRANSPORTER_NOT_FOUND));
+            .orElseThrow(() -> new NotFoundException(TransporterService.TRANSPORTER_NOT_FOUND));
     return transporterMapper.toResponse(transporter);
   }
 
@@ -356,7 +358,12 @@ public class TransporterController {
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
       @PathVariable("transporter-id") String transporterId,
       @Valid @RequestBody TransporterRequest request) {
-    OrganisationScope.authorise(orgId, organisationId, TRANSPORTER_NOT_FOUND);
+    OrganisationScope.authorise(
+        RESOURCE,
+        transporterId,
+        orgId,
+        organisationId,
+        TransporterService.TRANSPORTER_NOT_FOUND);
     log.info("PUT transporters/{}", transporterId);
     Transporter updated = transporterService.update(transporterId, request, organisationId);
     return transporterMapper.toResponse(updated);
@@ -403,7 +410,12 @@ public class TransporterController {
       @PathVariable String orgId,
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
       @PathVariable("transporter-id") String transporterId) {
-    OrganisationScope.authorise(orgId, organisationId, TRANSPORTER_NOT_FOUND);
+    OrganisationScope.authorise(
+        RESOURCE,
+        transporterId,
+        orgId,
+        organisationId,
+        TransporterService.TRANSPORTER_NOT_FOUND);
     log.info("DELETE transporters/{}", transporterId);
     transporterService.delete(transporterId, organisationId);
     return ResponseEntity.noContent().build();
