@@ -195,7 +195,7 @@ class IdentityHeaderFilterTest {
   }
 
   @Test
-  void pathOrgMismatchLogsBothOrganisationIdsAndAnswersAddressNotFound() throws Exception {
+  void pathOrgMismatchLogsBothOrganisationIdsAndAnswersResourceNotFound() throws Exception {
     MockHttpServletRequest request = new MockHttpServletRequest("GET", "/organisation/org-a/addresses");
     request.setServletPath("/organisation/org-a/addresses");
     request.addHeader(ORGANISATION_ID_HEADER, "org-b");
@@ -217,7 +217,7 @@ class IdentityHeaderFilterTest {
         .containsExactly(
             "Rejected /organisation request: Organisation mismatch: path orgId org-a is not the"
                 + " caller's organisation org-b (trace: null)");
-    assertThat(parseBody(response)).containsEntry("detail", "Address not found");
+    assertThat(parseBody(response)).containsEntry("detail", "Resource not found");
   }
 
   @Test

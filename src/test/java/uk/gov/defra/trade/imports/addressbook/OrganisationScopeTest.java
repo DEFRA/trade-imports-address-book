@@ -35,7 +35,8 @@ class OrganisationScopeTest {
                         () ->
                             OrganisationScope.authorise(
                                 "address", "abc", "org-1", "org-2", NOT_FOUND_MESSAGE))
-                    .withMessage(NOT_FOUND_MESSAGE));
+                    .satisfies(
+                        refusal -> assertThat(refusal.detail()).isEqualTo(NOT_FOUND_MESSAGE)));
 
     assertThat(events)
         .singleElement()
