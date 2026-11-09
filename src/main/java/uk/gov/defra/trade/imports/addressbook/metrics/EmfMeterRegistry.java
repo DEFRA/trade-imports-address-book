@@ -8,6 +8,7 @@ import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.TimeGauge;
 import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.binder.BaseUnits;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
 import io.micrometer.core.instrument.distribution.HistogramGauges;
 import io.micrometer.core.instrument.distribution.pause.PauseDetector;
@@ -28,7 +29,9 @@ import software.amazon.cloudwatchlogs.emf.model.Unit;
  *
  * <p>Timers and distribution summaries publish every value recorded since the last publish, timers
  * in milliseconds. Counters publish the last step's count. Gauges publish their value when it is
- * finite. Long task timers, function counters, function timers and time gauges are not published.
+ * finite. A gauge or distribution summary publishes in the CloudWatch unit of its base unit, such as
+ * Bytes for {@code bytes}. With no base unit, a distribution summary publishes as Count and a gauge
+ * as None. Long task timers, function counters, function timers and time gauges are not published.
  * A meter that fails to publish is logged and the rest are still published.
  */
 @Slf4j
@@ -125,12 +128,20 @@ public class EmfMeterRegistry extends StepMeterRegistry {
       case ValueRecordingTimer timer ->
           new Readings(millisOf(timer.recordedNanos().takeAll()), Unit.MILLISECONDS);
       case ValueRecordingDistributionSummary summary ->
-          new Readings(summary.recordedAmounts().takeAll(), Unit.NONE);
+          new Readings(summary.recordedAmounts().takeAll(), unitOf(summary.getId(), Unit.COUNT));
       case Counter counter -> new Readings(List.of(counter.count()), Unit.COUNT);
       case TimeGauge _ -> Readings.NONE;
-      case Gauge gauge -> new Readings(finiteValueOf(gauge), Unit.NONE);
+      case Gauge gauge -> new Readings(finiteValueOf(gauge), unitOf(gauge.getId(), Unit.NONE));
       default -> Readings.NONE;
     };
+  }
+
+  private static Unit unitOf(Meter.Id id, Unit withoutBaseUnit) {
+    String baseUnit = id.getBaseUnit();
+    if (baseUnit == null || baseUnit.isBlank()) {
+      return withoutBaseUnit;
+    }
+    return BaseUnits.BYTES.equals(baseUnit) ? Unit.BYTES : Unit.NONE;
   }
 
   private static List<Double> millisOf(List<Double> nanos) {

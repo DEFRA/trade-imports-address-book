@@ -15,6 +15,7 @@ import io.micrometer.core.instrument.LongTaskTimer;
 import io.micrometer.core.instrument.MockClock;
 import io.micrometer.core.instrument.TimeGauge;
 import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.binder.BaseUnits;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -66,7 +67,7 @@ class EmfMeterRegistryTest {
   }
 
   @Test
-  void publish_writesEveryDistributionSummaryValue() {
+  void publish_writesEveryDistributionSummaryValueAsACount_whenItHasNoBaseUnit() {
     DistributionSummary summary =
         DistributionSummary.builder("external.call.failure")
             .tags("dependency", "mongodb", "operation", "insert")
@@ -77,6 +78,7 @@ class EmfMeterRegistryTest {
     registry.publish();
 
     JsonNode document = onlyDocumentFor("external.call.failure");
+    assertThat(unitOf(document)).isEqualTo("Count");
     assertThat(valuesOf(document, "external.call.failure")).containsExactly(0.0, 1.0);
   }
 
@@ -107,6 +109,29 @@ class EmfMeterRegistryTest {
     assertThat(valuesOf(onlyDocumentFor("external.dependency.available"), "external.dependency.available"))
         .containsExactly(1.0);
     assertThat(emf.documentsFor("unknown.gauge")).isEmpty();
+  }
+
+  @Test
+  void publish_writesAGaugeInBytes_whenItsBaseUnitIsBytes() {
+    Gauge.builder("jvm.memory.used", () -> 2048)
+        .baseUnit(BaseUnits.BYTES)
+        .tag("area", "heap")
+        .register(registry);
+
+    registry.publish();
+
+    JsonNode document = onlyDocumentFor("jvm.memory.used");
+    assertThat(unitOf(document)).isEqualTo("Bytes");
+    assertThat(valuesOf(document, "jvm.memory.used")).containsExactly(2048.0);
+  }
+
+  @Test
+  void publish_writesAGaugeWithNoUnit_whenItHasNoBaseUnit() {
+    Gauge.builder("external.dependency.available", () -> 1).register(registry);
+
+    registry.publish();
+
+    assertThat(unitOf(onlyDocumentFor("external.dependency.available"))).isEqualTo("None");
   }
 
   @Test
