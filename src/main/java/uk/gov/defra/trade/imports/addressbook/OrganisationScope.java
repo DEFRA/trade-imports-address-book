@@ -33,7 +33,8 @@ public final class OrganisationScope {
           resourceId,
           pathOrganisationId,
           callerOrganisationId);
-      throw new NotFoundException(notFoundMessage);
+      throw NotFoundException.organisationMismatch(
+          pathOrganisationId, callerOrganisationId, notFoundMessage);
     }
   }
 }

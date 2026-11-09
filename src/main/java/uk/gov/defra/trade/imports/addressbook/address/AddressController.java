@@ -105,7 +105,7 @@ public class AddressController {
           @Content(
               mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
               schema = @Schema(implementation = Problem.class)))
-  @Timed("controller.listAddresses.time")
+  @Timed("controller.list.time")
   public AddressPageResponse list(
       @PathVariable String orgId,
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
@@ -229,7 +229,7 @@ public class AddressController {
           @Content(
               mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
               schema = @Schema(implementation = Problem.class)))
-  @Timed("controller.createAddress.time")
+  @Timed("controller.create.time")
   public ResponseEntity<AddressResponse> create(
       @PathVariable String orgId,
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
@@ -281,7 +281,7 @@ public class AddressController {
           @Content(
               mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
               schema = @Schema(implementation = Problem.class)))
-  @Timed("controller.getAddress.time")
+  @Timed("controller.get.time")
   public AddressResponse get(
       @PathVariable String orgId,
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
@@ -292,7 +292,7 @@ public class AddressController {
     Address address =
         addressService
             .get(addressId, organisationId)
-            .orElseThrow(() -> new NotFoundException(AddressService.ADDRESS_NOT_FOUND));
+            .orElseThrow(() -> NotFoundException.addressNotFound(addressId, organisationId));
     return addressMapper.toResponse(address);
   }
 
@@ -348,7 +348,7 @@ public class AddressController {
           @Content(
               mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
               schema = @Schema(implementation = Problem.class)))
-  @Timed("controller.updateAddress.time")
+  @Timed("controller.update.time")
   public AddressResponse update(
       @PathVariable String orgId,
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,
@@ -396,7 +396,7 @@ public class AddressController {
           @Content(
               mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
               schema = @Schema(implementation = Problem.class)))
-  @Timed("controller.deleteAddress.time")
+  @Timed("controller.delete.time")
   public ResponseEntity<Void> delete(
       @PathVariable String orgId,
       @RequestHeader(IdentityHeaderFilter.ORGANISATION_ID_HEADER) String organisationId,

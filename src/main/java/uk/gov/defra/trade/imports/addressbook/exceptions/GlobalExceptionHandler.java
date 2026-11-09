@@ -130,7 +130,7 @@ public class GlobalExceptionHandler {
     return problemResponse(
         HttpStatus.NOT_FOUND,
         problem(
-            HttpStatus.NOT_FOUND, "not-found", "Resource Not Found", ex.getMessage(), traceId));
+            HttpStatus.NOT_FOUND, "not-found", "Resource Not Found", ex.detail(), traceId));
   }
 
   /** Unexpected error — 500 internal-error. */

@@ -4,13 +4,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import ch.qos.logback.classic.spi.ILoggingEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
 import uk.gov.defra.trade.imports.addressbook.address.AddressStatus;
+import uk.gov.defra.trade.imports.addressbook.exceptions.GlobalExceptionHandler;
+import uk.gov.defra.trade.imports.addressbook.filter.IdentityHeaderFilter;
+import uk.gov.defra.trade.imports.addressbook.testsupport.CapturedLogs;
 
 class AddressScopingIT extends IntegrationBase {
 
@@ -53,6 +60,54 @@ class AddressScopingIT extends IntegrationBase {
         .isEqualTo(AddressStatus.ACTIVE);
     postAddressAs(ORG_A, ORG_B, addressBody()).andExpect(status().isNotFound());
     assertThat(activeAddressesFor(ORG_A)).singleElement();
+  }
+
+  @Test
+  void forwardedOrgHeaderDisagreeingWithThePathOrgIdLogsAnOrganisationMismatchWithBothIds() {
+    List<ILoggingEvent> events =
+        linesLoggedBy(
+            IdentityHeaderFilter.class,
+            () -> listAddressesAs(ORG_A, ORG_B).andExpect(status().isNotFound()));
+
+    assertThat(events)
+        .singleElement()
+        .extracting(ILoggingEvent::getFormattedMessage)
+        .asString()
+        .contains(
+            "Organisation mismatch: path orgId "
+                + ORG_A
+                + " is not the caller's organisation "
+                + ORG_B);
+  }
+
+  @Test
+  void anotherOrganisationsAddressIdLogsTheAddressIdAndTheCallersOrganisationId()
+      throws Exception {
+    String id = createAsOrgA();
+
+    List<ILoggingEvent> events =
+        linesLoggedBy(
+            GlobalExceptionHandler.class,
+            () -> getAddressAs(ORG_B, ORG_B, id).andExpect(status().isNotFound()));
+
+    assertThat(events)
+        .singleElement()
+        .extracting(ILoggingEvent::getFormattedMessage)
+        .asString()
+        .endsWith("Address " + id + " not found in organisation " + ORG_B);
+  }
+
+  private static List<ILoggingEvent> linesLoggedBy(
+      Class<?> loggerOwner, Callable<ResultActions> request) {
+    return CapturedLogs.loggedBy(
+        loggerOwner,
+        () -> {
+          try {
+            request.call();
+          } catch (Exception e) {
+            throw new AssertionError(e);
+          }
+        });
   }
 
   @Test
