@@ -157,7 +157,7 @@ returns **404** (no existence disclosure).
   by `roles`, and nothing is saved. An update replaces the roles.
 - The address book enforces one rule on create and update (see [Role rules](#role-rules)): an
   address's roles must all come from one group (**400** keyed by `roles`: "An address can only have
-  roles from one group"). Any role can be held in any country.
+  roles from one group").
 - An `addressType` in a body is ignored.
 
 **Example — create an address**
@@ -180,7 +180,7 @@ curl -s -X POST "http://localhost:8089/organisation/{orgId}/addresses" \
 
 ### Role rules
 
-The rules belong to the address book. Each `AddressRole` names its one group (`RoleGroup`), so a new
+The rule belongs to the address book. Each `AddressRole` names its one group (`RoleGroup`), so a new
 role cannot be added without a group. The grouping is internal: it is not part of the API, and a
 caller only sees it as a refusal.
 
