@@ -13,6 +13,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.ResultActions;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
@@ -144,25 +146,21 @@ class AddressCrudIT extends IntegrationBase {
     assertThat(activeAddressesFor(ORGANISATION_ID)).isEmpty();
   }
 
-  @Test
-  void post_shouldSaveAReceivingAddressOutsideTheUk() throws Exception {
-    postAddress(addressBody().with("countryCode", "FR").with("roles", List.of("CONSIGNEE")))
+  @ParameterizedTest
+  @EnumSource(AddressRole.class)
+  void post_shouldSaveAnAddressOutsideTheUk_whateverItsRole(AddressRole role) throws Exception {
+    postAddress(addressBody().with("countryCode", "FR").with("roles", List.of(role.name())))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.countryCode").value("FR"))
-        .andExpect(jsonPath("$.roles", contains("CONSIGNEE")));
+        .andExpect(jsonPath("$.roles", contains(role.name())));
 
     assertThat(activeAddressesFor(ORGANISATION_ID))
         .singleElement()
-        .extracting(Address::getCountryCode)
-        .isEqualTo("FR");
-  }
-
-  @Test
-  void post_shouldSaveABranchAddressOutsideTheUk() throws Exception {
-    postAddress(addressBody().with("countryCode", "FR").with("roles", List.of("BRANCH_ADDRESS")))
-        .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.countryCode").value("FR"))
-        .andExpect(jsonPath("$.roles", contains("BRANCH_ADDRESS")));
+        .satisfies(
+            address -> {
+              assertThat(address.getCountryCode()).isEqualTo("FR");
+              assertThat(address.getRoles()).containsExactly(role);
+            });
   }
 
   @Test

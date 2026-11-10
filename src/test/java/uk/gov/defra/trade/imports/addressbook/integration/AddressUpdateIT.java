@@ -12,6 +12,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
@@ -111,17 +113,23 @@ class AddressUpdateIT extends IntegrationBase {
     assertStoredValuesAreStillTheSeededOnes(saved);
   }
 
-  @Test
-  void put_shouldSaveAReceivingAddressOutsideTheUk() throws Exception {
+  @ParameterizedTest
+  @EnumSource(AddressRole.class)
+  void put_shouldSaveAnAddressOutsideTheUk_whateverItsRole(AddressRole role) throws Exception {
     Address saved = saveActiveAddressWithRolesAndOptionals();
-    RequestBody body = addressBody().with("countryCode", "IE").with("roles", List.of("IMPORTER"));
+    RequestBody body = addressBody().with("countryCode", "IE").with("roles", List.of(role.name()));
 
     putAddress(saved.getId(), body)
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.countryCode").value("IE"))
-        .andExpect(jsonPath("$.roles", contains("IMPORTER")));
+        .andExpect(jsonPath("$.roles", contains(role.name())));
 
-    assertThat(storedAddress(saved.getId()).getCountryCode()).isEqualTo("IE");
+    assertThat(storedAddress(saved.getId()))
+        .satisfies(
+            address -> {
+              assertThat(address.getCountryCode()).isEqualTo("IE");
+              assertThat(address.getRoles()).containsExactly(role);
+            });
   }
 
   @Test
