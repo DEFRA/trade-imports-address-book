@@ -143,12 +143,13 @@ class TraceIdCommentedCollectionTest {
     MongoException countFailure = new MongoException("timed out");
     when(target.insertOne(eq(ADDRESS), any(InsertOneOptions.class))).thenThrow(insertFailure);
     when(target.countDocuments(eq(FILTER), any(CountOptions.class))).thenThrow(countFailure);
+    CountOptions options = new CountOptions();
 
     assertThatExceptionOfType(MongoException.class)
         .isThrownBy(() -> collection.insertOne(ADDRESS))
         .isSameAs(insertFailure);
     assertThatExceptionOfType(MongoException.class)
-        .isThrownBy(() -> collection.countDocuments(FILTER, new CountOptions()))
+        .isThrownBy(() -> collection.countDocuments(FILTER, options))
         .isSameAs(countFailure);
   }
 
