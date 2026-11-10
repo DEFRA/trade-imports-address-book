@@ -12,6 +12,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
@@ -111,22 +113,23 @@ class AddressUpdateIT extends IntegrationBase {
     assertStoredValuesAreStillTheSeededOnes(saved);
   }
 
-  @Test
-  void put_shouldReturn400KeyedByCountryCodeAndKeepStoredValues_whenAReceivingRoleIsOutsideTheUk()
-      throws Exception {
+  @ParameterizedTest
+  @EnumSource(AddressRole.class)
+  void put_shouldSaveAnAddressOutsideTheUk_whateverItsRole(AddressRole role) throws Exception {
     Address saved = saveActiveAddressWithRolesAndOptionals();
-    RequestBody body = addressBody().with("countryCode", "IE").with("roles", List.of("IMPORTER"));
+    RequestBody body = addressBody().with("countryCode", "IE").with("roles", List.of(role.name()));
 
     putAddress(saved.getId(), body)
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.type").value(VALIDATION_ERROR_TYPE))
-        .andExpect(
-            jsonPath("$.errors.countryCode[0]")
-                .value(
-                    "A consignee, importer or place of destination must be in the United"
-                        + " Kingdom"));
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.countryCode").value("IE"))
+        .andExpect(jsonPath("$.roles", contains(role.name())));
 
-    assertStoredValuesAreStillTheSeededOnes(saved);
+    assertThat(storedAddress(saved.getId()))
+        .satisfies(
+            address -> {
+              assertThat(address.getCountryCode()).isEqualTo("IE");
+              assertThat(address.getRoles()).containsExactly(role);
+            });
   }
 
   @Test

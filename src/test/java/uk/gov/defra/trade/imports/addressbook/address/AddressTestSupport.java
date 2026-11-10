@@ -3,6 +3,7 @@ package uk.gov.defra.trade.imports.addressbook.address;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 import uk.gov.defra.trade.imports.addressbook.configuration.AddressTtlConfig;
 
 public final class AddressTestSupport {
@@ -68,6 +69,13 @@ public final class AddressTestSupport {
         .status(status)
         .createdAt(STORED_CREATED_AT)
         .modifiedAt(STORED_MODIFIED_AT);
+  }
+
+  public static Stream<List<String>> rolesOneAddressCanHoldTogether() {
+    return Stream.of(
+        List.of("PLACE_OF_ORIGIN", "CONSIGNOR"),
+        List.of("CONSIGNEE", "IMPORTER", "PLACE_OF_DESTINATION"),
+        List.of("BRANCH_ADDRESS"));
   }
 
   public static ListCriteriaBuilder listCriteria() {

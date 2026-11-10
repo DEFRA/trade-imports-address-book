@@ -23,7 +23,6 @@ import lombok.Builder;
  */
 @Builder
 @RolesHeldTogether
-@ReceivingRolesInTheUnitedKingdom
 @Schema(description = "Create or replace an address in the caller's address book")
 public record AddressRequest(
     @NotBlank(message = "Enter a name or organisation")
@@ -70,9 +69,7 @@ public record AddressRequest(
         String postcode,
     @NotBlank(message = "Select a country")
         @Schema(
-            description =
-                "Country code (stored as given). GB when the address holds a CONSIGNEE, IMPORTER"
-                    + " or PLACE_OF_DESTINATION role",
+            description = "Country code (stored as given)",
             requiredMode = Schema.RequiredMode.REQUIRED,
             example = "GB")
         String countryCode,

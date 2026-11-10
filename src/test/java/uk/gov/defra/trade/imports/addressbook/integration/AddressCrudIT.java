@@ -13,6 +13,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.ResultActions;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
@@ -129,7 +131,7 @@ class AddressCrudIT extends IntegrationBase {
   void post_shouldReturn400KeyedByRolesAndSaveNothing_whenTheRolesComeFromTwoGroups()
       throws Exception {
     assertCreateRefusedOnRolesAndNothingSaved(
-        addressBody().with("countryCode", "GB").with("roles", List.of("CONSIGNOR", "CONSIGNEE")),
+        addressBody().with("roles", List.of("CONSIGNOR", "CONSIGNEE")),
         "An address can only have roles from one group");
   }
 
@@ -139,35 +141,29 @@ class AddressCrudIT extends IntegrationBase {
         .andExpect(status().isBadRequest())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
         .andExpect(jsonPath("$.type").value(VALIDATION_ERROR_TYPE))
-        .andExpect(jsonPath("$.errors.roles", contains(message)))
-        .andExpect(jsonPath("$.errors.countryCode").doesNotExist());
+        .andExpect(jsonPath("$.errors.roles", contains(message)));
 
     assertThat(activeAddressesFor(ORGANISATION_ID)).isEmpty();
   }
 
-  @Test
-  void post_shouldReturn400KeyedByCountryCodeAndSaveNothing_whenAReceivingRoleIsOutsideTheUk()
-      throws Exception {
-    postAddress(addressBody().with("countryCode", "FR").with("roles", List.of("CONSIGNEE")))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.type").value(VALIDATION_ERROR_TYPE))
-        .andExpect(
-            jsonPath(
-                "$.errors.countryCode",
-                contains(
-                    "A consignee, importer or place of destination must be in the United"
-                        + " Kingdom")))
-        .andExpect(jsonPath("$.errors.roles").doesNotExist());
-
-    assertThat(activeAddressesFor(ORGANISATION_ID)).isEmpty();
-  }
-
-  @Test
-  void post_shouldSaveABranchAddressOutsideTheUk() throws Exception {
-    postAddress(addressBody().with("countryCode", "FR").with("roles", List.of("BRANCH_ADDRESS")))
+  @ParameterizedTest
+  @MethodSource(
+      "uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport#rolesOneAddressCanHoldTogether")
+  void post_shouldSaveAnAddressOutsideTheUk_whateverItsRoles(List<String> roles) throws Exception {
+    postAddress(addressBody().with("countryCode", "FR").with("roles", roles))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.countryCode").value("FR"))
-        .andExpect(jsonPath("$.roles", contains("BRANCH_ADDRESS")));
+        .andExpect(jsonPath("$.roles", contains(roles.toArray())));
+
+    assertThat(activeAddressesFor(ORGANISATION_ID))
+        .singleElement()
+        .satisfies(
+            address -> {
+              assertThat(address.getCountryCode()).isEqualTo("FR");
+              assertThat(address.getRoles())
+                  .extracting(AddressRole::name)
+                  .containsExactlyElementsOf(roles);
+            });
   }
 
   @Test

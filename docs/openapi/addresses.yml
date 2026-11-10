@@ -842,7 +842,7 @@ components:
           minLength: 0
         countryCode:
           type: string
-          description: Country code (stored as given). GB when the address holds a CONSIGNEE, IMPORTER or PLACE_OF_DESTINATION role
+          description: Country code (stored as given)
           example: GB
           minLength: 1
         phone:
