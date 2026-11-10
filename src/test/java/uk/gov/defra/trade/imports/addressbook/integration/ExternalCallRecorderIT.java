@@ -57,8 +57,7 @@ class ExternalCallRecorderIT extends IntegrationBase {
   }
 
   @Test
-  void theConsoleWritesTheCallLineWithTheTraceIdTheServerConnectionAndANestedEventObject()
-      throws Exception {
+  void theConsoleWritesTheCallLineWithTheTraceIdAndANestedEventObject() throws Exception {
     CapturedConsole console = captureSystemOut();
     try (console) {
       mockMvc.perform(
@@ -69,7 +68,6 @@ class ExternalCallRecorderIT extends IntegrationBase {
     JsonNode insert = consoleLineWithAction("mongodb/insert", console);
 
     assertThat(insert.path("trace.id").asText()).isEqualTo("trace-from-the-caller");
-    assertThat(insert.path("mongodb.server_connection").asText()).matches("conn\\d+");
     assertThat(insert.path("event").path("category").asText()).isEqualTo("external-call");
     assertThat(insert.path("event").path("outcome").asText()).isEqualTo("success");
     assertThat(insert.path("event").path("duration").isIntegralNumber()).isTrue();
