@@ -12,7 +12,9 @@ import com.mongodb.MongoSocketReadException;
 import com.mongodb.ServerAddress;
 import com.mongodb.connection.ClusterId;
 import com.mongodb.connection.ConnectionDescription;
+import com.mongodb.connection.ConnectionId;
 import com.mongodb.connection.ServerId;
+import com.mongodb.connection.ServerType;
 import com.mongodb.event.CommandFailedEvent;
 import com.mongodb.event.CommandSucceededEvent;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -22,11 +24,21 @@ import org.bson.BsonDocument;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
 
 class MongoCommandMetricsTest {
 
   private static final ConnectionDescription CONNECTION =
       new ConnectionDescription(new ServerId(new ClusterId(), new ServerAddress()));
+  private static final ConnectionDescription SERVER_CONNECTION =
+      new ConnectionDescription(
+          new ConnectionId(new ServerId(new ClusterId(), new ServerAddress()), 1, 4512L),
+          21,
+          ServerType.STANDALONE,
+          1000,
+          16_777_216,
+          48_000_000,
+          List.of());
 
   private final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
   private final MongoCommandMetrics listener =
@@ -55,6 +67,50 @@ class MongoCommandMetricsTest {
     listener.commandSucceeded(succeeded("find", 12));
 
     assertThat(durationMillis(meterRegistry, "mongodb", "find")).isEqualTo(12);
+  }
+
+  @Test
+  void commandSucceeded_logsTheServerConnectionAndLeavesItOutOfTheMdcAfterwards() {
+    List<ILoggingEvent> lines =
+        loggedBy(
+            ExternalCallRecorder.class,
+            () -> listener.commandSucceeded(succeededOn(SERVER_CONNECTION, "find")));
+
+    assertThat(lines.getFirst().getMDCPropertyMap())
+        .containsEntry("mongodb.server_connection", "conn4512");
+    assertThat(MDC.get("mongodb.server_connection")).isNull();
+  }
+
+  @Test
+  void commandFailed_logsTheServerConnection() {
+    List<ILoggingEvent> lines =
+        loggedBy(
+            ExternalCallRecorder.class,
+            () ->
+                listener.commandFailed(
+                    new CommandFailedEvent(
+                        null,
+                        1,
+                        1,
+                        SERVER_CONNECTION,
+                        "trade-imports-address-book",
+                        "find",
+                        TimeUnit.MILLISECONDS.toNanos(3),
+                        new MongoSocketReadException("closed", new ServerAddress()))));
+
+    assertThat(lines.getFirst().getMDCPropertyMap())
+        .containsEntry("mongodb.server_connection", "conn4512");
+  }
+
+  @Test
+  void commandSucceeded_onAConnectionTheServerHasNotNamedLogsNoServerConnection() {
+    List<ILoggingEvent> lines =
+        loggedBy(
+            ExternalCallRecorder.class,
+            () -> listener.commandSucceeded(succeeded("find", 5)));
+
+    assertThat(lines.getFirst().getMDCPropertyMap())
+        .doesNotContainKey("mongodb.server_connection");
   }
 
   @Test
@@ -131,6 +187,19 @@ class MongoCommandMetricsTest {
 
   private static CommandSucceededEvent succeeded(String commandName, long elapsedMillis) {
     return succeeded(commandName, elapsedMillis, BsonDocument.parse("{ok: 1}"));
+  }
+
+  private static CommandSucceededEvent succeededOn(
+      ConnectionDescription connection, String commandName) {
+    return new CommandSucceededEvent(
+        null,
+        1,
+        1,
+        connection,
+        "trade-imports-address-book",
+        commandName,
+        BsonDocument.parse("{ok: 1}"),
+        TimeUnit.MILLISECONDS.toNanos(5));
   }
 
   private static CommandSucceededEvent succeeded(
