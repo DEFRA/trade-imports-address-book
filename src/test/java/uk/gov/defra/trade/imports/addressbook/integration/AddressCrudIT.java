@@ -14,7 +14,7 @@ import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.ResultActions;
 import uk.gov.defra.trade.imports.addressbook.address.Address;
@@ -147,19 +147,22 @@ class AddressCrudIT extends IntegrationBase {
   }
 
   @ParameterizedTest
-  @EnumSource(AddressRole.class)
-  void post_shouldSaveAnAddressOutsideTheUk_whateverItsRole(AddressRole role) throws Exception {
-    postAddress(addressBody().with("countryCode", "FR").with("roles", List.of(role.name())))
+  @MethodSource(
+      "uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport#rolesOneAddressCanHoldTogether")
+  void post_shouldSaveAnAddressOutsideTheUk_whateverItsRoles(List<String> roles) throws Exception {
+    postAddress(addressBody().with("countryCode", "FR").with("roles", roles))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.countryCode").value("FR"))
-        .andExpect(jsonPath("$.roles", contains(role.name())));
+        .andExpect(jsonPath("$.roles", contains(roles.toArray())));
 
     assertThat(activeAddressesFor(ORGANISATION_ID))
         .singleElement()
         .satisfies(
             address -> {
               assertThat(address.getCountryCode()).isEqualTo("FR");
-              assertThat(address.getRoles()).containsExactly(role);
+              assertThat(address.getRoles())
+                  .extracting(AddressRole::name)
+                  .containsExactlyElementsOf(roles);
             });
   }
 

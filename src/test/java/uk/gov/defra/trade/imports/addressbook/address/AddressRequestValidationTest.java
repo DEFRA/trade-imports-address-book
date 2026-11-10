@@ -212,15 +212,9 @@ class AddressRequestValidationTest {
     assertThat(validator().validate(request)).isEmpty();
   }
 
-  static Stream<List<String>> rolesOneAddressCanHoldTogether() {
-    return Stream.of(
-        List.of("PLACE_OF_ORIGIN", "CONSIGNOR"),
-        List.of("CONSIGNEE", "IMPORTER", "PLACE_OF_DESTINATION"),
-        List.of("BRANCH_ADDRESS"));
-  }
-
   @ParameterizedTest(name = "{0} has no violations")
-  @MethodSource("rolesOneAddressCanHoldTogether")
+  @MethodSource(
+      "uk.gov.defra.trade.imports.addressbook.address.AddressTestSupport#rolesOneAddressCanHoldTogether")
   void validate_findsNoViolationForRolesOneAddressCanHoldTogether(List<String> roles) {
     AddressRequest request = validRequest().roles(roles).build();
 
