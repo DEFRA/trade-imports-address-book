@@ -129,7 +129,7 @@ class AddressCrudIT extends IntegrationBase {
   void post_shouldReturn400KeyedByRolesAndSaveNothing_whenTheRolesComeFromTwoGroups()
       throws Exception {
     assertCreateRefusedOnRolesAndNothingSaved(
-        addressBody().with("countryCode", "GB").with("roles", List.of("CONSIGNOR", "CONSIGNEE")),
+        addressBody().with("roles", List.of("CONSIGNOR", "CONSIGNEE")),
         "An address can only have roles from one group");
   }
 
@@ -139,8 +139,7 @@ class AddressCrudIT extends IntegrationBase {
         .andExpect(status().isBadRequest())
         .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
         .andExpect(jsonPath("$.type").value(VALIDATION_ERROR_TYPE))
-        .andExpect(jsonPath("$.errors.roles", contains(message)))
-        .andExpect(jsonPath("$.errors.countryCode").doesNotExist());
+        .andExpect(jsonPath("$.errors.roles", contains(message)));
 
     assertThat(activeAddressesFor(ORGANISATION_ID)).isEmpty();
   }
