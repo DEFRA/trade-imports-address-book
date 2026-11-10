@@ -1,5 +1,7 @@
 package uk.gov.defra.trade.imports.addressbook.filter;
 
+import static uk.gov.defra.trade.imports.addressbook.filter.RequestTracingFilter.MDC_TRACE_ID;
+
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
@@ -39,7 +41,6 @@ public class IdentityHeaderFilter extends OncePerRequestFilter {
   public static final String ORGANISATION_ID_HEADER = "Trade-Imports-Organisation-Id";
   static final String MDC_ORGANISATION_ID = "organisationId";
 
-  private static final String MDC_TRACE_ID = "trace.id";
   private static final String BAD_REQUEST_TYPE =
       "https://api.cdp.defra.cloud/problems/bad-request";
   private static final String NOT_FOUND_TYPE = "https://api.cdp.defra.cloud/problems/not-found";
