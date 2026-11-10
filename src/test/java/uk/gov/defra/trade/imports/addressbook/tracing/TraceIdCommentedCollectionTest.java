@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.mongodb.MongoException;
+import com.mongodb.MongoNamespace;
 import com.mongodb.WriteConcern;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCollection;
@@ -77,6 +78,27 @@ class TraceIdCommentedCollectionTest {
   }
 
   @Test
+  void insertOne_setsTheTraceIdOnTheOptionsItIsGiven() {
+    MDC.put(RequestTracingFilter.MDC_TRACE_ID, TRACE_ID);
+    InsertOneOptions options = new InsertOneOptions().bypassDocumentValidation(true);
+
+    collection.insertOne(ADDRESS, options);
+
+    assertThat(options.getComment()).isEqualTo(new BsonString(TRACE_ID));
+    assertThat(options.getBypassDocumentValidation()).isTrue();
+    verify(target).insertOne(ADDRESS, options);
+  }
+
+  @Test
+  void aMethodWithNoCommandToComment_runsUnchanged() {
+    MDC.put(RequestTracingFilter.MDC_TRACE_ID, TRACE_ID);
+    MongoNamespace namespace = new MongoNamespace("trade-imports-address-book", "address");
+    when(target.getNamespace()).thenReturn(namespace);
+
+    assertThat(collection.getNamespace()).isSameAs(namespace);
+  }
+
+  @Test
   void replaceOne_setsTheTraceIdOnTheOptionsItIsGiven() {
     MDC.put(RequestTracingFilter.MDC_TRACE_ID, TRACE_ID);
     ReplaceOptions options = new ReplaceOptions().upsert(true);
@@ -117,11 +139,26 @@ class TraceIdCommentedCollectionTest {
   @Test
   void aDriverFailureReachesTheCallerAsTheDriverThrewIt() {
     MDC.put(RequestTracingFilter.MDC_TRACE_ID, TRACE_ID);
-    MongoException failure = new MongoException("closed");
-    when(target.insertOne(eq(ADDRESS), any(InsertOneOptions.class))).thenThrow(failure);
+    MongoException insertFailure = new MongoException("closed");
+    MongoException countFailure = new MongoException("timed out");
+    when(target.insertOne(eq(ADDRESS), any(InsertOneOptions.class))).thenThrow(insertFailure);
+    when(target.countDocuments(eq(FILTER), any(CountOptions.class))).thenThrow(countFailure);
 
     assertThatExceptionOfType(MongoException.class)
         .isThrownBy(() -> collection.insertOne(ADDRESS))
+        .isSameAs(insertFailure);
+    assertThatExceptionOfType(MongoException.class)
+        .isThrownBy(() -> collection.countDocuments(FILTER, new CountOptions()))
+        .isSameAs(countFailure);
+  }
+
+  @Test
+  void aDriverErrorReachesTheCallerAsTheDriverThrewIt() {
+    LinkageError failure = new LinkageError("codec missing");
+    when(target.find(FILTER, Document.class)).thenThrow(failure);
+
+    assertThatExceptionOfType(LinkageError.class)
+        .isThrownBy(() -> collection.find(FILTER, Document.class))
         .isSameAs(failure);
   }
 
