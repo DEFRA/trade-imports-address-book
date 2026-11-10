@@ -32,8 +32,8 @@ info:
     missing list, or a value outside it, is a 400 validation problem keyed by `roles`, and nothing
     is saved. An update replaces the roles. Every role must come from one group: sending
     (PLACE_OF_ORIGIN, CONSIGNOR), receiving (CONSIGNEE, IMPORTER, PLACE_OF_DESTINATION) or branch
-    (BRANCH_ADDRESS); a 400 keyed by `roles` otherwise. An address holding CONSIGNEE, IMPORTER or
-    PLACE_OF_DESTINATION must have countryCode GB; a 400 keyed by `countryCode` otherwise.
+    (BRANCH_ADDRESS); a 400 keyed by `roles` otherwise. An address holding any role can be in any
+    country.
 
     **Listing by role:** the list's `role` query parameter is repeatable and returns only the
     addresses holding any of the roles it names. It narrows the search (`q`, `countryCode` and
