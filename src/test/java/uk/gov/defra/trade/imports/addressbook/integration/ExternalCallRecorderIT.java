@@ -7,7 +7,6 @@ import static uk.gov.defra.trade.imports.addressbook.testsupport.ExternalCallMet
 import static uk.gov.defra.trade.imports.addressbook.testsupport.ExternalCallMeters.failureTotal;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.bson.Document;
 import org.bson.types.ObjectId;
@@ -19,8 +18,6 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import uk.gov.defra.trade.imports.addressbook.testsupport.CapturedConsole;
 
 class ExternalCallRecorderIT extends IntegrationBase {
-
-  private static final ObjectMapper JSON = new ObjectMapper();
 
   @Autowired private MeterRegistry meterRegistry;
   @Autowired private MongoTemplate mongoTemplate;
@@ -99,16 +96,9 @@ class ExternalCallRecorderIT extends IntegrationBase {
     assertThat(failedFind.has("error.stack_trace")).isFalse();
   }
 
-  private static JsonNode consoleLineWithAction(String action, CapturedConsole console)
-      throws Exception {
-    for (String line : console.text().split("\n")) {
-      if (line.trim().startsWith("{")) {
-        JsonNode json = JSON.readTree(line);
-        if (action.equals(json.path("event").path("action").asText())) {
-          return json;
-        }
-      }
-    }
-    throw new AssertionError("No console line has event.action " + action);
+  private static JsonNode consoleLineWithAction(String action, CapturedConsole console) {
+    return console.requiredFirstJsonLine(
+        line -> action.equals(line.path("event").path("action").asText()),
+        "has event.action " + action);
   }
 }

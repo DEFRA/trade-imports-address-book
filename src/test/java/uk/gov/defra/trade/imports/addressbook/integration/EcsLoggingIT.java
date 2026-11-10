@@ -6,13 +6,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static uk.gov.defra.trade.imports.addressbook.testsupport.CapturedConsole.captureSystemOut;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import uk.gov.defra.trade.imports.addressbook.testsupport.CapturedConsole;
 
 class EcsLoggingIT extends IntegrationBase {
-
-  private final ObjectMapper objectMapper = new ObjectMapper();
 
   @Test
   void requestLogging_shouldProduceEcsJsonFormat() throws Exception {
@@ -67,15 +64,7 @@ class EcsLoggingIT extends IntegrationBase {
     assertThat(logJson.has("trace.id")).isFalse();
   }
 
-  private JsonNode requestLogLine(CapturedConsole console) throws Exception {
-    for (String line : console.text().split("\n")) {
-      if (line.trim().startsWith("{")) {
-        JsonNode logJson = objectMapper.readTree(line);
-        if (logJson.has("url.full")) {
-          return logJson;
-        }
-      }
-    }
-    throw new AssertionError("No log line has url.full in:\n" + console.text());
+  private static JsonNode requestLogLine(CapturedConsole console) {
+    return console.requiredFirstJsonLine(line -> line.has("url.full"), "has url.full");
   }
 }
