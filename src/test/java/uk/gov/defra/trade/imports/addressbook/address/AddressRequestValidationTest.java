@@ -13,6 +13,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 class AddressRequestValidationTest {
@@ -57,6 +58,11 @@ class AddressRequestValidationTest {
         Arguments.of(
             "blank countryCode",
             validRequest().countryCode("").build(),
+            "countryCode",
+            "Select a country"),
+        Arguments.of(
+            "missing countryCode",
+            validRequest().countryCode(null).build(),
             "countryCode",
             "Select a country"),
         Arguments.of(
@@ -154,16 +160,6 @@ class AddressRequestValidationTest {
             "roles",
             "An address can only have roles from one group"),
         Arguments.of(
-            "receiving role with a blank countryCode",
-            validRequest().roles(List.of("PLACE_OF_DESTINATION")).countryCode("").build(),
-            "countryCode",
-            "Select a country"),
-        Arguments.of(
-            "receiving role with no countryCode",
-            validRequest().roles(List.of("PLACE_OF_DESTINATION")).countryCode(null).build(),
-            "countryCode",
-            "Select a country"),
-        Arguments.of(
             "stray type",
             validRequest().type("IMPORTER").build(),
             "type",
@@ -207,36 +203,33 @@ class AddressRequestValidationTest {
     assertThat(validator().validate(request)).isEmpty();
   }
 
-  @Test
-  void countryCodeOfASendingAddressIsPresenceOnlyAndAcceptsAnyNonBlankValue() {
-    AddressRequest request = validRequest().countryCode(repeatedText(50)).build();
-
-    assertThat(validator().validate(request)).isEmpty();
-  }
-
-  static Stream<Arguments> rolesHeldTogetherInAnyCountry() {
-    return Stream.of(
-        Arguments.of(List.of("PLACE_OF_ORIGIN", "CONSIGNOR"), "FR"),
-        Arguments.of(List.of("PLACE_OF_ORIGIN", "CONSIGNOR"), "GB"),
-        Arguments.of(List.of("CONSIGNEE", "IMPORTER", "PLACE_OF_DESTINATION"), "GB"),
-        Arguments.of(List.of("CONSIGNEE", "IMPORTER", "PLACE_OF_DESTINATION"), "FR"),
-        Arguments.of(List.of("BRANCH_ADDRESS"), "GB"),
-        Arguments.of(List.of("BRANCH_ADDRESS"), "IE"));
-  }
-
-  @ParameterizedTest(name = "{0} in {1} has no violations")
-  @MethodSource("rolesHeldTogetherInAnyCountry")
-  void validate_findsNoViolationForRolesOneAddressCanHoldTogether(
-      List<String> roles, String countryCode) {
-    AddressRequest request = validRequest().roles(roles).countryCode(countryCode).build();
-
-    assertThat(validator().validate(request)).isEmpty();
-  }
-
-  @Test
-  void validate_reportsNoRoleGroupOrCountryViolationForAnUnknownRoleAlone() {
+  @ParameterizedTest(name = "{0} with any non-blank countryCode has no violations")
+  @EnumSource(AddressRole.class)
+  void countryCodeIsPresenceOnlyAndAcceptsAnyNonBlankValue(AddressRole role) {
     AddressRequest request =
-        validRequest().roles(List.of("TRANSPORTER")).countryCode("FR").build();
+        validRequest().roles(List.of(role.name())).countryCode(repeatedText(50)).build();
+
+    assertThat(validator().validate(request)).isEmpty();
+  }
+
+  static Stream<List<String>> rolesOneAddressCanHoldTogether() {
+    return Stream.of(
+        List.of("PLACE_OF_ORIGIN", "CONSIGNOR"),
+        List.of("CONSIGNEE", "IMPORTER", "PLACE_OF_DESTINATION"),
+        List.of("BRANCH_ADDRESS"));
+  }
+
+  @ParameterizedTest(name = "{0} has no violations")
+  @MethodSource("rolesOneAddressCanHoldTogether")
+  void validate_findsNoViolationForRolesOneAddressCanHoldTogether(List<String> roles) {
+    AddressRequest request = validRequest().roles(roles).build();
+
+    assertThat(validator().validate(request)).isEmpty();
+  }
+
+  @Test
+  void validate_reportsOnlyTheRolesViolationForAnUnknownRoleAlone() {
+    AddressRequest request = validRequest().roles(List.of("TRANSPORTER")).build();
 
     assertThat(validator().validate(request))
         .extracting(violation -> violation.getPropertyPath().toString())
