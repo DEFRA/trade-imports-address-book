@@ -54,16 +54,15 @@ public class MongoCommandMetrics implements CommandListener {
                 event.getThrowable()));
   }
 
-  private static void withServerConnectionInMdc(CommandEvent event, Runnable record) {
+  private static void withServerConnectionInMdc(CommandEvent event, Runnable recordCall) {
     Long serverConnectionId =
         event.getConnectionDescription().getConnectionId().getServerValue();
     if (serverConnectionId == null) {
-      record.run();
+      recordCall.run();
       return;
     }
-    try (MDC.MDCCloseable ignored =
-        MDC.putCloseable(MDC_SERVER_CONNECTION, "conn" + serverConnectionId)) {
-      record.run();
+    try (var _ = MDC.putCloseable(MDC_SERVER_CONNECTION, "conn" + serverConnectionId)) {
+      recordCall.run();
     }
   }
 
