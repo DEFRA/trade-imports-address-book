@@ -94,10 +94,16 @@ class AddressCrudIT extends IntegrationBase {
 
   @Test
   void post_shouldIgnoreAnAddressType_whenTheBodyCarriesOne() throws Exception {
-    postAddress(addressBody().with("addressType", "ORIGIN_OR_CONSIGNOR"))
-        .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.addressType").doesNotExist());
+    String addressId =
+        createdResourceId(
+            postAddress(addressBody().with("addressType", "ORIGIN_OR_CONSIGNOR"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.addressType").doesNotExist()));
 
+    getAddress(addressId)
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.roles", contains("PLACE_OF_ORIGIN")))
+        .andExpect(jsonPath("$.addressType").doesNotExist());
     assertThat(activeAddressesFor(ORGANISATION_ID)).hasSize(1);
   }
 

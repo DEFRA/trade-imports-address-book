@@ -85,9 +85,9 @@ class AddressListIT extends IntegrationBase {
 
     listAddresses()
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.items.length()").value(DEFAULT_PAGE_SIZE))
+        .andExpect(jsonPath("$.items.length()").value(25))
         .andExpect(jsonPath("$.page").value(1))
-        .andExpect(jsonPath("$.pageSize").value(DEFAULT_PAGE_SIZE))
+        .andExpect(jsonPath("$.pageSize").value(25))
         .andExpect(jsonPath("$.totalItems").value(30))
         .andExpect(jsonPath("$.totalPages").value(2))
         .andExpect(jsonPath("$.items[0].name").value("Address 29"));
@@ -168,7 +168,9 @@ class AddressListIT extends IntegrationBase {
         .andExpect(jsonPath("$.items.length()").value(8))
         .andExpect(jsonPath("$.pageSize").value(8))
         .andExpect(jsonPath("$.totalItems").value(30))
-        .andExpect(jsonPath("$.totalPages").value(4));
+        .andExpect(jsonPath("$.totalPages").value(4))
+        .andExpect(jsonPath("$.items[0].name").value("Address 29"))
+        .andExpect(jsonPath("$.items[7].name").value("Address 22"));
   }
 
   @ParameterizedTest
