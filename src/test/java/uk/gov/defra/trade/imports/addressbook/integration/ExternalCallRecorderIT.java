@@ -74,8 +74,7 @@ class ExternalCallRecorderIT extends IntegrationBase {
   }
 
   @Test
-  void theConsoleWritesAFailedCallLineWithTheErrorTypeAndMessageButNoStackTrace()
-      throws Exception {
+  void theConsoleWritesAFailedCallLineWithTheErrorTypeAndMessageButNoStackTrace() {
     CapturedConsole console = captureSystemOut();
     try (console) {
       assertThatExceptionOfType(DataAccessException.class)

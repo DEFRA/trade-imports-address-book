@@ -8,6 +8,7 @@ import com.mongodb.client.model.ReplaceOptions;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.lang.reflect.UndeclaredThrowableException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
@@ -51,8 +52,7 @@ public final class TraceIdCommentedCollection {
         (proxy, method, args) -> invoke(collection, method, args));
   }
 
-  private static Object invoke(MongoCollection<?> target, Method method, @Nullable Object[] args)
-      throws Throwable {
+  private static Object invoke(MongoCollection<?> target, Method method, @Nullable Object[] args) {
     String traceId = MDC.get(RequestTracingFilter.MDC_TRACE_ID);
     Supplier<Object> newOptions = NEW_OPTIONS_BY_METHOD.get(method.getName());
     Object result =
@@ -73,8 +73,7 @@ public final class TraceIdCommentedCollection {
       Method method,
       @Nullable Object[] args,
       Object newOptions,
-      String traceId)
-      throws Throwable {
+      String traceId) {
     Object[] arguments = args == null ? new Object[0] : args;
     Class<?> optionsType = newOptions.getClass();
     if (arguments.length > 0 && optionsType.isInstance(arguments[arguments.length - 1])) {
@@ -105,7 +104,7 @@ public final class TraceIdCommentedCollection {
       return Optional.of(
           MongoCollection.class.getMethod(
               method.getName(), appended(method.getParameterTypes(), optionsType)));
-    } catch (NoSuchMethodException e) {
+    } catch (NoSuchMethodException _) {
       return Optional.empty();
     }
   }
@@ -116,12 +115,21 @@ public final class TraceIdCommentedCollection {
     return longer;
   }
 
-  private static Object call(MongoCollection<?> target, Method method, @Nullable Object[] args)
-      throws Throwable {
+  private static Object call(MongoCollection<?> target, Method method, @Nullable Object[] args) {
     try {
       return method.invoke(target, args);
     } catch (InvocationTargetException e) {
-      throw e.getCause();
+      throw uncheckedCauseOf(e);
+    } catch (IllegalAccessException e) {
+      throw new IllegalStateException("Cannot call MongoCollection." + method.getName(), e);
     }
+  }
+
+  private static RuntimeException uncheckedCauseOf(InvocationTargetException failure) {
+    return switch (failure.getCause()) {
+      case RuntimeException runtime -> runtime;
+      case Error error -> throw error;
+      case Throwable checked -> new UndeclaredThrowableException(checked);
+    };
   }
 }
