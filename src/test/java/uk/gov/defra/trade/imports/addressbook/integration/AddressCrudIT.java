@@ -146,20 +146,16 @@ class AddressCrudIT extends IntegrationBase {
   }
 
   @Test
-  void post_shouldReturn400KeyedByCountryCodeAndSaveNothing_whenAReceivingRoleIsOutsideTheUk()
-      throws Exception {
+  void post_shouldSaveAReceivingAddressOutsideTheUk() throws Exception {
     postAddress(addressBody().with("countryCode", "FR").with("roles", List.of("CONSIGNEE")))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.type").value(VALIDATION_ERROR_TYPE))
-        .andExpect(
-            jsonPath(
-                "$.errors.countryCode",
-                contains(
-                    "A consignee, importer or place of destination must be in the United"
-                        + " Kingdom")))
-        .andExpect(jsonPath("$.errors.roles").doesNotExist());
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.countryCode").value("FR"))
+        .andExpect(jsonPath("$.roles", contains("CONSIGNEE")));
 
-    assertThat(activeAddressesFor(ORGANISATION_ID)).isEmpty();
+    assertThat(activeAddressesFor(ORGANISATION_ID))
+        .singleElement()
+        .extracting(Address::getCountryCode)
+        .isEqualTo("FR");
   }
 
   @Test

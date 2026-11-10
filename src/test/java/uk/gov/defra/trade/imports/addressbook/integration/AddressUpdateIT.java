@@ -112,21 +112,16 @@ class AddressUpdateIT extends IntegrationBase {
   }
 
   @Test
-  void put_shouldReturn400KeyedByCountryCodeAndKeepStoredValues_whenAReceivingRoleIsOutsideTheUk()
-      throws Exception {
+  void put_shouldSaveAReceivingAddressOutsideTheUk() throws Exception {
     Address saved = saveActiveAddressWithRolesAndOptionals();
     RequestBody body = addressBody().with("countryCode", "IE").with("roles", List.of("IMPORTER"));
 
     putAddress(saved.getId(), body)
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.type").value(VALIDATION_ERROR_TYPE))
-        .andExpect(
-            jsonPath("$.errors.countryCode[0]")
-                .value(
-                    "A consignee, importer or place of destination must be in the United"
-                        + " Kingdom"));
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.countryCode").value("IE"))
+        .andExpect(jsonPath("$.roles", contains("IMPORTER")));
 
-    assertStoredValuesAreStillTheSeededOnes(saved);
+    assertThat(storedAddress(saved.getId()).getCountryCode()).isEqualTo("IE");
   }
 
   @Test

@@ -155,11 +155,9 @@ returns **404** (no existence disclosure).
   `BRANCH_ADDRESS`: a party a notification can choose the address for. A repeated role collapses to
   its first occurrence. A missing list, or a value outside it, is a **400** validation problem keyed
   by `roles`, and nothing is saved. An update replaces the roles.
-- The address book enforces two rules on create and update (see [Role rules](#role-rules)): an
+- The address book enforces one rule on create and update (see [Role rules](#role-rules)): an
   address's roles must all come from one group (**400** keyed by `roles`: "An address can only have
-  roles from one group"), and an address holding `CONSIGNEE`, `IMPORTER` or
-  `PLACE_OF_DESTINATION` must have `countryCode` `GB` (**400** keyed by `countryCode`: "A
-  consignee, importer or place of destination must be in the United Kingdom").
+  roles from one group"). Any role can be held in any country.
 - An `addressType` in a body is ignored.
 
 **Example — create an address**
@@ -183,23 +181,17 @@ curl -s -X POST "http://localhost:8089/organisation/{orgId}/addresses" \
 ### Role rules
 
 The rules belong to the address book. Each `AddressRole` names its one group (`RoleGroup`), so a new
-role cannot be added without a group, and the receiving group is the one that must be in the United
-Kingdom. The grouping is internal: it is not part of the API, and a caller only sees it as a
-refusal.
+role cannot be added without a group. The grouping is internal: it is not part of the API, and a
+caller only sees it as a refusal.
 
-| Group | Roles | Country |
-| --- | --- | --- |
-| Sending | `PLACE_OF_ORIGIN`, `CONSIGNOR` | any |
-| Receiving | `CONSIGNEE`, `IMPORTER`, `PLACE_OF_DESTINATION` | United Kingdom (`GB`) only |
-| Branch | `BRANCH_ADDRESS` | any |
+| Group | Roles |
+| --- | --- |
+| Sending | `PLACE_OF_ORIGIN`, `CONSIGNOR` |
+| Receiving | `CONSIGNEE`, `IMPORTER`, `PLACE_OF_DESTINATION` |
+| Branch | `BRANCH_ADDRESS` |
 
 - An address's roles must all come from one group.
-- An address holding a receiving role must be in the United Kingdom. The INS frontend also fixes the
-  country to the United Kingdom for these addresses, deliberately: this is a service for imports into
-  the United Kingdom, so the rule is a domain invariant rather than a choice that may change. The
-  address book is its owner; the frontend's copy helps the user.
-- A branch address can be in any country, because the journey's consignment contact is saved as a
-  branch address and may be abroad.
+- An address in any group can be in any country.
 
 ## Transporters
 
@@ -390,7 +382,7 @@ future index against real collection size before adding it.
 - springdoc resolves schemas through the application `ObjectMapper`. Otherwise swagger-core would use its own mapper and the generated document could drift from the camelCase wire.
 - `AddressResponse` null-guards every required field, so a null is a server fault that fails loudly. `AddressRequest` has no null guards, so Bean Validation can report every missing field at once.
 - `AddressRequest` carries `roles` as strings, checked by `@AddressRoleNames`, rather than binding the enum. An unknown enum constant would make Jackson throw before validation, which answers as a `bad-request` problem with no `errors` map and hides every other field error. A string component fails Bean Validation, so the `validation-error` problem names `roles` beside the other field errors. `@Pattern` would write the list a second time, and a constraint on each list element would key the error `roles[1]`.
-- The role rules are class-level constraints on `AddressRequest` (`@RolesHeldTogether`, `@ReceivingRolesInTheUnitedKingdom`), so each refusal is keyed by the field the user fixes (`roles` or `countryCode`) beside the other field errors. Both skip role names that are not roles; `@AddressRoleNames` reports those.
+- The role rule is a class-level constraint on `AddressRequest` (`@RolesHeldTogether`), so its refusal is keyed by `roles` beside the other field errors. It skips role names that are not roles; `@AddressRoleNames` reports those.
 - `AddressMapper.updateEntity` assigns a new `roles` list (`CollectionMappingStrategy.TARGET_IMMUTABLE`). MapStruct's default clears and refills the stored list in place, which throws when that list is immutable.
 - The `org_status_created` index was created while the collection was empty, so no later index build runs on a populated collection.
 - An address's `expireAt` is counted from the moment of creation rather than from `createdAt`, which auditing only fills in during the save.

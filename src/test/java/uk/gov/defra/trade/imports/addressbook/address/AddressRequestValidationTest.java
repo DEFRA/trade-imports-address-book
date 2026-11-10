@@ -154,11 +154,6 @@ class AddressRequestValidationTest {
             "roles",
             "An address can only have roles from one group"),
         Arguments.of(
-            "receiving role outside the United Kingdom",
-            validRequest().roles(List.of("PLACE_OF_DESTINATION")).countryCode("FR").build(),
-            "countryCode",
-            "A consignee, importer or place of destination must be in the United Kingdom"),
-        Arguments.of(
             "receiving role with a blank countryCode",
             validRequest().roles(List.of("PLACE_OF_DESTINATION")).countryCode("").build(),
             "countryCode",
@@ -219,16 +214,18 @@ class AddressRequestValidationTest {
     assertThat(validator().validate(request)).isEmpty();
   }
 
-  static Stream<Arguments> rolesHeldTogetherInTheirOwnCountries() {
+  static Stream<Arguments> rolesHeldTogetherInAnyCountry() {
     return Stream.of(
         Arguments.of(List.of("PLACE_OF_ORIGIN", "CONSIGNOR"), "FR"),
+        Arguments.of(List.of("PLACE_OF_ORIGIN", "CONSIGNOR"), "GB"),
         Arguments.of(List.of("CONSIGNEE", "IMPORTER", "PLACE_OF_DESTINATION"), "GB"),
+        Arguments.of(List.of("CONSIGNEE", "IMPORTER", "PLACE_OF_DESTINATION"), "FR"),
         Arguments.of(List.of("BRANCH_ADDRESS"), "GB"),
         Arguments.of(List.of("BRANCH_ADDRESS"), "IE"));
   }
 
   @ParameterizedTest(name = "{0} in {1} has no violations")
-  @MethodSource("rolesHeldTogetherInTheirOwnCountries")
+  @MethodSource("rolesHeldTogetherInAnyCountry")
   void validate_findsNoViolationForRolesOneAddressCanHoldTogether(
       List<String> roles, String countryCode) {
     AddressRequest request = validRequest().roles(roles).countryCode(countryCode).build();
