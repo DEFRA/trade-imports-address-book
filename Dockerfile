@@ -62,7 +62,7 @@ ENTRYPOINT ["java", "-jar", "app.jar"]
 # - Mount src/ from host; docker/dev-run.sh recompiles on save and Spring Boot
 #   DevTools restarts the running context, so .java edits hot-reload with no
 #   image rebuild or container bounce
-# - Usage: run-stack.sh -d (operators variant)
+# - Usage: tim docker dev (operators variant)
 ################################################################################
 FROM amazoncorretto:25-alpine AS dev-run
 
