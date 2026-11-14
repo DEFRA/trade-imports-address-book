@@ -55,7 +55,7 @@ From the workspace root:
 ./scripts/stack/run-stack.sh -b feat/EUDPA-58-address-book  # branch-tagged images where available
 ./scripts/stack/run-stack.sh -d                           # build from local source under repos/
 ./scripts/stack/run-stack.sh -e trade-imports-address-book  # run this service natively instead
-./scripts/stack/stop-stack.sh                             # tear down and wipe volumes
+tim docker down                                           # tear down and wipe volumes
 ```
 
 The Dockerfile `dev-run` stage supports workspace `-d` mode hot reload; recreate the container
