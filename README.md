@@ -51,20 +51,20 @@ need address-book plus MongoDB.
 From the workspace root:
 
 ```bash
-./scripts/stack/run-stack.sh                              # published images (:latest)
-./scripts/stack/run-stack.sh -b feat/EUDPA-58-address-book  # branch-tagged images where available
-./scripts/stack/run-stack.sh -d                           # build from local source under repos/
-./scripts/stack/run-stack.sh -e trade-imports-address-book  # run this service natively instead
-./scripts/stack/stop-stack.sh                             # tear down and wipe volumes
+tim docker up                                # published images (:latest)
+tim docker up -b feat/EUDPA-58-address-book  # branch-tagged images where available
+tim docker dev                               # build from local source under repos/
+tim docker up -e address-book                # run this service natively instead
+tim docker down                              # tear down and wipe volumes
 ```
 
-The Dockerfile `dev-run` stage supports workspace `-d` mode hot reload; recreate the container
+The Dockerfile `dev-run` stage supports `tim docker dev` hot reload; recreate the container
 after `pom.xml` dependency changes.
 
 To run only the infrastructure this service needs (MongoDB + Floci):
 
 ```bash
-./scripts/stack/run-stack.sh --profile database --profile infrastructure
+tim docker up --profile database --profile infrastructure
 ```
 
 ## Running natively
