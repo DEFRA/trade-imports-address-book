@@ -11,12 +11,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.mongodb.MongoDatabaseFactory;
 import org.springframework.data.mongodb.config.EnableMongoAuditing;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.convert.MongoConverter;
 import javax.net.ssl.SSLContext;
 import java.util.concurrent.TimeUnit;
 import uk.gov.defra.trade.imports.addressbook.configuration.tls.TrustStoreConfiguration;
 import uk.gov.defra.trade.imports.addressbook.metrics.MongoAvailability;
 import uk.gov.defra.trade.imports.addressbook.metrics.MongoCommandMetrics;
+import uk.gov.defra.trade.imports.addressbook.tracing.TraceIdCommentingMongoTemplate;
 
 @Configuration
 @EnableMongoAuditing
@@ -70,5 +74,11 @@ public class MongoConfig {
   @Bean
   MongoClient mongoClient(MongoClientSettings mongoClientSettings) {
     return MongoClients.create(mongoClientSettings);
+  }
+
+  @Bean
+  MongoTemplate mongoTemplate(
+      MongoDatabaseFactory mongoDatabaseFactory, MongoConverter mongoConverter) {
+    return new TraceIdCommentingMongoTemplate(mongoDatabaseFactory, mongoConverter);
   }
 }

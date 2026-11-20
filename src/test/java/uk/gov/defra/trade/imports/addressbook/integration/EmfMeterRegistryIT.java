@@ -6,9 +6,7 @@ import static uk.gov.defra.trade.imports.addressbook.testsupport.CapturedConsole
 import static uk.gov.defra.trade.imports.addressbook.testsupport.EmfDocuments.namespaceOf;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
@@ -28,8 +26,6 @@ import uk.gov.defra.trade.imports.addressbook.testsupport.CapturedConsole;
       "aws.emf.step=1s"
     })
 class EmfMeterRegistryIT extends IntegrationBase {
-
-  private static final ObjectMapper JSON = new ObjectMapper();
 
   @Autowired private MeterRegistry meterRegistry;
 
@@ -72,14 +68,8 @@ class EmfMeterRegistryIT extends IntegrationBase {
     assertThat(document.path("dependency").asText()).isEqualTo("mongodb");
   }
 
-  private static Optional<JsonNode> emfDocumentFor(String metricName, CapturedConsole console)
-      throws IOException {
-    for (String line : console.text().split("\n")) {
-      if (line.contains("\"_aws\"") && line.contains("\"" + metricName + "\"")) {
-        return Optional.of(JSON.readTree(line));
-      }
-    }
-    return Optional.empty();
+  private static Optional<JsonNode> emfDocumentFor(String metricName, CapturedConsole console) {
+    return console.firstJsonLine(line -> line.has("_aws") && line.has(metricName));
   }
 
   @ParameterizedTest

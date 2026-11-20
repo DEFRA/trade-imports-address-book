@@ -1,5 +1,7 @@
 package uk.gov.defra.trade.imports.addressbook.exceptions;
 
+import static uk.gov.defra.trade.imports.addressbook.filter.RequestTracingFilter.MDC_TRACE_ID;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -32,7 +34,6 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 @Slf4j
 public class GlobalExceptionHandler {
 
-  private static final String MDC_TRACE_ID = "trace.id";
   private static final String PROBLEM_BASE = "https://api.cdp.defra.cloud/problems/";
 
   /** Field validation failure — 400 validation-error, WITH a per-field camelCase errors map. */

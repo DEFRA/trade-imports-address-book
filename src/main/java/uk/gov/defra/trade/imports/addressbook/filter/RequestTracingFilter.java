@@ -21,7 +21,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Slf4j
 public class RequestTracingFilter extends OncePerRequestFilter {
 
-  private static final String MDC_TRACE_ID = "trace.id";
+  /** The MDC key that holds the request's trace id while the request runs. */
+  public static final String MDC_TRACE_ID = "trace.id";
   private static final String MDC_HTTP_METHOD = "http.request.method";
   private static final String MDC_URL_FULL = "url.full";
 

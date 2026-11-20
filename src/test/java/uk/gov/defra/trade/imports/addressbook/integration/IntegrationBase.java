@@ -290,7 +290,14 @@ abstract class IntegrationBase {
   }
 
   protected ResultActions putAddress(String addressId, String json) throws Exception {
-    return putAddressAs(ORGANISATION_ID, ORGANISATION_ID, addressId, json);
+    return mockMvc.perform(putAddressRequest(addressId, json));
+  }
+
+  protected static MockHttpServletRequestBuilder putAddressRequest(String addressId, String json) {
+    return withJson(
+        organisationScopedRequest(
+            HttpMethod.PUT, ORGANISATION_ID, ADDRESS_PATH, ORGANISATION_ID, addressId),
+        json);
   }
 
   protected ResultActions putAddressAs(
@@ -308,12 +315,17 @@ abstract class IntegrationBase {
   }
 
   protected ResultActions listAddresses(String... queryParameterNamesAndValues) throws Exception {
+    return mockMvc.perform(listAddressesRequest(queryParameterNamesAndValues));
+  }
+
+  protected static MockHttpServletRequestBuilder listAddressesRequest(
+      String... queryParameterNamesAndValues) {
     MockHttpServletRequestBuilder request =
         organisationScopedRequest(HttpMethod.GET, ORGANISATION_ID, ADDRESSES_PATH, ORGANISATION_ID);
     for (int i = 0; i < queryParameterNamesAndValues.length; i += 2) {
       request = request.param(queryParameterNamesAndValues[i], queryParameterNamesAndValues[i + 1]);
     }
-    return mockMvc.perform(request);
+    return request;
   }
 
   protected ResultActions listAddressesAs(String orgId, String callerOrganisationId)
