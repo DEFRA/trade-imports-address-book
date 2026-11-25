@@ -304,7 +304,7 @@ class AddressSearchIT extends IntegrationBase {
     Address consignor = saveAddress(londonDepot(AddressRole.CONSIGNOR).name("Depot A"));
     saveAddress(londonDepot(AddressRole.IMPORTER).name("Depot B"));
 
-    listAddresses("role", "BRANCH_ADDRESS", "searchRole", "CONSIGNOR")
+    listAddresses("role", "PLACE_OF_DESTINATION", "searchRole", "CONSIGNOR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(0));
     listAddresses("role", "PLACE_OF_ORIGIN", "role", "CONSIGNOR", "searchRole", "CONSIGNOR")

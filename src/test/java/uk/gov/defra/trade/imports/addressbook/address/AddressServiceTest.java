@@ -227,7 +227,7 @@ class AddressServiceTest {
     assertThat(updated.getCountryCode()).isEqualTo("IE");
     assertThat(updated.getPhone()).isEqualTo("+44 1738 111222");
     assertThat(updated.getEmail()).isEqualTo("ops@lowlandcattle.example.com");
-    assertThat(updated.getRoles()).containsExactly(AddressRole.BRANCH_ADDRESS);
+    assertThat(updated.getRoles()).containsExactly(AddressRole.CONSIGNOR);
     assertThat(updated.getId()).isEqualTo(STORED_ADDRESS_ID);
     assertThat(updated.getOrganisationId()).isEqualTo(ORG);
     assertThat(updated.getStatus()).isEqualTo(AddressStatus.ACTIVE);

@@ -150,16 +150,6 @@ class AddressRequestValidationTest {
             "roles",
             "An address can only have roles from one group"),
         Arguments.of(
-            "receiving and branch roles",
-            validRequest().roles(List.of("IMPORTER", "BRANCH_ADDRESS")).build(),
-            "roles",
-            "An address can only have roles from one group"),
-        Arguments.of(
-            "sending and branch roles",
-            validRequest().roles(List.of("CONSIGNOR", "BRANCH_ADDRESS")).build(),
-            "roles",
-            "An address can only have roles from one group"),
-        Arguments.of(
             "stray type",
             validRequest().type("IMPORTER").build(),
             "type",

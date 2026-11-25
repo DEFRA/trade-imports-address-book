@@ -28,12 +28,11 @@ info:
     **Roles:** at least one `roles` entry is required on create and update, and roles are returned
     on read, as an empty list when an address has none. A role is what a notification can choose
     the address for, a party or a place: PLACE_OF_ORIGIN, CONSIGNOR, PLACE_OF_DESTINATION,
-    CONSIGNEE, IMPORTER or BRANCH_ADDRESS. A repeated role collapses to its first occurrence. A
+    CONSIGNEE or IMPORTER. A repeated role collapses to its first occurrence. A
     missing list, or a value outside it, is a 400 validation problem keyed by `roles`, and nothing
     is saved. An update replaces the roles. Every role must come from one group: sending
-    (PLACE_OF_ORIGIN, CONSIGNOR), receiving (CONSIGNEE, IMPORTER, PLACE_OF_DESTINATION) or branch
-    (BRANCH_ADDRESS); a 400 keyed by `roles` otherwise. An address holding any role can be in any
-    country.
+    (PLACE_OF_ORIGIN, CONSIGNOR) or receiving (CONSIGNEE, IMPORTER, PLACE_OF_DESTINATION); a 400
+    keyed by `roles` otherwise. An address holding any role can be in any country.
 
     **Listing by role:** the list's `role` query parameter is repeatable and returns only the
     addresses holding any of the roles it names. It narrows the search (`q`, `countryCode` and
@@ -632,7 +631,6 @@ components:
       - PLACE_OF_DESTINATION
       - CONSIGNEE
       - IMPORTER
-      - BRANCH_ADDRESS
     AddressRequest:
       properties:
         name:

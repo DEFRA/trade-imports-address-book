@@ -32,7 +32,6 @@ class AddressListIT extends IntegrationBase {
   private static final String ORIGIN_AND_CONSIGNOR = "Origin And Consignor";
   private static final String CONSIGNEE_AND_IMPORTER = "Consignee And Importer";
   private static final String IMPORTER = "Importer";
-  private static final String BRANCH = "Branch";
   private static final String NO_ROLES = "No Roles";
   private static final String EMPTY_ROLES = "Empty Roles";
 
@@ -65,15 +64,13 @@ class AddressListIT extends IntegrationBase {
         addressHolding(ORGANISATION_ID, AddressRole.CONSIGNEE, AddressRole.IMPORTER)
             .name(CONSIGNEE_AND_IMPORTER));
     saveAddress(addressHolding(ORGANISATION_ID, AddressRole.IMPORTER).name(IMPORTER));
-    saveAddress(
-        addressHolding(ORGANISATION_ID, AddressRole.BRANCH_ADDRESS).name(BRANCH).countryCode("FR"));
     saveAddress(addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE).name(NO_ROLES).roles(null));
     saveAddress(
         addressBuilder(ORGANISATION_ID, AddressStatus.ACTIVE).name(EMPTY_ROLES).roles(List.of()));
     saveAddress(
         addressBuilder(ORGANISATION_ID, AddressStatus.DELETED)
-            .name("Deleted Branch")
-            .roles(List.of(AddressRole.BRANCH_ADDRESS)));
+            .name("Deleted Importer")
+            .roles(List.of(AddressRole.IMPORTER)));
     saveAddress(
         addressHolding(OTHER_ORG, AddressRole.CONSIGNOR)
             .name("Other Organisation Consignor"));
@@ -222,7 +219,7 @@ class AddressListIT extends IntegrationBase {
 
     listAddresses()
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(6))
+        .andExpect(jsonPath("$.totalItems").value(5))
         .andExpect(
             jsonPath(
                 "$.items[*].name",
@@ -230,7 +227,6 @@ class AddressListIT extends IntegrationBase {
                     ORIGIN_AND_CONSIGNOR,
                     CONSIGNEE_AND_IMPORTER,
                     IMPORTER,
-                    BRANCH,
                     NO_ROLES,
                     EMPTY_ROLES)));
   }
@@ -255,10 +251,10 @@ class AddressListIT extends IntegrationBase {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[*].name", contains(CONSIGNEE_AND_IMPORTER)));
-    listAddresses("role", "BRANCH_ADDRESS")
+    listAddresses("role", "PLACE_OF_ORIGIN")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[*].name", contains(BRANCH)));
+        .andExpect(jsonPath("$.items[*].name", contains(ORIGIN_AND_CONSIGNOR)));
   }
 
   @Test
@@ -279,7 +275,7 @@ class AddressListIT extends IntegrationBase {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[*].name", contains(CONSIGNEE_AND_IMPORTER)));
-    listAddresses("role", "BRANCH_ADDRESS", "q", "Consign")
+    listAddresses("role", "PLACE_OF_DESTINATION", "q", "Consign")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(0));
   }
@@ -288,10 +284,10 @@ class AddressListIT extends IntegrationBase {
   void list_shouldNarrowTheCountryCodeByTheRoles() throws Exception {
     seedAddressesAcrossRolesAndStatuses();
 
-    listAddresses("role", "BRANCH_ADDRESS", "countryCode", "FR")
+    listAddresses("role", "PLACE_OF_ORIGIN", "countryCode", "FR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[*].name", contains(BRANCH)));
+        .andExpect(jsonPath("$.items[*].name", contains(ORIGIN_AND_CONSIGNOR)));
     listAddresses("role", "CONSIGNEE", "role", "IMPORTER", "countryCode", "FR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(0));
