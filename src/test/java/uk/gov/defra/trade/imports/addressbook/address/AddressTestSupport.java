@@ -49,7 +49,7 @@ public final class AddressTestSupport {
         .countryCode("IE")
         .phone("+44 1738 111222")
         .email("ops@lowlandcattle.example.com")
-        .roles(List.of("BRANCH_ADDRESS"));
+        .roles(List.of("CONSIGNOR"));
   }
 
   static Address.AddressBuilder storedAddress(String organisationId, AddressStatus status) {
@@ -74,8 +74,7 @@ public final class AddressTestSupport {
   public static Stream<List<String>> rolesOneAddressCanHoldTogether() {
     return Stream.of(
         List.of("PLACE_OF_ORIGIN", "CONSIGNOR"),
-        List.of("CONSIGNEE", "IMPORTER", "PLACE_OF_DESTINATION"),
-        List.of("BRANCH_ADDRESS"));
+        List.of("CONSIGNEE", "IMPORTER", "PLACE_OF_DESTINATION"));
   }
 
   public static ListCriteriaBuilder listCriteria() {

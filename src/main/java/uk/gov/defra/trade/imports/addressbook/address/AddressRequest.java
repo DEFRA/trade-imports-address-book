@@ -101,8 +101,8 @@ public record AddressRequest(
                     description =
                         "The roles a notification can choose this address for. Duplicates"
                             + " collapse. Every role must come from one group: sending"
-                            + " (PLACE_OF_ORIGIN, CONSIGNOR), receiving (CONSIGNEE, IMPORTER,"
-                            + " PLACE_OF_DESTINATION) or branch (BRANCH_ADDRESS)",
+                            + " (PLACE_OF_ORIGIN, CONSIGNOR) or receiving (CONSIGNEE, IMPORTER,"
+                            + " PLACE_OF_DESTINATION)",
                     requiredMode = Schema.RequiredMode.REQUIRED))
         List<String> roles,
     @Null(message = "type is not a supported field")

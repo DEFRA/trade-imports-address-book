@@ -859,7 +859,7 @@ components:
           minLength: 0
         roles:
           type: array
-          description: 'The roles a notification can choose this address for. Duplicates collapse. Every role must come from one group: sending (PLACE_OF_ORIGIN, CONSIGNOR), receiving (CONSIGNEE, IMPORTER, PLACE_OF_DESTINATION) or branch (BRANCH_ADDRESS)'
+          description: 'The roles a notification can choose this address for. Duplicates collapse. Every role must come from one group: sending (PLACE_OF_ORIGIN, CONSIGNOR) or receiving (CONSIGNEE, IMPORTER, PLACE_OF_DESTINATION)'
           items:
             $ref: '#/components/schemas/AddressRole'
           minItems: 1
@@ -881,7 +881,6 @@ components:
       - PLACE_OF_DESTINATION
       - CONSIGNEE
       - IMPORTER
-      - BRANCH_ADDRESS
     AddressResponse:
       description: An address in the caller's organisation-scoped address book
       properties:

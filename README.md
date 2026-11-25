@@ -138,7 +138,7 @@ returns **404** (no existence disclosure).
 | `pageSize` | Addresses a page, from `1` to `100` (default `25`); any other value is a `400` |
 | `q` | Case-insensitive partial search over `name`, `addressLine1`, `addressLine2`, `townOrCity`, `county` and `postcode` |
 | `countryCode` | One or more ISO country codes (repeat the parameter). Alone, it lists the addresses in any of them. With `q` or `searchRole`, an address matches when the search term appears in a searched field, its stored `countryCode` is one of them **or** it holds a search role (OR semantics, not AND) |
-| `role` | One or more roles (repeat the parameter): `PLACE_OF_ORIGIN`, `CONSIGNOR`, `PLACE_OF_DESTINATION`, `CONSIGNEE`, `IMPORTER` or `BRANCH_ADDRESS`. Lists only the addresses holding any of them, across every page. It narrows the search (`q`, `countryCode` and `searchRole`), an address with no roles never matches it, and an unknown value is a `400`. Without it, every live address is listed |
+| `role` | One or more roles (repeat the parameter): `PLACE_OF_ORIGIN`, `CONSIGNOR`, `PLACE_OF_DESTINATION`, `CONSIGNEE` or `IMPORTER`. Lists only the addresses holding any of them, across every page. It narrows the search (`q`, `countryCode` and `searchRole`), an address with no roles never matches it, and an unknown value is a `400`. Without it, every live address is listed |
 | `searchRole` | One or more roles (repeat the parameter), with the same values as `role`. An address holding any of them matches the search, as one matching `q` or `countryCode` does (OR semantics). Alone, it lists the addresses holding any of them. An unknown value is a `400` |
 
 **Wire conventions**
@@ -151,8 +151,8 @@ returns **404** (no existence disclosure).
 - Soft-deleted addresses expose `deleted: true` on read; the internal `status` enum is not on the wire.
 - Validation failures return **400** `application/problem+json` with a camelCase `errors` map.
 - `roles` (a list of at least one) is required on create and update. Each role is one of
-  `PLACE_OF_ORIGIN`, `CONSIGNOR`, `PLACE_OF_DESTINATION`, `CONSIGNEE`, `IMPORTER` or
-  `BRANCH_ADDRESS`: a party a notification can choose the address for. A repeated role collapses to
+  `PLACE_OF_ORIGIN`, `CONSIGNOR`, `PLACE_OF_DESTINATION`, `CONSIGNEE` or
+  `IMPORTER`: a party a notification can choose the address for. A repeated role collapses to
   its first occurrence. A missing list, or a value outside it, is a **400** validation problem keyed
   by `roles`, and nothing is saved. An update replaces the roles.
 - The address book enforces one rule on create and update (see [Role rules](#role-rules)): an
@@ -188,7 +188,6 @@ caller only sees it as a refusal.
 | --- | --- |
 | Sending | `PLACE_OF_ORIGIN`, `CONSIGNOR` |
 | Receiving | `CONSIGNEE`, `IMPORTER`, `PLACE_OF_DESTINATION` |
-| Branch | `BRANCH_ADDRESS` |
 
 - An address's roles must all come from one group.
 - An address in any group can be in any country.

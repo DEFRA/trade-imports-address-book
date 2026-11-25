@@ -113,6 +113,21 @@ class AddressUpdateIT extends IntegrationBase {
     assertStoredValuesAreStillTheSeededOnes(saved);
   }
 
+  @Test
+  void put_shouldReturn400KeyedByRolesAndKeepStoredValues_whenTheRolesComeFromTwoGroups()
+      throws Exception {
+    Address saved = saveAddress(addressHolding(ORGANISATION_ID, AddressRole.IMPORTER));
+    RequestBody body = addressBody().with("roles", List.of("IMPORTER", "CONSIGNOR"));
+
+    putAddress(saved.getId(), body)
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.type").value(VALIDATION_ERROR_TYPE))
+        .andExpect(
+            jsonPath("$.errors.roles", contains("An address can only have roles from one group")));
+
+    assertThat(storedAddress(saved.getId()).getRoles()).containsExactly(AddressRole.IMPORTER);
+  }
+
   @ParameterizedTest
   @EnumSource(AddressRole.class)
   void put_shouldSaveAnAddressOutsideTheUk_whateverItsRole(AddressRole role) throws Exception {

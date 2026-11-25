@@ -16,9 +16,7 @@ public enum AddressRole {
   @Schema(description = "The party receiving the consignment")
   CONSIGNEE(RoleGroup.RECEIVING),
   @Schema(description = "The party importing the consignment")
-  IMPORTER(RoleGroup.RECEIVING),
-  @Schema(description = "The trader's own contact address")
-  BRANCH_ADDRESS(RoleGroup.BRANCH);
+  IMPORTER(RoleGroup.RECEIVING);
 
   private final RoleGroup group;
 

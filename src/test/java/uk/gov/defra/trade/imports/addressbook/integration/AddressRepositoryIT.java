@@ -100,7 +100,7 @@ class AddressRepositoryIT extends IntegrationBase {
   void listLiveAddresses_shouldKeepAddressesHoldingAnyOfTheRoles_whenSeveralRolesAreGiven() {
     saveAddress(addressHolding(ORG_A, AddressRole.CONSIGNEE).name("Org A consignee"));
     saveAddress(addressHolding(ORG_A, AddressRole.IMPORTER).name("Org A importer"));
-    saveAddress(addressHolding(ORG_A, AddressRole.BRANCH_ADDRESS).name("Org A branch"));
+    saveAddress(addressHolding(ORG_A, AddressRole.CONSIGNOR).name("Org A consignor"));
 
     Page<Address> page =
         listLive(
