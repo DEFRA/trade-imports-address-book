@@ -251,10 +251,11 @@ class AddressListIT extends IntegrationBase {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[*].name", contains(CONSIGNEE_AND_IMPORTER)));
-    listAddresses("role", "PLACE_OF_ORIGIN")
+    listAddresses("role", "IMPORTER")
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[*].name", contains(ORIGIN_AND_CONSIGNOR)));
+        .andExpect(jsonPath("$.totalItems").value(2))
+        .andExpect(
+            jsonPath("$.items[*].name", containsInAnyOrder(CONSIGNEE_AND_IMPORTER, IMPORTER)));
   }
 
   @Test
