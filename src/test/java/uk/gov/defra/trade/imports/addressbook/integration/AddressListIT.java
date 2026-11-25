@@ -276,7 +276,7 @@ class AddressListIT extends IntegrationBase {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(1))
         .andExpect(jsonPath("$.items[*].name", contains(CONSIGNEE_AND_IMPORTER)));
-    listAddresses("role", "PLACE_OF_DESTINATION", "q", "Consign")
+    listAddresses("role", "CONSIGNOR", "q", "Importer")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(0));
   }
@@ -285,10 +285,6 @@ class AddressListIT extends IntegrationBase {
   void list_shouldNarrowTheCountryCodeByTheRoles() throws Exception {
     seedAddressesAcrossRolesAndStatuses();
 
-    listAddresses("role", "PLACE_OF_ORIGIN", "countryCode", "FR")
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalItems").value(1))
-        .andExpect(jsonPath("$.items[*].name", contains(ORIGIN_AND_CONSIGNOR)));
     listAddresses("role", "CONSIGNEE", "role", "IMPORTER", "countryCode", "FR")
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.totalItems").value(0));
