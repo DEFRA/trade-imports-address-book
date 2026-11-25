@@ -44,7 +44,7 @@ Interactive Swagger UI is available at **http://localhost:8089/swagger-ui.html**
 ### Workspace stack
 
 This service is wired into the full EUDP stack in
-[DEFRA/trade-imports-animals-workspace](https://github.com/DEFRA/trade-imports-animals-workspace)
+[DEFRA/trade-imports-workspace](https://github.com/DEFRA/trade-imports-workspace)
 (`docker/stack/backend.compose.yml`, port **8089**). Use repo Docker Compose above when you only
 need address-book plus MongoDB.
 
