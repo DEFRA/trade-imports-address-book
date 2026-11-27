@@ -130,6 +130,11 @@ class AddressRequestValidationTest {
             "roles",
             "Select valid roles"),
         Arguments.of(
+            "branch address role",
+            validRequest().roles(List.of("BRANCH_ADDRESS")).build(),
+            "roles",
+            "Select valid roles"),
+        Arguments.of(
             "lower-case role",
             validRequest().roles(List.of("consignor")).build(),
             "roles",
